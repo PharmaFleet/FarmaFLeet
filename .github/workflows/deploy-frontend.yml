@@ -1,0 +1,158 @@
+name: Deploy Frontend to Cloud Storage + CDN
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "frontend/**"
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Deployment environment"
+        required: true
+        default: "staging"
+        type: choice
+        options:
+          - staging
+          - production
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  STAGING_BUCKET: pharmafleet-dashboard-staging
+  PRODUCTION_BUCKET: pharmafleet-dashboard
+  CDN_URL_STAGING: https://staging.dashboard.pharmafleet.com
+  CDN_URL_PRODUCTION: https://dashboard.pharmafleet.com
+
+jobs:
+  build:
+    name: Build Frontend
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Run tests
+        working-directory: frontend
+        run: npm test
+
+      - name: Build for Staging
+        if: github.event.inputs.environment == 'staging' || github.event.inputs.environment == ''
+        working-directory: frontend
+        run: npm run build
+        env:
+          VITE_API_URL: https://api-staging.pharmafleet.com/api/v1
+          VITE_GOOGLE_MAPS_KEY: ${{ secrets.GOOGLE_MAPS_KEY }}
+
+      - name: Build for Production
+        if: github.event.inputs.environment == 'production'
+        working-directory: frontend
+        run: npm run build
+        env:
+          VITE_API_URL: https://api.pharmafleet.com/api/v1
+          VITE_GOOGLE_MAPS_KEY: ${{ secrets.GOOGLE_MAPS_KEY }}
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: frontend/dist
+          retention-days: 1
+
+  deploy:
+    name: Deploy to Cloud Storage
+    runs-on: ubuntu-latest
+    needs: build
+    environment: ${{ github.event.inputs.environment || 'staging' }}
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-build
+          path: dist
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+
+      - name: Deploy to Staging
+        if: github.event.inputs.environment == 'staging' || github.event.inputs.environment == ''
+        run: |
+          gsutil -m rsync -r -d dist gs://${{ env.STAGING_BUCKET }}
+          gsutil -m setmeta -h "Cache-Control:public, max-age=3600" gs://${{ env.STAGING_BUCKET }}/**/*.js
+          gsutil -m setmeta -h "Cache-Control:public, max-age=3600" gs://${{ env.STAGING_BUCKET }}/**/*.css
+          gsutil -m setmeta -h "Cache-Control:no-cache" gs://${{ env.STAGING_BUCKET }}/index.html
+
+      - name: Deploy to Production
+        if: github.event.inputs.environment == 'production'
+        run: |
+          gsutil -m rsync -r -d dist gs://${{ env.PRODUCTION_BUCKET }}
+          gsutil -m setmeta -h "Cache-Control:public, max-age=31536000" gs://${{ env.PRODUCTION_BUCKET }}/**/*.js
+          gsutil -m setmeta -h "Cache-Control:public, max-age=31536000" gs://${{ env.PRODUCTION_BUCKET }}/**/*.css
+          gsutil -m setmeta -h "Cache-Control:no-cache" gs://${{ env.PRODUCTION_BUCKET }}/index.html
+
+      - name: Invalidate CDN Cache (Production)
+        if: github.event.inputs.environment == 'production'
+        run: |
+          gcloud compute url-maps invalidate-cdn-cache pharmafleet-cdn \
+            --path "/*" \
+            --async
+
+      - name: Notify Slack
+        uses: slackapi/slack-github-action@v1.25.0
+        with:
+          payload: |
+            {
+              "text": "🌐 Frontend Deployed",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Frontend Deployed Successfully* 🌐\n*Environment:* ${{ github.event.inputs.environment || 'staging' }}\n*URL:* ${{ github.event.inputs.environment == 'production' && env.CDN_URL_PRODUCTION || env.CDN_URL_STAGING }}\n*Commit:* ${{ github.sha }}"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+
+  rollback:
+    name: Rollback Procedure
+    runs-on: ubuntu-latest
+    if: failure()
+    needs: deploy
+
+    steps:
+      - name: Rollback instructions
+        run: |
+          echo "Deployment failed. To rollback:"
+          echo "1. Go to Cloud Storage console"
+          echo "2. Navigate to the bucket version history"
+          echo "3. Restore the previous version"
+          echo ""
+          echo "Or use gsutil:"
+          echo "gsutil -m rsync -r gs://pharmafleet-dashboard-backup gs://pharmafleet-dashboard"

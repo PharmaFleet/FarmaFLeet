@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "pharmafleet-backend"
+version = "0.1.0"
+description = "PharmaFleet Backend API"
+authors = ["PharmaFleet Team"]
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.black]
+line-length = 88
+target-version = ['py311']
+
+[tool.isort]
+profile = "black"
+line_length = 88

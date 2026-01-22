@@ -1,0 +1,97 @@
+export interface User {
+  id: number;
+  email: string;
+  full_name?: string;
+  is_active: boolean;
+  role: string; // 'super_admin', 'warehouse_manager', 'dispatcher', 'executive'
+  warehouse_id?: number;
+}
+
+export interface Driver {
+  id: number;
+  user_id: number;
+  is_available: boolean;
+  vehicle_info?: string;
+  biometric_id?: string;
+  warehouse_id?: number;
+  user?: User; // Optional if joined
+  warehouse?: Warehouse; // Optional if joined
+}
+
+export interface Warehouse {
+  id: number;
+  name: string;
+  code: string;
+  latitude?: number;
+  longitude?: number;
+}
+
+export enum OrderStatus {
+  PENDING = "PENDING",
+  ASSIGNED = "ASSIGNED",
+  OUT_FOR_DELIVERY = "OUT_FOR_DELIVERY",
+  DELIVERED = "DELIVERED",
+  FAILED = "FAILED",
+  CANCELLED = "CANCELLED",
+}
+
+export interface OrderStatusHistory {
+  id: number;
+  order_id: number;
+  status: OrderStatus;
+  notes?: string;
+  timestamp: string; // ISO date string
+}
+
+export interface ProofOfDelivery {
+  id: number;
+  order_id: number;
+  signature_url?: string;
+  photo_url?: string;
+  timestamp: string;
+}
+
+export interface CustomerInfo {
+  name: string;
+  phone: string;
+  address: string;
+  area?: string;
+  block?: string;
+  street?: string;
+  house?: string;
+  [key: string]: any;
+}
+
+export interface Order {
+  id: number;
+  sales_order_number: string;
+  customer_info: CustomerInfo;
+  payment_method: string;
+  total_amount: number;
+  warehouse_id: number;
+  driver_id?: number;
+  status: OrderStatus;
+  created_at: string;
+  updated_at: string;
+  status_history?: OrderStatusHistory[];
+  proof_of_delivery?: ProofOfDelivery;
+  driver?: Driver;
+  warehouse?: Warehouse;
+}
+
+export interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  size: number;
+  pages: number;
+}
+
+export interface AnalyticsMetrics {
+  total_orders_today: number;
+  active_drivers: number;
+  pending_payments_amount: number;
+  pending_payments_count: number;
+  total_deliveries_all_time: number;
+  success_rate: number;
+}
