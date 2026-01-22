@@ -25,6 +25,8 @@ wheels/
 htmlcov/
 backend/.env
 backend/venv/
+backend/service-account.json
+**/*.json-key.json
 
 # Node.js
 frontend/node_modules/

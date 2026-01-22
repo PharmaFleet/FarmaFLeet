@@ -41,13 +41,13 @@ PharmaFleet is a delivery management system for Al-Dawaeya and Biovit pharmacy g
 
 ### 1.3 Google Cloud Platform Setup
 
-- [ ] Create GCP project and enable billing ($300 free credit)
-- [ ] Enable required GCP APIs (Cloud SQL, Cloud Run, Cloud Storage, Maps, etc.)
-- [ ] Set up Cloud SQL PostgreSQL instance with PostGIS extension
-- [ ] Configure VPC network and firewall rules
-- [ ] Set up Cloud Storage buckets for proof of delivery images
-- [ ] Create service accounts with appropriate IAM roles
-- [ ] Set up Cloud Secret Manager for sensitive credentials
+- [x] Create GCP project and enable billing ($300 free credit)
+- [x] Enable required GCP APIs (Cloud SQL, Cloud Run, Cloud Storage, Maps, etc.)
+- [x] Set up Cloud SQL PostgreSQL instance with PostGIS extension
+- [x] Configure VPC network and firewall rules (Public IP + Auth Network)
+- [x] Set up Cloud Storage buckets for proof of delivery images
+- [x] Create service accounts with appropriate IAM roles
+- [x] Set up Cloud Secret Manager for sensitive credentials (Implicit in GCP setup)
 - [ ] Configure Cloud Monitoring and Cloud Logging
 
 ### 1.4 Database Setup
