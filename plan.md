@@ -34,7 +34,7 @@ PharmaFleet is a delivery management system for Al-Dawaeya and Biovit pharmacy g
 - [x] Create `docker-compose.yml` for local PostgreSQL and Redis
 - [x] Set up Python virtual environment configuration (requirements.txt, pyproject.toml)
 - [x] Configure Node.js and npm/yarn for frontend development
-- [ ] Set up Flutter SDK and Android development environment
+- [x] Set up Flutter SDK and Android development environment
 - [x] Create `.env.example` files for all applications
 - [x] Document IDE setup recommendations (VS Code, PyCharm extensions)
 - [x] Set up pre-commit hooks for linting and formatting
