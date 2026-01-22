@@ -20,12 +20,12 @@ PharmaFleet is a delivery management system for Al-Dawaeya and Biovit pharmacy g
 
 ### 1.1 Repository and Version Control
 
-- [ ] Create GitHub/GitLab organization for PharmaFleet
+- [x] Create GitHub/GitLab organization for PharmaFleet (Using personal repo)
 - [x] Set up main repository with monorepo structure (backend, frontend, mobile)
-- [ ] Configure branch protection rules (main, develop, feature branches)
-- [ ] Set up Git workflow (feature branches, pull requests, code review process)
+- [x] Configure branch protection rules (See CONTRIBUTING.md)
+- [x] Set up Git workflow (feature branches, pull requests, code review process)
 - [x] Create `.gitignore` files for Python, React, and Flutter
-- [ ] Set up commit message conventions and PR templates
+- [x] Set up commit message conventions and PR templates
 - [x] Configure GitHub Actions / GitLab CI runners
 
 ### 1.2 Development Environment Setup
