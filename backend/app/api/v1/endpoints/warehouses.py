@@ -11,7 +11,7 @@ from app.schemas.warehouse import Warehouse as WarehouseSchema
 router = APIRouter()
 
 
-@router.get("/", response_model=List[WarehouseSchema])
+@router.get("", response_model=List[WarehouseSchema])
 async def read_warehouses(
     db: AsyncSession = Depends(deps.get_db),
     skip: int = 0,

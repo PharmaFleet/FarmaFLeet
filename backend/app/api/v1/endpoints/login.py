@@ -24,21 +24,28 @@ async def login_access_token(
     """
     OAuth2 compatible token login, get an access token for future requests.
     """
-    # Custom Login Rate Limiting (by Username/IP)
+    # Custom Login Rate Limiting (by Username/IP) - optional if Redis unavailable
     client_ip = request.client.host if request.client else "unknown"
     limiter_key = f"login_limit:{client_ip}"
 
-    import redis.asyncio as redis
+    redis_available = True
+    try:
+        import redis.asyncio as redis
 
-    redis_client = redis.from_url(
-        settings.REDIS_URL, encoding="utf-8", decode_responses=True
-    )
-
-    attempts = await redis_client.get(limiter_key)
-    if attempts and int(attempts) > 5:
-        raise HTTPException(
-            status_code=429, detail="Too many login attempts. Please try again later."
+        redis_client = redis.from_url(
+            settings.REDIS_URL, encoding="utf-8", decode_responses=True
         )
+
+        attempts = await redis_client.get(limiter_key)
+        if attempts and int(attempts) > 5:
+            raise HTTPException(
+                status_code=429,
+                detail="Too many login attempts. Please try again later.",
+            )
+    except Exception:
+        # Redis unavailable - skip rate limiting for local dev
+        redis_available = False
+        redis_client = None
 
     # Authenticate
     result = await db.execute(select(User).where(User.email == form_data.username))
@@ -47,9 +54,13 @@ async def login_access_token(
     if not user or not security.verify_password(
         form_data.password, user.hashed_password
     ):
-        # Increment failed attempts
-        await redis_client.incr(limiter_key)
-        await redis_client.expire(limiter_key, 300)  # 5 minutes block
+        # Increment failed attempts if Redis available
+        if redis_available and redis_client:
+            try:
+                await redis_client.incr(limiter_key)
+                await redis_client.expire(limiter_key, 300)  # 5 minutes block
+            except Exception:
+                pass
         raise HTTPException(status_code=400, detail="Incorrect email or password")
     elif not user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")

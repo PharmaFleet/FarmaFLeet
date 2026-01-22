@@ -1,0 +1,174 @@
+name: Deploy Mobile to Firebase App Distribution
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "mobile/**"
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      distribution:
+        description: "Distribution channel"
+        required: true
+        default: "internal"
+        type: choice
+        options:
+          - internal
+          - beta
+          - production
+
+env:
+  FLUTTER_VERSION: "3.38.7"
+  JAVA_VERSION: "17"
+
+jobs:
+  build-and-deploy:
+    name: Build & Deploy to Firebase
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile/driver_app
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: "stable"
+          cache: true
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Run tests
+        run: flutter test
+
+      - name: Decode Keystore
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE }}" | base64 -d > android/app/keystore.jks
+          echo "storeFile=keystore.jks" >> android/key.properties
+          echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" >> android/key.properties
+          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
+          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
+
+      - name: Build Release APK
+        run: |
+          flutter build apk --release \
+            --dart-define=API_URL=${{ secrets.API_URL }} \
+            --dart-define=GOOGLE_MAPS_KEY=${{ secrets.GOOGLE_MAPS_KEY }}
+
+      - name: Build App Bundle (AAB)
+        run: |
+          flutter build appbundle --release \
+            --dart-define=API_URL=${{ secrets.API_URL }} \
+            --dart-define=GOOGLE_MAPS_KEY=${{ secrets.GOOGLE_MAPS_KEY }}
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: driver-app-release-${{ github.sha }}
+          path: mobile/driver_app/build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 90
+
+      - name: Upload AAB Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: driver-app-bundle-${{ github.sha }}
+          path: mobile/driver_app/build/app/outputs/bundle/release/app-release.aab
+          retention-days: 90
+
+      # Firebase App Distribution
+      - name: Deploy to Firebase (Internal)
+        if: github.event.inputs.distribution == 'internal' || github.event.inputs.distribution == ''
+        uses: wzieba/Firebase-Distribution-Github-Action@v1
+        with:
+          appId: ${{ secrets.FIREBASE_APP_ID }}
+          serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          groups: internal-testers
+          file: mobile/driver_app/build/app/outputs/flutter-apk/app-release.apk
+          releaseNotes: |
+            Build: ${{ github.run_number }}
+            Commit: ${{ github.sha }}
+            Branch: ${{ github.ref_name }}
+
+      - name: Deploy to Firebase (Beta)
+        if: github.event.inputs.distribution == 'beta'
+        uses: wzieba/Firebase-Distribution-Github-Action@v1
+        with:
+          appId: ${{ secrets.FIREBASE_APP_ID }}
+          serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          groups: beta-testers
+          file: mobile/driver_app/build/app/outputs/flutter-apk/app-release.apk
+          releaseNotes: |
+            🚀 Beta Release
+            Build: ${{ github.run_number }}
+            Commit: ${{ github.sha }}
+
+      - name: Deploy to Firebase (Production - All Drivers)
+        if: github.event.inputs.distribution == 'production' || startsWith(github.ref, 'refs/tags/v')
+        uses: wzieba/Firebase-Distribution-Github-Action@v1
+        with:
+          appId: ${{ secrets.FIREBASE_APP_ID }}
+          serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          groups: all-drivers
+          file: mobile/driver_app/build/app/outputs/flutter-apk/app-release.apk
+          releaseNotes: |
+            🎉 Production Release ${{ github.ref_name }}
+            Build: ${{ github.run_number }}
+
+      - name: Notify Slack
+        if: success()
+        uses: slackapi/slack-github-action@v1.25.0
+        with:
+          payload: |
+            {
+              "text": "📱 Mobile App Deployed",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Mobile App Deployed* 📱\n*Channel:* ${{ github.event.inputs.distribution || 'internal' }}\n*Version:* ${{ github.ref_name }}\n*Build:* ${{ github.run_number }}"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+
+  # Optional: Upload to Play Store Internal Track
+  play-store:
+    name: Upload to Play Store
+    runs-on: ubuntu-latest
+    needs: build-and-deploy
+    if: github.event.inputs.distribution == 'production' || startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download AAB
+        uses: actions/download-artifact@v4
+        with:
+          name: driver-app-bundle-${{ github.sha }}
+          path: .
+
+      - name: Upload to Play Store (Internal Track)
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_STORE_SERVICE_ACCOUNT }}
+          packageName: com.pharmafleet.driver
+          releaseFiles: app-release.aab
+          track: internal
+          status: completed
+          releaseName: "Build ${{ github.run_number }}"

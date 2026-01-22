@@ -33,7 +33,7 @@ from app.schemas.location import (
 router = APIRouter()
 
 
-@router.get("/", response_model=List[DriverSchema])
+@router.get("", response_model=List[DriverSchema])
 async def read_drivers(
     db: AsyncSession = Depends(deps.get_db),
     skip: int = 0,

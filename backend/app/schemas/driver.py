@@ -1,5 +1,5 @@
-from typing import Optional, List
-from pydantic import BaseModel
+from typing import Optional
+from pydantic import BaseModel, ConfigDict
 
 
 class DriverBase(BaseModel):
@@ -17,12 +17,14 @@ class DriverUpdate(DriverBase):
     pass
 
 
+class DriverStatusUpdate(BaseModel):
+    is_available: bool
+
+
 class DriverInDBBase(DriverBase):
     id: int
     user_id: int
-
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class Driver(DriverInDBBase):

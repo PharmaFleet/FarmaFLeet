@@ -1,6 +1,6 @@
 from typing import Optional
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr
 
 
 class UserBase(BaseModel):
@@ -25,10 +25,8 @@ class UserUpdate(UserBase):
 
 
 class UserInDBBase(UserBase):
-    id: int # Changed from Optional[int] as it should be present
-
-    class Config:
-        from_attributes = True
+    id: int  # Changed from Optional[int] as it should be present
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Additional properties to return via API

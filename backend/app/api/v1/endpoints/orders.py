@@ -20,7 +20,7 @@ from app.services.excel import excel_service
 router = APIRouter()
 
 
-@router.get("/", response_model=List[OrderSchema])
+@router.get("", response_model=List[OrderSchema])
 async def read_orders(
     db: AsyncSession = Depends(deps.get_db),
     skip: int = 0,

@@ -1,5 +1,4 @@
-from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class WarehouseBase(BaseModel):
@@ -19,9 +18,7 @@ class WarehouseUpdate(WarehouseBase):
 
 class WarehouseInDBBase(WarehouseBase):
     id: int
-
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class Warehouse(WarehouseInDBBase):

@@ -5,6 +5,7 @@ PharmaFleet is a comprehensive delivery management system designed to streamline
 ## 🚀 Overview
 
 The system replaces manual, Excel-based workflows with a digital solution that offers:
+
 - **Real-time Visibility:** Track driver locations and order status live on a map.
 - **Efficient Assignment:** Drag-and-drop or batch assignment of orders to drivers.
 - **Digital Proof of Delivery:** Capture signatures and photos directly from the driver app.
@@ -14,6 +15,7 @@ The system replaces manual, Excel-based workflows with a digital solution that o
 ## 🛠 Tech Stack
 
 ### Backend
+
 - **Framework:** FastAPI (Python)
 - **Database:** PostgreSQL with PostGIS (via GeoAlchemy2)
 - **Caching:** Redis
@@ -22,6 +24,7 @@ The system replaces manual, Excel-based workflows with a digital solution that o
 - **Testing:** Pytest
 
 ### Frontend (Web Dashboard)
+
 - **Framework:** React (Vite)
 - **Styling:** Tailwind CSS, Radix UI (shadcn/ui)
 - **State Management:** Zustand, React Query
@@ -29,11 +32,13 @@ The system replaces manual, Excel-based workflows with a digital solution that o
 - **Charts:** Recharts
 
 ### Mobile (Driver App)
+
 - **Framework:** Flutter (Android)
 - **State Management:** Provider/Riverpod (Implied standard)
 - **Maps:** Google Maps SDK
 
 ### DevOps
+
 - **Containerization:** Docker & Docker Compose
 - **CI/CD:** GitHub Actions
 
@@ -56,6 +61,7 @@ The system replaces manual, Excel-based workflows with a digital solution that o
 ## ⚡ Getting Started
 
 ### Prerequisites
+
 - Python 3.11+
 - Node.js 18+
 - Flutter SDK
@@ -113,19 +119,25 @@ docker-compose up -d --build
 ## 📖 Documentation
 
 - **[Product Requirements (PRD)](prd.md):** Detailed breakdown of features and user stories.
+- **[Development Plan](plan.md):** Project milestones and task tracking.
+- **[API Reference](docs/API_REFERENCE.md):** Complete endpoint documentation.
 - **[Database Schema](docs/database/ERD.md):** Entity Relationship Diagram.
-- **[Frontend Design](docs/design/frontend-design-spec.md):** UI/UX specifications.
-- **[Deployment](docs/ENVIRONMENTS.md):** Environment configuration and deployment guides.
+- **[Architecture Overview](docs/ARCHITECTURE.md):** System design and tech stack.
+- **[Manager Manual](docs/MANAGER_MANUAL.md):** Dashboard user guide.
+- **[Driver Guide](docs/DRIVER_GUIDE.md):** Mobile app quick reference.
+- **[Environments](docs/ENVIRONMENTS.md):** Configuration and deployment guides.
 
 ## ✨ Key Features
 
 ### Manager Dashboard
+
 - **Order Import:** Bulk upload orders via Excel with duplicate detection.
 - **Smart Assignment:** Assign orders to drivers based on location and availability.
 - **Live Tracking:** Real-time map view of all active drivers and deliveries.
 - **Performance Analytics:** Dashboards for delivery success rates, times, and volume.
 
 ### Driver App
+
 - **My Tasks:** Clear list of assigned deliveries with optimized routing.
 - **Navigation:** One-tap navigation to customer locations via Google Maps.
 - **Proof of Delivery:** Digital signature and photo capture.

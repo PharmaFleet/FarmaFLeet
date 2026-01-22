@@ -9,6 +9,8 @@ from app.db.base_class import Base
 class OrderStatus(str, enum.Enum):
     PENDING = "pending"
     ASSIGNED = "assigned"
+    PICKED_UP = "picked_up"
+    IN_TRANSIT = "in_transit"
     OUT_FOR_DELIVERY = "out_for_delivery"
     DELIVERED = "delivered"
     REJECTED = "rejected"

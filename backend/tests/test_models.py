@@ -25,7 +25,7 @@ class TestOrderModel:
         ]
 
         for status in expected_statuses:
-            assert hasattr(OrderStatus, status) or status in [
+            assert hasattr(OrderStatus, status.upper()) or status in [
                 s.value for s in OrderStatus
             ]
 
@@ -35,10 +35,10 @@ class TestUserModel:
 
     def test_user_roles_defined(self):
         """Test that user roles are properly defined"""
-        from app.models.user import Role
+        from app.models.user import UserRole
 
-        expected_roles = ["super_admin", "admin", "manager", "dispatcher", "driver"]
-        actual_roles = [role.value for role in Role]
+        expected_roles = ["super_admin", "warehouse_manager", "dispatcher", "executive", "driver"]
+        actual_roles = [role.value for role in UserRole]
 
         for role in expected_roles:
             assert role in actual_roles, f"Role {role} not found"
@@ -52,17 +52,20 @@ class TestSchemaValidation:
         from app.schemas.order import OrderCreate
 
         valid_data = {
-            "so_number": "SO-12345",
+            "sales_order_number": "SO-12345",
             "warehouse_id": 1,
-            "customer_name": "Test Customer",
-            "customer_phone": "+96512345678",
-            "delivery_address": "123 Test St",
+            "customer_info": {
+                "name": "Test Customer",
+                "phone": "+96512345678",
+                "address": "123 Test St"
+            },
+            "payment_method": "COD",
             "total_amount": 15.500,
         }
 
         order = OrderCreate(**valid_data)
-        assert order.so_number == "SO-12345"
-        assert order.total_amount == Decimal("15.500")
+        assert order.sales_order_number == "SO-12345"
+        assert order.total_amount == 15.500
 
     def test_driver_status_update_schema(self):
         """Test DriverStatusUpdate schema"""

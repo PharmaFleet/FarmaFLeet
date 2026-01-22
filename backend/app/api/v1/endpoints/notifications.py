@@ -12,7 +12,7 @@ from app.schemas.notification import Notification as NotificationSchema
 router = APIRouter()
 
 
-@router.get("/", response_model=List[NotificationSchema])
+@router.get("", response_model=List[NotificationSchema])
 async def read_notifications(
     skip: int = 0,
     limit: int = 50,

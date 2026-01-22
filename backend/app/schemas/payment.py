@@ -1,6 +1,6 @@
 from typing import Optional
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from app.models.financial import PaymentMethod
 
 
@@ -26,9 +26,7 @@ class PaymentCollectionInDBBase(PaymentCollectionBase):
     collected_at: datetime
     verified_by_id: Optional[int] = None
     verified_at: Optional[datetime] = None
-
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PaymentCollection(PaymentCollectionInDBBase):

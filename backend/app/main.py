@@ -22,17 +22,24 @@ app = FastAPI(
     openapi_tags=tags_metadata,
 )
 
-# Set all CORS enabled origins
+app.add_middleware(RequestLoggingMiddleware)
+app.add_middleware(
+    RateLimitMiddleware, limit=1000, window=60
+)  # Increased limit for testing
+app.add_middleware(
+    RateLimitMiddleware, limit=1000, window=60
+)  # Increased limit for testing
+
+# Set all CORS enabled origins - Added LAST to be the outermost middleware
 if settings.BACKEND_CORS_ORIGINS:
+    origins = [str(origin).rstrip("/") for origin in settings.BACKEND_CORS_ORIGINS]
+    print(f"DEBUG: Setting up CORSMiddleware with origins: {origins}")
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[str(origin) for origin in settings.BACKEND_CORS_ORIGINS],
+        allow_origins=origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
-
-app.add_middleware(RequestLoggingMiddleware)
-app.add_middleware(RateLimitMiddleware, limit=100, window=60)
 
 app.include_router(api_router, prefix=settings.API_V1_STR)

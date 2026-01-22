@@ -13,7 +13,7 @@ from app.schemas import User as UserSchema, UserCreate, UserUpdate
 router = APIRouter()
 
 
-@router.get("/", response_model=List[UserSchema])
+@router.get("", response_model=List[UserSchema])
 async def read_users(
     db: AsyncSession = Depends(deps.get_db),
     skip: int = 0,
@@ -28,7 +28,7 @@ async def read_users(
     return users
 
 
-@router.post("/", response_model=UserSchema)
+@router.post("", response_model=UserSchema)
 async def create_user(
     *,
     db: AsyncSession = Depends(deps.get_db),

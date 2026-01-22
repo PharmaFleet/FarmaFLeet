@@ -16,13 +16,16 @@ class Settings(BaseSettings):
     POSTGRES_USER: str = "postgres"
     POSTGRES_PASSWORD: str = "postgres"
     POSTGRES_DB: str = "pharmafleet"
-    POSTGRES_PORT: int = 5432
+    POSTGRES_PORT: int = 5444
 
     # Redis
     REDIS_URL: str = "redis://redis:6379/0"
 
     # CORS
-    BACKEND_CORS_ORIGINS: List[AnyHttpUrl] = []
+    BACKEND_CORS_ORIGINS: List[str] = [
+        "http://localhost:3000",
+        "http://localhost:3001",
+    ]
 
     @computed_field
     @property

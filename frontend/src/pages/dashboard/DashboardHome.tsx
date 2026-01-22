@@ -3,6 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Activity, CreditCard, Package, Truck } from 'lucide-react';
 import { analyticsService } from '@/services/analyticsService';
 import { Skeleton } from '@/components/ui/skeleton';
+import { MiniMapView } from '@/components/dashboard/MiniMapView';
+import { RecentActivity } from '@/components/dashboard/RecentActivity';
 
 export default function DashboardHome() {
   const { data: metrics, isLoading, isError } = useQuery({
@@ -83,15 +85,16 @@ export default function DashboardHome() {
         ))}
       </div>
 
-      {/* Placeholder for Map/Recent Orders */}
+      {/* Map and Recent Orders */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
         <Card className="col-span-4">
           <CardHeader>
             <CardTitle>Real-Time Tracking</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-[300px] w-full bg-slate-100 rounded-lg flex items-center justify-center text-slate-400">
-              Map Component Placeholder
+            <div className="h-[300px] w-full rounded-lg overflow-hidden">
+              {/* Embedded mini-map - uses Google Maps API if configured */}
+              <MiniMapView />
             </div>
           </CardContent>
         </Card>
@@ -100,9 +103,7 @@ export default function DashboardHome() {
             <CardTitle>Recent Activity</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-[300px] w-full bg-slate-50 rounded-lg flex items-center justify-center text-slate-400">
-               Timeline Placeholder
-            </div>
+            <RecentActivity />
           </CardContent>
         </Card>
       </div>

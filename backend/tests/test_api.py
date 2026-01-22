@@ -3,10 +3,24 @@ Backend API Tests for PharmaFleet Delivery System
 """
 
 import pytest
+from unittest.mock import AsyncMock, patch
 from fastapi.testclient import TestClient
 from app.main import app
 
 client = TestClient(app)
+
+@pytest.fixture(autouse=True)
+def mock_redis():
+    """Mock Redis client for all tests to avoid connection errors"""
+    with patch('redis.asyncio.from_url') as mock_from_url:
+        mock_client = AsyncMock()
+        mock_client.get.return_value = None
+        mock_client.set.return_value = None
+        mock_client.incr.return_value = 1
+        mock_client.expire.return_value = True
+        
+        mock_from_url.return_value = mock_client
+        yield mock_client
 
 
 class TestHealthCheck:
