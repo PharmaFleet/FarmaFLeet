@@ -75,22 +75,22 @@ PharmaFleet is a delivery management system for Al-Dawaeya and Biovit pharmacy g
 
 ### 1.6 Firebase Setup
 
-- [ ] Create Firebase project for PharmaFleet
-- [ ] Register Android app in Firebase console
-- [ ] Download and configure `google-services.json`
-- [ ] Enable Firebase Cloud Messaging (FCM)
-- [ ] Set up FCM server key in backend environment
-- [ ] Configure FCM notification channels for Android
-- [ ] Test push notification delivery to test devices
+- [x] Create Firebase project for PharmaFleet
+- [x] Register Android app in Firebase console
+- [x] Download and configure `google-services.json`
+- [x] Enable Firebase Cloud Messaging (FCM)
+- [x] Set up FCM server key in backend environment
+- [x] Configure FCM notification channels for Android
+- [x] Test push notification delivery to test devices
 
 ### 1.7 External Service Setup
 
-- [ ] Enable Google Maps JavaScript API for web dashboard
-- [ ] Enable Google Maps Android API for mobile app
-- [ ] Create and secure API keys with domain/app restrictions
-- [ ] Set up API usage monitoring and quotas
-- [ ] Configure billing alerts for API usage
-- [ ] Test map integration in development environment
+- [x] Enable Google Maps JavaScript API for web dashboard
+- [x] Enable Google Maps Android API for mobile app
+- [x] Create and secure API keys with domain/app restrictions
+- [x] Set up API usage monitoring and quotas
+- [x] Configure billing alerts for API usage
+- [x] Test map integration in development environment
 
 ---
 

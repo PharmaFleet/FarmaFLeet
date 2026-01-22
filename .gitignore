@@ -42,6 +42,7 @@ mobile/.dart_tool/
 mobile/.packages
 mobile/.pub/
 mobile/pubspec.lock
+**/google-services.json
 
 # IDE
 .idea/
