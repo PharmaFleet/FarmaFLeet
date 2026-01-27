@@ -1,17 +1,17 @@
-import { api } from '@/lib/axios';
+import { api, handlePaginatedResponse } from '@/lib/axios';
 import { Driver, PaginatedResponse } from '@/types';
 
 export const driverService = {
-  getAll: async (params?: any): Promise<PaginatedResponse<Driver>> => {
-    // Standard drivers list
+getAll: async (params?: any): Promise<PaginatedResponse<Driver>> => {
     const response = await api.get('/drivers', { params });
-    return response.data;
+    return handlePaginatedResponse<Driver>(response.data);
   },
 
   getAllOnline: async (): Promise<Driver[]> => {
-    // Real-time locations endpoint usually returns a list of drivers with location
-    const response = await api.get('/drivers/locations');
-    return response.data;
+    // For prototype, any available driver is considered online
+    const response = await api.get('/drivers', { params: { is_available: true } });
+    const data = response.data;
+    return Array.isArray(data) ? data : (data.items || []);
   },
 
   getById: async (id: number): Promise<Driver> => {

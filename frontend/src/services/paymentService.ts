@@ -1,4 +1,4 @@
-import { api } from '@/lib/axios';
+import { api, handlePaginatedResponse } from '@/lib/axios';
 import { PaginatedResponse } from '@/types';
 
 export interface Payment {
@@ -14,15 +14,23 @@ export interface Payment {
 
 export const paymentService = {
   getAll: async (params?: any): Promise<PaginatedResponse<Payment>> => {
-    // Ideally backend has /payments. If not in Plan, we might mock or use orders?
-    // Plan 3.9 mentions "Payment Reconciliation" but not specific endpoints list.
-    // Let's assume /payments based on standard REST.
-    const response = await api.get('/payments', { params });
-    return response.data;
+    const response = await api.get('/payments/pending', { params });
+    return handlePaginatedResponse<Payment>(response.data);
   },
 
   getStats: async () => {
       const response = await api.get('/payments/stats');
       return response.data;
+  },
+
+  export: async () => {
+      const response = await api.get('/payments/export', { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'payments.xlsx');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
   }
 };

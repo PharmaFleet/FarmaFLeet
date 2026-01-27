@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { driverService } from '@/services/driverService';
 import { Button } from '@/components/ui/button';
@@ -11,19 +12,24 @@ import {
   TableHeader, 
   TableRow 
 } from '@/components/ui/table';
+import { MoreHorizontal, Plus, MapPin, Phone, Search, Truck } from 'lucide-react';
 import { 
-    DropdownMenu, 
-    DropdownMenuContent, 
-    DropdownMenuItem, 
-    DropdownMenuLabel, 
-    DropdownMenuTrigger 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuLabel, 
+  DropdownMenuTrigger,
+  DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Plus, Filter, MapPin, Phone } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { AddDriverDialog } from '@/components/drivers/AddDriverDialog';
+import { cn } from '@/lib/utils';
 
 export default function DriversPage() {
+  const navigate = useNavigate();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
+  const [addOpen, setAddOpen] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['drivers', page, search],
@@ -36,136 +42,165 @@ export default function DriversPage() {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 p-8 max-w-[1600px] mx-auto">
+      <AddDriverDialog open={addOpen} onOpenChange={setAddOpen} />
+      
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
         <div>
-           <h2 className="text-3xl font-bold tracking-tight text-slate-900">Drivers</h2>
-           <p className="text-slate-500">Manage fleet and driver availability.</p>
+           <h2 className="text-4xl font-extrabold tracking-tight text-slate-900">Drivers</h2>
+           <p className="text-slate-500 mt-1">Manage fleet productivity and driver availability status.</p>
         </div>
-        <Button className="bg-emerald-600 hover:bg-emerald-700">
+        <Button className="bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-600/20" onClick={() => setAddOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
             Add Driver
         </Button>
       </div>
 
-      {/* Filters */}
-      <div className="flex gap-2 items-center bg-white p-4 rounded-lg border shadow-sm">
-        <div className="relative flex-1 max-w-sm">
-            <Input 
-                placeholder="Search drivers..." 
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full"
-            />
+      {/* Grid Container */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden transition-all duration-300">
+        {/* Filter Bar */}
+        <div className="flex flex-col sm:flex-row gap-4 items-center bg-slate-50/50 p-6 border-b border-slate-200">
+            <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                <Input 
+                    placeholder="Search drivers by name, ID or vehicle..." 
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="w-full pl-10 border-slate-200 focus:ring-emerald-500/20"
+                />
+            </div>
+            {/* <Button variant="outline" size="icon" className="shrink-0 bg-white">
+                <Filter className="h-4 w-4" />
+            </Button> */}
         </div>
-        <Button variant="outline" size="icon">
-            <Filter className="h-4 w-4" />
-        </Button>
-      </div>
 
-      {/* Table */}
-      <div className="rounded-md border bg-white shadow-sm">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Driver Name</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Vehicle</TableHead>
-              <TableHead>Warehouse</TableHead>
-              <TableHead>Contact</TableHead>
-              <TableHead className="w-[50px]"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-                [...Array(5)].map((_, i) => (
-                    <TableRow key={i}>
-                        <TableCell><div className="h-4 w-32 bg-slate-100 rounded animate-pulse" /></TableCell>
-                        <TableCell><div className="h-4 w-20 bg-slate-100 rounded animate-pulse" /></TableCell>
-                        <TableCell><div className="h-4 w-24 bg-slate-100 rounded animate-pulse" /></TableCell>
-                        <TableCell><div className="h-4 w-24 bg-slate-100 rounded animate-pulse" /></TableCell>
-                        <TableCell><div className="h-4 w-24 bg-slate-100 rounded animate-pulse" /></TableCell>
-                        <TableCell></TableCell>
-                    </TableRow>
-                ))
-            ) : data?.items?.length === 0 ? (
-                <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center">
-                        No drivers found.
-                    </TableCell>
+        {/* Table Content */}
+        <div className="overflow-x-auto">
+            <Table>
+              <TableHeader className="bg-slate-50/50">
+                <TableRow className="hover:bg-transparent border-b">
+                  <TableHead>Driver Name</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Vehicle</TableHead>
+                  <TableHead>Warehouse</TableHead>
+                  <TableHead>Contact</TableHead>
+                  <TableHead className="w-[80px]"></TableHead>
                 </TableRow>
-            ) : (
-                data?.items?.map((driver) => (
-                    <TableRow key={driver.id}>
-                        <TableCell className="font-medium">
-                            {driver.user?.full_name || 'Unknown'}
-                        </TableCell>
-                        <TableCell>
-                            <Badge 
-                                variant={driver.is_available ? "default" : "secondary"}
-                                className={driver.is_available ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border-0" : "bg-slate-100 text-slate-500 hover:bg-slate-200 border-0"}
-                            >
-                                {driver.is_available ? "Available" : "Offline"}
-                            </Badge>
-                        </TableCell>
-                        <TableCell>{driver.vehicle_info || 'N/A'}</TableCell>
-                        <TableCell>{driver.warehouse_id ? `Warehouse #${driver.warehouse_id}` : 'Unassigned'}</TableCell>
-                        <TableCell>
-                            <div className="flex items-center gap-2 text-slate-500">
-                                <Phone className="h-3 w-3" />
-                                <span className="text-xs">
-                                     {driver.user?.email} 
-                                     {/* Normally would have phone number here */}
-                                </span>
-                            </div>
-                        </TableCell>
-                        <TableCell>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" className="h-8 w-8 p-0">
-                                        <MoreHorizontal className="h-4 w-4" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                    <DropdownMenuItem>View Profile</DropdownMenuItem>
-                                    <DropdownMenuItem>Delivery History</DropdownMenuItem>
-                                    <DropdownMenuItem>
-                                        <MapPin className="mr-2 h-4 w-4" />
-                                        Locate on Map
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
+                    [...Array(6)].map((_, i) => (
+                        <TableRow key={i} className="animate-pulse">
+                            <TableCell><div className="h-4 w-32 bg-slate-100 rounded" /></TableCell>
+                            <TableCell><div className="h-4 w-20 bg-slate-100 rounded" /></TableCell>
+                            <TableCell><div className="h-4 w-24 bg-slate-100 rounded" /></TableCell>
+                            <TableCell><div className="h-4 w-24 bg-slate-100 rounded" /></TableCell>
+                            <TableCell><div className="h-4 w-24 bg-slate-100 rounded" /></TableCell>
+                            <TableCell></TableCell>
+                        </TableRow>
+                    ))
+                ) : data?.items?.length === 0 ? (
+                    <TableRow>
+                        <TableCell colSpan={6} className="h-40 text-center text-slate-400 italic">
+                            No drivers found.
                         </TableCell>
                     </TableRow>
-                ))
-            )}
-          </TableBody>
-        </Table>
+                ) : (
+                    data?.items?.map((driver) => (
+                        <TableRow key={driver.id} className="group hover:bg-emerald-50/30 transition-colors">
+                            <TableCell className="font-semibold text-slate-900">
+                                {driver.user?.full_name || 'Unknown Driver'}
+                            </TableCell>
+                            <TableCell>
+                                <Badge 
+                                    className={cn(
+                                        "font-medium px-2.5 py-0.5 rounded-full border-0 shadow-sm",
+                                        driver.is_available ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-500"
+                                    )}
+                                >
+                                    {driver.is_available ? "Available" : "Offline"}
+                                </Badge>
+                            </TableCell>
+                            <TableCell className="text-slate-600">
+                                <div className="flex items-center gap-2">
+                                    <Truck className="h-3 w-3 text-slate-400" />
+                                    {driver.vehicle_info || 'N/A'}
+                                </div>
+                            </TableCell>
+                            <TableCell className="text-slate-600 text-sm">
+                                {driver.warehouse?.name || (driver.warehouse_id ? `Warehouse #${driver.warehouse_id}` : 'Unassigned')}
+                            </TableCell>
+                            <TableCell>
+                                {driver.user?.email ? (
+                                     <a href={`mailto:${driver.user.email}`} className="flex items-center gap-2 text-slate-500 hover:text-emerald-600 transition-colors">
+                                         <Phone className="h-3 w-3" />
+                                         <span className="text-xs font-medium">{driver.user.email}</span>
+                                     </a>
+                                ) : (
+                                    <div className="flex items-center gap-2 text-slate-300">
+                                        <Phone className="h-3 w-3" />
+                                        <span className="text-xs">N/A</span>
+                                    </div>
+                                )}
+                            </TableCell>
+                            <TableCell>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" className="h-9 w-9 p-0 hover:bg-white shadow-sm border border-transparent hover:border-slate-200">
+                                            <MoreHorizontal className="h-4 w-4" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-48 shadow-xl">
+                                        <DropdownMenuLabel>Driver Actions</DropdownMenuLabel>
+                                        <DropdownMenuItem onClick={() => navigate(`/drivers/${driver.id}`)}>View Profile</DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => navigate(`/drivers/${driver.id}`)}>Delivery History</DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem onClick={() => navigate(`/map?driverId=${driver.id}`)}>
+                                            <MapPin className="mr-2 h-4 w-4 text-emerald-600" />
+                                            Locate on Map
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </TableCell>
+                        </TableRow>
+                    ))
+                )}
+              </TableBody>
+            </Table>
+        </div>
       </div>
       
        {/* Pagination Controls */}
-       <div className="flex items-center justify-end space-x-2 py-4">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setPage((old) => Math.max(old - 1, 1))}
-          disabled={page === 1}
-        >
-          Previous
-        </Button>
-        <span className="text-sm text-slate-600">
-            Page {page} of {data?.pages || 1}
-        </span>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setPage((old) => (data?.pages && old < data.pages ? old + 1 : old))}
-          disabled={!data || page === data.pages}
-        >
-          Next
-        </Button>
+       <div className="flex items-center justify-between px-2">
+        <p className="text-xs text-slate-400">
+            Total {data?.total || 0} drivers managed
+        </p>
+        <div className="flex items-center space-x-4">
+            <span className="text-xs font-medium text-slate-500">
+                Page {page} of {data?.pages || 1}
+            </span>
+            <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 rounded-lg"
+                  onClick={() => setPage((old) => Math.max(old - 1, 1))}
+                  disabled={page === 1}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 rounded-lg"
+                  onClick={() => setPage((old) => (data?.pages && old < data.pages ? old + 1 : old))}
+                  disabled={!data || page === data.pages}
+                >
+                  Next
+                </Button>
+            </div>
+        </div>
       </div>
     </div>
   );

@@ -23,17 +23,15 @@ app = FastAPI(
 )
 
 app.add_middleware(RequestLoggingMiddleware)
-app.add_middleware(
-    RateLimitMiddleware, limit=1000, window=60
-)  # Increased limit for testing
-app.add_middleware(
-    RateLimitMiddleware, limit=1000, window=60
-)  # Increased limit for testing
+app.add_middleware(RateLimitMiddleware, limit=1000, window=60)
 
-# Set all CORS enabled origins - Added LAST to be the outermost middleware
+# CORS Middleware added LAST to be the outermost layer
 if settings.BACKEND_CORS_ORIGINS:
     origins = [str(origin).rstrip("/") for origin in settings.BACKEND_CORS_ORIGINS]
-    print(f"DEBUG: Setting up CORSMiddleware with origins: {origins}")
+    # Ensure port 3001 is included for the current user's dev environment
+    if "http://localhost:3001" not in origins:
+        origins.append("http://localhost:3001")
+
     app.add_middleware(
         CORSMiddleware,
         allow_origins=origins,

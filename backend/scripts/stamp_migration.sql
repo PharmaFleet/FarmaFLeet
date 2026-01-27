@@ -1,0 +1,7 @@
+-- Stamp alembic version to mark migration as applied
+CREATE TABLE IF NOT EXISTS alembic_version (
+    version_num VARCHAR(32) NOT NULL,
+    CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num)
+);
+DELETE FROM alembic_version;
+INSERT INTO alembic_version (version_num) VALUES ('0ad0e83f95f1');

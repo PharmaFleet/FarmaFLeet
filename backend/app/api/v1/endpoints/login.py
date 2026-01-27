@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import timedelta, datetime
 from typing import Any, Dict
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Body, status
@@ -75,7 +75,7 @@ async def login_access_token(
     }
 
 
-@router.post("/refresh", response_model=Token)
+@router.post("/auth/refresh", response_model=Token)
 async def refresh_token(
     refresh_token: str = Body(..., embed=True),
     db: AsyncSession = Depends(deps.get_db),
@@ -114,7 +114,7 @@ async def refresh_token(
         raise HTTPException(status_code=400, detail="Invalid refresh token")
 
 
-@router.post("/logout")
+@router.post("/auth/logout")
 async def logout(
     current_user: User = Depends(deps.get_current_active_user),
     token: str = Depends(deps.reusable_oauth2),

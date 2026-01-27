@@ -16,9 +16,7 @@ from app.api.v1.endpoints import (
 
 api_router = APIRouter()
 api_router.include_router(login.router, tags=["login"])
-api_router.include_router(
-    password.router, tags=["password"]
-)  # No prefix usually for password reset flow or /auth
+api_router.include_router(password.router, tags=["password"])
 api_router.include_router(users.router, prefix="/users", tags=["users"])
 api_router.include_router(utils.router, prefix="/utils", tags=["utils"])
 api_router.include_router(drivers.router, prefix="/drivers", tags=["drivers"])

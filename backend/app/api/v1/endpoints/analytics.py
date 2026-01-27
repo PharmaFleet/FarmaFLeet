@@ -8,6 +8,7 @@ from app.models.driver import Driver
 from app.models.order import Order, OrderStatus
 from app.models.warehouse import Warehouse
 from app.models.user import User
+from app.models.financial import PaymentCollection
 
 router = APIRouter()
 
@@ -20,7 +21,11 @@ async def executive_dashboard(
     """
     Get executive high-level metrics.
     """
-    # Total Active Orders
+    # Total Active Orders (Today's Pending/In-Transit)
+    from datetime import datetime, time
+
+    today_start = datetime.combine(datetime.utcnow().date(), time.min)
+
     active_orders = await db.scalar(
         select(func.count(Order.id)).where(
             Order.status.in_(
@@ -38,17 +43,37 @@ async def executive_dashboard(
         select(func.count(Driver.id)).where(Driver.is_available == True)
     )
 
-    # Revenue (simple sum of delivered)
-    revenue = await db.scalar(
-        select(func.sum(Order.total_amount)).where(
-            Order.status == OrderStatus.DELIVERED
-        )
+    # Revenue & Success Rate (Today's)
+    delivered_query = select(
+        func.count(Order.id).label("count"),
+        func.sum(Order.total_amount).label("revenue"),
+    ).where(Order.status == OrderStatus.DELIVERED, Order.created_at >= today_start)
+    delivered_res = await db.execute(delivered_query)
+    delivered_data = delivered_res.one()
+
+    total_today = await db.scalar(
+        select(func.count(Order.id)).where(Order.created_at >= today_start)
+    )
+
+    # Payments
+    pay_query = select(
+        func.count(PaymentCollection.id).label("count"),
+        func.sum(PaymentCollection.amount).label("amount"),
+    ).where(PaymentCollection.verified_at == None)
+    pay_res = await db.execute(pay_query)
+    pay_data = pay_res.one()
+
+    # Success rate
+    rate = (
+        (delivered_data.count / total_today) if total_today and total_today > 0 else 1.0
     )
 
     return {
-        "total_active_orders": active_orders or 0,
-        "total_online_drivers": online_drivers or 0,
-        "today_revenue": revenue or 0.0,
+        "total_orders_today": active_orders or 0,
+        "active_drivers": online_drivers or 0,
+        "pending_payments_amount": float(pay_data.amount or 0.0),
+        "pending_payments_count": pay_data.count or 0,
+        "success_rate": round(rate, 4),
         "system_health": "Healthy",
     }
 

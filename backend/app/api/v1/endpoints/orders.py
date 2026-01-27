@@ -1,8 +1,11 @@
 from typing import Any, List, Optional, Dict
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Body
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Body
+from pydantic import BaseModel
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc
+from sqlalchemy.orm import selectinload
+from math import ceil
 
 from app.api import deps
 from app.models.order import Order, OrderStatus, OrderStatusHistory, ProofOfDelivery
@@ -11,43 +14,120 @@ from app.models.driver import Driver
 from app.schemas.order import (
     Order as OrderSchema,
     OrderCreate,
-    OrderUpdate,
-    OrderStatusHistory as OrderStatusHistorySchema,
     ProofOfDeliveryCreate,
 )
 from app.services.excel import excel_service
+import pandas as pd
 
 router = APIRouter()
 
 
-@router.get("", response_model=List[OrderSchema])
+class PaginatedOrderResponse(BaseModel):
+    items: List[OrderSchema]
+    total: int
+    page: int
+    size: int
+    pages: int
+
+
+@router.get("", response_model=PaginatedOrderResponse)
 async def read_orders(
     db: AsyncSession = Depends(deps.get_db),
-    skip: int = 0,
-    limit: int = 100,
+    page: int = 1,
+    limit: int = 10,
     status: Optional[str] = None,
     warehouse_id: Optional[int] = None,
     driver_id: Optional[int] = None,
+    search: Optional[str] = None,
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
-    Retrieve orders.
+    Retrieve orders with pagination.
     """
+    # Build query
     query = select(Order)
+    count_query = select(func.count()).select_from(Order)
 
+    filters = []
     if status:
-        query = query.where(Order.status == status)
+        filters.append(Order.status == status)
     if warehouse_id:
-        query = query.where(Order.warehouse_id == warehouse_id)
+        filters.append(Order.warehouse_id == warehouse_id)
     if driver_id:
-        query = query.where(Order.driver_id == driver_id)
+        filters.append(Order.driver_id == driver_id)
+    if search:
+        from sqlalchemy import or_, cast, String
 
-    query = query.order_by(desc(Order.created_at)).offset(skip).limit(limit)
+        search_filter = f"%{search}%"
+        filters.append(
+            or_(
+                Order.sales_order_number.ilike(search_filter),
+                cast(Order.customer_info["name"], String).ilike(search_filter),
+                cast(Order.customer_info["phone"], String).ilike(search_filter),
+            )
+        )
+
+    if filters:
+        query = query.where(*filters)
+        count_query = count_query.where(*filters)
+
+    # Get total count
+    total_result = await db.execute(count_query)
+    total = total_result.scalar() or 0
+
+    # Pagination logic
+    skip = (page - 1) * limit
+    pages = ceil(total / limit) if limit > 0 else 1
+
+    # Get items
+    query = (
+        query.options(
+            selectinload(Order.status_history),
+            selectinload(Order.proof_of_delivery),
+            selectinload(Order.warehouse),
+            selectinload(Order.driver).selectinload(Driver.user),
+        )
+        .order_by(desc(Order.created_at))
+        .offset(skip)
+        .limit(limit)
+    )
     result = await db.execute(query)
     orders = result.scalars().all()
-    # Pydantic will lazy load relations which might fail with async without greedy loading or explicitly loading steps.
-    # For now, simplistic approach. In real async, would need selectinload.
-    return orders
+
+    return {
+        "items": orders,
+        "total": total,
+        "page": page,
+        "size": limit,
+        "pages": pages,
+    }
+
+    # Pagination logic
+    skip = (page - 1) * limit
+    pages = ceil(total / limit) if limit > 0 else 1
+
+    # Get items
+    query = (
+        query.options(
+            selectinload(Order.status_history),
+            selectinload(Order.proof_of_delivery),
+            selectinload(Order.warehouse),
+            selectinload(Order.driver).selectinload(Driver.user),
+        )
+        .order_by(desc(Order.created_at))
+        .offset(skip)
+        .limit(limit)
+    )
+    result = await db.execute(query)
+    orders = result.scalars().all()
+
+    return {
+        "items": orders,
+        "total": total,
+        "page": page,
+        "size": limit,
+        "pages": pages,
+    }
 
 
 @router.get("/{order_id}", response_model=OrderSchema)
@@ -59,10 +139,16 @@ async def read_order(
     """
     Get order details.
     """
-    # Need to load relationships potentially
-    # order = await db.get(Order, order_id)
-    # Lazy loading doesn't work well with await. Use explicit query with simple get or options.
-    query = select(Order).where(Order.id == order_id)
+    query = (
+        select(Order)
+        .where(Order.id == order_id)
+        .options(
+            selectinload(Order.status_history),
+            selectinload(Order.proof_of_delivery),
+            selectinload(Order.warehouse),
+            selectinload(Order.driver).selectinload(Driver.user),
+        )
+    )
     result = await db.execute(query)
     order = result.scalars().first()
 
@@ -71,57 +157,152 @@ async def read_order(
     return order
 
 
+@router.post("", response_model=OrderSchema)
+async def create_order(
+    *,
+    db: AsyncSession = Depends(deps.get_db),
+    order_in: OrderCreate,
+    current_user: User = Depends(deps.get_current_active_user),
+) -> Any:
+    """
+    Create new order.
+    """
+    db_obj = Order(
+        sales_order_number=order_in.sales_order_number,
+        customer_info=order_in.customer_info,
+        total_amount=order_in.total_amount,
+        payment_method=order_in.payment_method,
+        warehouse_id=order_in.warehouse_id,
+        status=OrderStatus.PENDING,
+    )
+    db.add(db_obj)
+    await db.commit()
+    await db.refresh(db_obj)
+
+    # Reload with relations
+    query = (
+        select(Order)
+        .where(Order.id == db_obj.id)
+        .options(
+            selectinload(Order.status_history), selectinload(Order.proof_of_delivery)
+        )
+    )
+    result = await db.execute(query)
+    return result.scalars().first()
+
+
 @router.post("/import")
 async def import_orders(
     file: UploadFile = File(...),
     db: AsyncSession = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_user),  # Manager only usually
+    current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
     Import orders from Excel file.
     """
-    contents = await file.read()
-    import io
 
-    # excel_service expects a file-like object
-    data = excel_service.parse_file(io.BytesIO(contents))
+    def clean_value(val):
+        if pd.isna(val) or str(val).strip() == "" or str(val).lower() == "nan":
+            return None
+        return str(val).strip()
 
-    created_count = 0
-    errors = []
+    try:
+        contents = await file.read()
+        import io
 
-    for row in data:
-        # Validate and create order
         try:
-            # Assuming row structure. Typically requires mapping validation.
-            # Simplified for prototype.
-            order_in = OrderCreate(
-                sales_order_number=str(row.get("Order Number")),
-                customer_info={
-                    "name": row.get("Customer Name"),
-                    "phone": row.get("Phone"),
-                    "address": row.get("Address"),
-                    "area": row.get("Area"),
-                },
-                total_amount=float(row.get("Amount", 0)),
-                payment_method=row.get("Payment Method", "CASH"),
-                warehouse_id=1,  # Default or derived from row
-            )
-
-            db_obj = Order(
-                sales_order_number=order_in.sales_order_number,
-                customer_info=order_in.customer_info,
-                total_amount=order_in.total_amount,
-                payment_method=order_in.payment_method,
-                warehouse_id=order_in.warehouse_id,
-                status=OrderStatus.PENDING,
-            )
-            db.add(db_obj)
-            created_count += 1
+            data = excel_service.parse_file(io.BytesIO(contents))
         except Exception as e:
-            errors.append({"row": row, "error": str(e)})
+            raise Exception(f"Excel Parse Error: {str(e)}")
 
-    await db.commit()
-    return {"created": created_count, "errors": errors}
+        created_count = 0
+        errors = []
+
+        for i, row in enumerate(data):
+            try:
+                # Use same mapping logic as before
+                # Fix: Look for "Sales order" OR "Sales Order" OR "Order Number"
+                # Excel keys usually preserve case, but let's be safe
+                keys = {k.strip().lower(): k for k in row.keys()}
+
+                def get_val(key_fragment):
+                    # find valid key
+                    for k in keys:
+                        if key_fragment.lower() in k.lower():
+                            return row[keys[k]]
+                    return None
+
+                # Direct mapping based on user file confirmation
+                order_num_raw = row.get("Sales order") or row.get("Order Number")
+
+                if pd.isna(order_num_raw) or str(order_num_raw).strip() == "":
+                    raise Exception("Missing 'Sales order' column or value")
+
+                sales_order_number = str(order_num_raw).strip()
+
+                cust_name = clean_value(
+                    row.get("Customer name") or row.get("Customer Name")
+                )
+                cust_phone = clean_value(row.get("Customer phone") or row.get("Phone"))
+                cust_addr = clean_value(
+                    row.get("Customer address") or row.get("Address")
+                )
+                cust_area = clean_value(row.get("Area"))
+
+                amount_raw = row.get("Total amount") or row.get("Amount")
+                total_amount = float(amount_raw) if not pd.isna(amount_raw) else 0.0
+
+                target_wh_id = 1
+
+                # If we had warehouse code logic, insert here.
+
+                order_in = OrderCreate(
+                    sales_order_number=sales_order_number,
+                    customer_info={
+                        "name": cust_name,
+                        "phone": cust_phone,
+                        "address": cust_addr,
+                        "area": cust_area,
+                    },
+                    total_amount=total_amount,
+                    payment_method="CASH",
+                    warehouse_id=target_wh_id,
+                    status=OrderStatus.PENDING,
+                )
+
+                # Check for duplicate
+                res = await db.execute(
+                    select(Order).where(
+                        Order.sales_order_number == order_in.sales_order_number
+                    )
+                )
+                if res.scalars().first():
+                    raise Exception(
+                        f"Order {order_in.sales_order_number} already exists"
+                    )
+
+                db_obj = Order(
+                    sales_order_number=order_in.sales_order_number,
+                    customer_info=order_in.customer_info,
+                    total_amount=order_in.total_amount,
+                    payment_method=order_in.payment_method,
+                    warehouse_id=order_in.warehouse_id,
+                    status=OrderStatus.PENDING,
+                )
+                db.add(db_obj)
+                created_count += 1
+            except Exception as e:
+                errors.append({"row": i + 1, "error": str(e)})
+
+        await db.commit()
+        return {"created": created_count, "errors": errors}
+
+    except Exception as e:
+        with open("error.log", "w") as f:
+            import traceback
+
+            traceback.print_exc(file=f)
+        raise HTTPException(status_code=400, detail=f"Import failed: {str(e)}")
 
 
 @router.post("/{order_id}/assign")
@@ -145,17 +326,25 @@ async def assign_order(
     order.driver_id = driver.id
     order.status = OrderStatus.ASSIGNED
 
-    # Add history
     history = OrderStatusHistory(
         order_id=order.id,
         status=OrderStatus.ASSIGNED,
-        notes=f"Assigned to driver {driver.user_id}",  # logic for name better
+        notes=f"Assigned to driver {driver.user_id}",
     )
     db.add(history)
     db.add(order)
     await db.commit()
     await db.refresh(order)
-    return order
+
+    query = (
+        select(Order)
+        .where(Order.id == order.id)
+        .options(
+            selectinload(Order.status_history), selectinload(Order.proof_of_delivery)
+        )
+    )
+    result = await db.execute(query)
+    return result.scalars().first()
 
 
 @router.patch("/{order_id}/status")
@@ -167,7 +356,7 @@ async def update_order_status(
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
-    Update order status (Driver or Manager).
+    Update order status.
     """
     order = await db.get(Order, order_id)
     if not order:
@@ -180,7 +369,16 @@ async def update_order_status(
     db.add(order)
     await db.commit()
     await db.refresh(order)
-    return order
+
+    query = (
+        select(Order)
+        .where(Order.id == order.id)
+        .options(
+            selectinload(Order.status_history), selectinload(Order.proof_of_delivery)
+        )
+    )
+    result = await db.execute(query)
+    return result.scalars().first()
 
 
 @router.post("/{order_id}/proof-of-delivery")
@@ -224,7 +422,7 @@ async def export_orders(
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
-    Export filtered orders to Excel.
+    Export filtered orders.
     """
     import pandas as pd
     import io
@@ -252,7 +450,6 @@ async def export_orders(
 
     df = pd.DataFrame(data)
     stream = io.BytesIO()
-    # openpyxl should be installed
     with pd.ExcelWriter(stream, engine="openpyxl") as writer:
         df.to_excel(writer, index=False)
     stream.seek(0)
@@ -272,14 +469,12 @@ async def batch_assign_orders(
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
-    Batch assign orders to drivers.
-    assignments: [{"order_id": 1, "driver_id": 2}, ...]
+    Batch assign orders.
     """
     count = 0
     for assign in assignments:
         order_id = assign.get("order_id")
         driver_id = assign.get("driver_id")
-
         if not order_id or not driver_id:
             continue
 
@@ -289,7 +484,6 @@ async def batch_assign_orders(
         if order and driver:
             order.driver_id = driver.id
             order.status = OrderStatus.ASSIGNED
-
             history = OrderStatusHistory(
                 order_id=order.id,
                 status=OrderStatus.ASSIGNED,
@@ -310,10 +504,6 @@ async def reassign_order(
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
-    """
-    Reassign an order to a different driver.
-    """
-    # Reuse assign logic
     return await assign_order(order_id, driver_id, db, current_user)
 
 
@@ -323,9 +513,6 @@ async def unassign_order(
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
-    """
-    Unassign an order from a driver.
-    """
     order = await db.get(Order, order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
@@ -349,9 +536,6 @@ async def reject_order(
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
-    """
-    Reject an order.
-    """
     order = await db.get(Order, order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")

@@ -1,5 +1,7 @@
-from typing import Optional
+from typing import Optional, List
 from pydantic import BaseModel, ConfigDict
+from app.schemas.user import User as UserSchema
+from app.schemas.warehouse import Warehouse as WarehouseSchema
 
 
 class DriverBase(BaseModel):
@@ -10,7 +12,14 @@ class DriverBase(BaseModel):
 
 
 class DriverCreate(DriverBase):
-    user_id: int
+    user_id: Optional[int] = None
+
+
+class DriverWithUserCreate(DriverBase):
+    email: str
+    password: str
+    full_name: str
+    role: str = "driver"
 
 
 class DriverUpdate(DriverBase):
@@ -28,8 +37,17 @@ class DriverInDBBase(DriverBase):
 
 
 class Driver(DriverInDBBase):
-    pass
+    user: Optional[UserSchema] = None
+    warehouse: Optional[WarehouseSchema] = None
 
 
 class DriverDetail(Driver):
     pass
+
+
+class PaginatedDriverResponse(BaseModel):
+    items: List[Driver]
+    total: int
+    page: int
+    size: int
+    pages: int

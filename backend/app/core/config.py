@@ -1,5 +1,5 @@
 from typing import List
-from pydantic import AnyHttpUrl, PostgresDsn, computed_field
+from pydantic import AnyHttpUrl, PostgresDsn, computed_field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -22,26 +22,50 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://redis:6379/0"
 
     # CORS
-    BACKEND_CORS_ORIGINS: List[str] = [
+    BACKEND_CORS_ORIGINS: List[str] | str = [
         "http://localhost:3000",
         "http://localhost:3001",
     ]
 
+    @field_validator("BACKEND_CORS_ORIGINS", mode="before")
+    @classmethod
+    def assemble_cors_origins(cls, v: str | List[str]) -> List[str] | str:
+        if isinstance(v, str) and not v.startswith("["):
+            # Support both comma and semicolon to avoid gcloud CLI list parsing issues
+            import re
+
+            return [i.strip() for i in re.split(r"[,;]", v) if i.strip()]
+        elif isinstance(v, (list, str)):
+            return v
+        raise ValueError(v)
+
     @computed_field
     @property
-    def SQLALCHEMY_DATABASE_URI(self) -> PostgresDsn:
-        return PostgresDsn.build(
-            scheme="postgresql+asyncpg",
-            username=self.POSTGRES_USER,
-            password=self.POSTGRES_PASSWORD,
-            host=self.POSTGRES_SERVER,
-            port=self.POSTGRES_PORT,
-            path=self.POSTGRES_DB,
+    def SQLALCHEMY_DATABASE_URI(self) -> str:
+        from urllib.parse import quote_plus
+
+        if self.POSTGRES_SERVER.startswith("/cloudsql"):
+            return f"postgresql+asyncpg://{self.POSTGRES_USER}:{quote_plus(self.POSTGRES_PASSWORD)}@/{self.POSTGRES_DB}?host={self.POSTGRES_SERVER}"
+
+        return str(
+            PostgresDsn.build(
+                scheme="postgresql+asyncpg",
+                username=self.POSTGRES_USER,
+                password=self.POSTGRES_PASSWORD,
+                host=self.POSTGRES_SERVER,
+                port=self.POSTGRES_PORT,
+                path=self.POSTGRES_DB,
+            )
         )
 
     model_config = SettingsConfigDict(
         env_file=".env", case_sensitive=True, extra="ignore"
     )
+
+    @field_validator("POSTGRES_PASSWORD", mode="before")
+    @classmethod
+    def strip_password(cls, v: str) -> str:
+        return v.strip() if v else v
 
 
 settings = Settings()

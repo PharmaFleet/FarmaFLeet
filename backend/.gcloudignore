@@ -1,0 +1,14 @@
+.gcloudignore
+.git
+.gitignore
+__pycache__/
+venv/
+.venv/
+env/
+*.pyc
+*.log
+tests/
+Dockerfile.dev
+.env
+.env.*
+scripts/

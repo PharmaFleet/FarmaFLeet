@@ -2,6 +2,7 @@ export interface User {
   id: number;
   email: string;
   full_name?: string;
+  phone?: string;
   is_active: boolean;
   role: string; // 'super_admin', 'warehouse_manager', 'dispatcher', 'executive'
   warehouse_id?: number;

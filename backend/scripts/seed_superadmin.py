@@ -39,10 +39,10 @@ SUPERADMIN_NAME = "System Administrator"
 
 async def create_superadmin():
     """Create the superadmin user if it doesn't exist."""
-    print("🚀 Starting superadmin seeding...")
-    # Create engine - Docker PostgreSQL uses port 5444
-    db_url = "postgresql+asyncpg://postgres:postgres@localhost:5444/pharmafleet"
-    print(f"🔗 Connecting to {db_url}...")
+    print("Starting superadmin seeding...")
+    # Create engine from settings
+    db_url = str(settings.SQLALCHEMY_DATABASE_URI)
+    print(f"Connecting to database...")
     engine = create_async_engine(db_url, echo=True)
 
     # Create tables if they don't exist
@@ -76,10 +76,10 @@ async def create_superadmin():
         session.add(superadmin)
         await session.commit()
 
-        print(f"✅ Superadmin created successfully!")
+        print(f"Superadmin created successfully!")
         print(f"   Email: {SUPERADMIN_EMAIL}")
         print(f"   Password: {SUPERADMIN_PASSWORD}")
-        print(f"   ⚠️  Change the password in production!")
+        print(f"   Change the password in production!")
 
     await engine.dispose()
 

@@ -53,32 +53,32 @@ export default function DashboardHome() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-10 p-8 max-w-[1600px] mx-auto">
       <div>
-        <h2 className="text-3xl font-bold tracking-tight text-slate-900">Dashboard</h2>
-        <p className="text-slate-500">Overview of today's delivery operations.</p>
+        <h2 className="text-4xl font-extrabold tracking-tight text-slate-900">Dashboard</h2>
+        <p className="text-slate-500 mt-1">Overview of today's delivery operations and fleet performance.</p>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => (
-          <Card key={stat.title}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-slate-600">
+          <Card key={stat.title} className="border-none shadow-sm bg-white rounded-2xl overflow-hidden group hover:shadow-md transition-shadow duration-300">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+              <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-500">
                 {stat.title}
               </CardTitle>
-              <div className={`p-2 rounded-full ${stat.bg}`}>
-                <stat.icon className={`h-4 w-4 ${stat.color}`} />
+              <div className={`p-2.5 rounded-xl transition-transform duration-300 group-hover:scale-110 ${stat.bg}`}>
+                <stat.icon className={`h-5 w-5 ${stat.color}`} />
               </div>
             </CardHeader>
             <CardContent>
               {isLoading ? (
-                  <Skeleton className="h-8 w-20" />
+                  <Skeleton className="h-10 w-24 bg-slate-100" />
               ) : (
-                <>
-                    <div className="text-2xl font-bold text-slate-900">{stat.value}</div>
-                    <p className="text-xs text-slate-500 mt-1">{stat.description}</p>
-                </>
+                <div className="space-y-1">
+                    <div className="text-3xl font-black text-slate-900 tracking-tight">{stat.value}</div>
+                    <p className="text-xs font-medium text-slate-400">{stat.description}</p>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -86,23 +86,24 @@ export default function DashboardHome() {
       </div>
 
       {/* Map and Recent Orders */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="col-span-4">
-          <CardHeader>
-            <CardTitle>Real-Time Tracking</CardTitle>
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
+        <Card className="col-span-1 lg:col-span-4 border-slate-200 shadow-sm rounded-2xl overflow-hidden bg-white">
+          <CardHeader className="border-b border-slate-50 bg-slate-50/30">
+            <CardTitle className="text-lg font-bold text-slate-800">Real-Time Tracking</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="h-[300px] w-full rounded-lg overflow-hidden">
+          <CardContent className="p-0">
+            <div className="h-[450px] w-full">
               {/* Embedded mini-map - uses Google Maps API if configured */}
               <MiniMapView />
             </div>
           </CardContent>
         </Card>
-        <Card className="col-span-3">
-          <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
+        
+        <Card className="col-span-1 lg:col-span-3 border-slate-200 shadow-sm rounded-2xl overflow-hidden bg-white">
+          <CardHeader className="border-b border-slate-50 bg-slate-50/30">
+            <CardTitle className="text-lg font-bold text-slate-800">Recent Activity</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0">
             <RecentActivity />
           </CardContent>
         </Card>

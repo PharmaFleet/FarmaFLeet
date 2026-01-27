@@ -1,10 +1,10 @@
-import { api } from '@/lib/axios';
+import { api, handlePaginatedResponse } from '@/lib/axios';
 import { Order, PaginatedResponse } from '@/types';
 
 export const orderService = {
   getAll: async (params?: any): Promise<PaginatedResponse<Order>> => {
     const response = await api.get('/orders', { params });
-    return response.data;
+    return handlePaginatedResponse<Order>(response.data);
   },
 
   getById: async (id: number): Promise<Order> => {
@@ -35,8 +35,12 @@ export const orderService = {
   importExcel: async (file: File) => {
       const formData = new FormData();
       formData.append('file', file);
+      // Let Axios set the Content-Type with boundary automatically
+      // We must explicitly unset the default application/json header
       const response = await api.post('/orders/import', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
+        headers: {
+          'Content-Type': undefined
+        }
       });
       return response.data;
   }

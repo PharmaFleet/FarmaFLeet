@@ -96,3 +96,48 @@ async def payment_report(
     result = await db.execute(query)
     report = [{"method": row.method, "total": row.total} for row in result]
     return report
+
+
+@router.get("/export")
+async def export_payments(
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+) -> Any:
+    """
+    Export payments to Excel.
+    """
+    import pandas as pd
+    import io
+    from fastapi.responses import StreamingResponse
+
+    query = select(PaymentCollection).order_by(PaymentCollection.created_at.desc())
+    result = await db.execute(query)
+    payments = result.scalars().all()
+
+    data = []
+    for p in payments:
+        data.append(
+            {
+                "ID": p.id,
+                "Order ID": p.order_id,
+                "Amount": p.amount,
+                "Method": p.method,
+                "Status": p.status,
+                "Transaction ID": p.transaction_id,
+                "Date": p.created_at,
+                "Verified": "Yes" if p.verified_at else "No",
+            }
+        )
+
+    df = pd.DataFrame(data)
+    stream = io.BytesIO()
+    with pd.ExcelWriter(stream, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False)
+    stream.seek(0)
+
+    headers = {"Content-Disposition": 'attachment; filename="payments.xlsx"'}
+    return StreamingResponse(
+        stream,
+        headers=headers,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )

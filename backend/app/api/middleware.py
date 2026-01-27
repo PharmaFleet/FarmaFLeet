@@ -29,10 +29,16 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             return response
         except Exception as e:
             process_time = (time.time() - start_time) * 1000
-            logger.error(
-                f"Request Failed: {request.method} {request.url} "
-                f"Duration: {process_time:.2f}ms Error: {e} [ID: {request_id}]"
-            )
+            try:
+                logger.error(
+                    f"Request Failed: {request.method} {request.url} "
+                    f"Duration: {process_time:.2f}ms Error: {str(e)} [ID: {request_id}]"
+                )
+            except Exception:
+                # Fallback if logger fails due to encoding
+                print(
+                    f"CRITICAL: Request Failed and Logger Errored. Original Error: {e}"
+                )
             raise e
 
 

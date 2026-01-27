@@ -2,8 +2,9 @@
 
 @layer base {
   :root {
-    --background: 210 40% 98%; /* slate-50 */
-    --foreground: 222 47% 11%; /* slate-900 */
+    /* Refined Professional Palette */
+    --background: 210 40% 98.5%; /* Clean Off-white */
+    --foreground: 222 47% 11%;
 
     --card: 0 0% 100%;
     --card-foreground: 222 47% 11%;
@@ -11,24 +12,24 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    --primary: 159 93% 30%; /* emerald-600 #059669 -> HSL 159 93% 30% approx */
+    --primary: 159 93% 32%; /* Deeper Emerald */
     --primary-foreground: 210 40% 98%;
 
-    --secondary: 215 28% 17%; /* slate-800 #1e293b */
+    --secondary: 215 28% 17%;
     --secondary-foreground: 210 40% 98%;
 
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
 
-    --accent: 173 80% 40%; /* teal-500 #14b8a6 */
-    --accent-foreground: 222 47.1% 11.2%;
+    --accent: 159 93% 32%; /* Matching primary for consistency */
+    --accent-foreground: 222 47% 11%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 214.3 31.8% 91.4%;
+    --border: 214.3 31.8% 90%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 159 93% 30%;
+    --ring: 159 93% 32%;
 
     --radius: 0.75rem;
   }
@@ -43,7 +44,7 @@
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 159 93% 30%;
+    --primary: 159 93% 32%;
     --primary-foreground: 222.2 47.4% 11.2%;
 
     --secondary: 217.2 32.6% 17.5%;
@@ -60,16 +61,34 @@
 
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 159 93% 30%;
+    --ring: 159 93% 32%;
   }
+
+  /* Critical Fixes for UI Transparency */
+  .bg-popover, .bg-card, .bg-background {
+      background-color: hsl(var(--background)) !important;
+  }
+  
+  [data-radix-popper-content-wrapper] {
+      z-index: 9999 !important;
+  }
+}
+
+@layer utilities {
+    .bg-white-important {
+        background-color: white !important;
+    }
 }
 
 @layer base {
   * {
-    border-color: hsl(var(--border));
+    border-color: hsl(var(--border) / 1); /* Force opacity */
   }
   body {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
+    font-feature-settings:
+      "rlig" 1,
+      "calt" 1;
   }
 }

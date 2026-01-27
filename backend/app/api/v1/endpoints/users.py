@@ -1,31 +1,59 @@
-from typing import Any, List
+from typing import Any, List, Optional
 
-from fastapi import APIRouter, Body, Depends, HTTPException, status
+from fastapi import APIRouter, Body, Depends, HTTPException, status, Query
 from fastapi.encoders import jsonable_encoder
-from sqlalchemy import select
+from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
+import math
 
 from app.api import deps
 from app.core.security import get_password_hash, verify_password
 from app.models.user import User, UserRole
-from app.schemas import User as UserSchema, UserCreate, UserUpdate
+from app.schemas import (
+    User as UserSchema,
+    UserCreate,
+    UserUpdate,
+    PaginatedUserResponse,
+)
 
 router = APIRouter()
 
 
-@router.get("", response_model=List[UserSchema])
+@router.get("", response_model=PaginatedUserResponse)
 async def read_users(
     db: AsyncSession = Depends(deps.get_db),
-    skip: int = 0,
-    limit: int = 100,
+    page: int = Query(1, ge=1),
+    size: int = Query(10, ge=1),
+    search: Optional[str] = None,
     current_user: User = Depends(deps.get_current_active_superuser),
 ) -> Any:
     """
-    Retrieve users.
+    Retrieve users with pagination and search.
     """
-    result = await db.execute(select(User).offset(skip).limit(limit))
+    skip = (page - 1) * size
+
+    # Base query
+    base_query = select(User)
+
+    if search:
+        search_filter = f"%{search}%"
+        base_query = base_query.where(
+            or_(User.email.ilike(search_filter), User.full_name.ilike(search_filter))
+        )
+
+    # Get total count
+    count_query = select(func.count()).select_from(base_query.subquery())
+    total_res = await db.execute(count_query)
+    total = total_res.scalar_one()
+
+    # Get items
+    query = base_query.offset(skip).limit(size)
+    result = await db.execute(query)
     users = result.scalars().all()
-    return users
+
+    pages = math.ceil(total / size) if total > 0 else 1
+
+    return {"items": users, "total": total, "page": page, "size": size, "pages": pages}
 
 
 @router.post("", response_model=UserSchema)

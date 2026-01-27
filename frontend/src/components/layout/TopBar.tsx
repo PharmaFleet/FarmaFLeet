@@ -8,7 +8,7 @@ export function TopBar() {
   const user = useAuthStore((state) => state.user);
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b bg-white/80 px-6 backdrop-blur">
+    <header className="sticky top-0 z-30 flex h-20 w-full items-center justify-between border-b bg-white px-8 shadow-sm">
       {/* Left: Search (Placeholder) */}
       <div className="flex items-center w-full max-w-sm">
         <div className="relative w-full">

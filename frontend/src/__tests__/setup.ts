@@ -21,3 +21,13 @@ global.ResizeObserver = class ResizeObserver {
   unobserve() {}
   disconnect() {}
 };
+
+// Mock PointerEvent
+if (!global.PointerEvent) {
+  class PointerEvent extends MouseEvent {
+    constructor(type: string, params: PointerEventInit = {}) {
+      super(type, params);
+    }
+  }
+  (global as any).PointerEvent = PointerEvent;
+}

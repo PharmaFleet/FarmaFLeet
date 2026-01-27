@@ -407,9 +407,11 @@ docs/
 ---
 
 ## Session Log: Project Setup & Backend Foundation
+
 **Date:** Thursday, January 22, 2026
 
 ### 1. Project Initialization & Documentation
+
 - **Repo Setup:** Configured Git remote, pushed initial code to `main` branch.
 - **Branching:** Created `develop` branch for active development.
 - **Documentation:**
@@ -419,6 +421,7 @@ docs/
   - Updated `plan.md` (Marked Steps 1.1, 1.2, 1.3, 1.6, 1.7 as complete).
 
 ### 2. Environment Configuration
+
 - **Mobile (Flutter/Android):**
   - Fixed Android toolchain: Installed `cmdline-tools` and accepted licenses.
   - Generated SHA-1 certificate fingerprint for API keys.
@@ -431,6 +434,7 @@ docs/
   - Installed missing dependencies: `asyncpg`, `email-validator`, `loguru`.
 
 ### 3. Backend Development & Testing
+
 - **Test Fixes:**
   - **Redis:** Mocked Redis client in `tests/test_api.py` to allow tests to run without a live Redis instance.
   - **Models:** Updated `tests/test_models.py` to match actual Enum values (`UserRole`) and schema fields.
@@ -443,11 +447,74 @@ docs/
   - Attempted migrations (Validating need for local PostGIS installation).
 
 ### 4. Current Blockers / Next Steps
+
 - **Backend Tests:** Passing 22/23. The final failure (`test_login_with_invalid_credentials_fails`) requires a local PostgreSQL instance with **PostGIS extension installed**.
 - **Action Required:** User to install PostGIS bundle on local machine to finalize backend verification.
 
 ### 5. Final Status
+
 - **Step 1 (Project Setup):** ✅ Complete
 - **Step 2 (Backend Foundation):** 🚧 In Progress (Code valid, tests pending DB env)
 - **Database Password: PharmaLife.2310 **
 
+---
+
+## Session Log: Production Deployment & Bug Fixes
+
+**Date:** Monday, January 27, 2026
+
+### 1. Backend Deployment to GCP Cloud Run
+
+- **Docker Build:** Created production Docker image `gcr.io/pharmafleet-prod/backend:fixed-postgis-v2`
+- **Cloud Run Service:** Deployed `backend` service to `us-central1`
+- **Secret Management:** Configured Postgres password via GCP Secret Manager
+- **Environment Variables:** Set all production env vars including `SQLALCHEMY_DATABASE_URI`, `JWT_SECRET`, `CORS_ORIGINS`
+
+### 2. Database Setup (Cloud SQL PostgreSQL)
+
+- **Instance:** `pharmafleet-prod:us-central1:pharmafleet-db`
+- **PostGIS Extension:** Enabled for geospatial queries
+- **Migrations:** Ran Alembic migrations via Cloud Run Job
+- **Superadmin User:** Created via SQL script
+  - Email: `admin@pharmafleet.com`
+
+### 3. Frontend Deployment to GCS
+
+- **Bucket:** `gs://pharmafleet-dashboard`
+- **URL:** https://storage.googleapis.com/pharmafleet-dashboard/index.html
+- **Build Process:** Vite production build with environment variables
+
+### 4. Bug Fixes
+
+- **CORS Fix:** Updated `CORS_ORIGINS` to include `https://storage.googleapis.com`
+- **Database Auth Fix:** Added `@field_validator` to strip whitespace from `POSTGRES_PASSWORD` in `app/core/config.py`
+- **Google Maps API Key Fix:**
+  - Issue: Vite not loading `.env.production` during build
+  - Solution: Set `VITE_GOOGLE_MAPS_KEY` inline before `npm run build`
+  - GCP API Key Restrictions: Added `https://storage.googleapis.com/*` to allowed websites
+
+### 5. Files Modified
+
+```
+backend/app/core/config.py          # Added password whitespace stripping
+frontend/.env.production            # Updated API key
+frontend/src/components/dashboard/MiniMapView.tsx  # Already had fallback UI
+```
+
+### 6. Production URLs
+
+| Component          | URL                                                             |
+| ------------------ | --------------------------------------------------------------- |
+| Frontend Dashboard | https://storage.googleapis.com/pharmafleet-dashboard/index.html |
+| Backend API        | https://backend-s3s7cxgsga-uc.a.run.app                         |
+| API Docs           | https://backend-s3s7cxgsga-uc.a.run.app/docs                    |
+
+### 7. Current Status
+
+- ✅ Backend API deployed and running
+- ✅ Database connected and migrated
+- ✅ Frontend deployed with working Google Maps
+- ✅ Authentication working (superadmin can login)
+- ✅ Real-time map showing Kuwait region
+
+**Last Updated:** 2026-01-27 14:49 (Kuwait Time)

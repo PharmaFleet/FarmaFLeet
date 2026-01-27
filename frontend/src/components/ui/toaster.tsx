@@ -1,25 +1,41 @@
-import * as React from "react"
 import { useToast } from "@/components/ui/use-toast"
+import { X } from "lucide-react"
 
 export function Toaster() {
-  const { toasts } = useToast()
+  const { toasts, dismiss } = useToast()
 
   return (
-    <div className="fixed top-0 z-[100] flex max-h-screen w-full flex-col-reverse p-4 sm:bottom-0 sm:right-0 sm:top-auto sm:flex-col md:max-w-[420px]">
-      {toasts.map(function ({ id, title, description, action, ...props }) {
+    <div className="fixed top-4 right-4 z-[100] flex max-h-screen w-full flex-col gap-2 md:max-w-[380px]">
+      {toasts.map(function ({ id, title, description, variant, action, ...props }) {
         return (
           <div
             key={id}
-             className="grid grid-cols-[1fr_auto] items-start gap-4 rounded-md border bg-white p-4 text-foreground shadow-md transition-all data-[swipe=cancel]:translate-x-0 data-[swipe=end]:translate-x-[var(--radix-toast-swipe-end-x)] data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)] data-[state=closed]:animate-out data-[state=closed]:fade-out-80 data-[state=closed]:slide-out-to-right-full data-[state=open]:animate-in data-[state=open]:slide-in-from-top-full data-[state=open]:sm:slide-in-from-bottom-full dark:bg-slate-950 dark:text-slate-50"
-             {...props}
+            className={`
+              grid grid-cols-[1fr_auto] items-start gap-4 rounded-2xl border p-5 shadow-xl transition-all duration-300
+              animate-in slide-in-from-right-full
+              ${variant === 'destructive' 
+                ? 'bg-white border-rose-100 text-rose-900 shadow-rose-500/5' 
+                : 'bg-white border-slate-100 text-slate-900 shadow-slate-500/5'}
+            `}
+            {...props}
           >
-            <div className="grid gap-1">
-              {title && <h3 className="text-sm font-semibold">{title}</h3>}
+            <div className="grid gap-1.5 px-1">
+              {title && <h3 className="text-sm font-black leading-none">{title}</h3>}
               {description && (
-                <div className="text-sm opacity-90">{description}</div>
+                <div className="text-[13px] font-medium opacity-70 leading-relaxed pr-2">
+                  {description}
+                </div>
               )}
             </div>
-            {action}
+            <div className="flex flex-col gap-2">
+              {action}
+              <button 
+                onClick={() => dismiss(id)}
+                className="p-1 rounded-lg hover:bg-slate-100 transition-colors text-slate-400 hover:text-slate-600"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
           </div>
         )
       })}

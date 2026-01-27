@@ -2,6 +2,8 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 from app.models.order import OrderStatus
+from .driver import Driver
+from .warehouse import Warehouse
 
 
 class OrderStatusHistoryBase(BaseModel):
@@ -67,3 +69,5 @@ class OrderInDBBase(OrderBase):
 class Order(OrderInDBBase):
     status_history: List[OrderStatusHistory] = []
     proof_of_delivery: Optional[ProofOfDelivery] = None
+    driver: Optional[Driver] = None
+    warehouse: Optional[Warehouse] = None

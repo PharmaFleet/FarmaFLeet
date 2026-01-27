@@ -5,6 +5,7 @@ from typing import cast
 
 from loguru import logger
 
+
 class InterceptHandler(logging.Handler):
     def emit(self, record: logging.LogRecord) -> None:  # pragma: no cover
         # Get corresponding Loguru level if it exists
@@ -23,6 +24,7 @@ class InterceptHandler(logging.Handler):
             level, record.getMessage()
         )
 
+
 def setup_logging():
     # intercept everything at the root logger
     logging.root.handlers = [InterceptHandler()]
@@ -35,6 +37,9 @@ def setup_logging():
         logging.getLogger(name).propagate = True
 
     # configure loguru
-    logger.configure(
-        handlers=[{"sink": sys.stdout, "serialize": True}]
+    logger.remove()
+    logger.add(
+        sys.stdout,
+        format="<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
+        serialize=False,
     )

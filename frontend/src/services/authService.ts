@@ -14,25 +14,26 @@ export interface LoginResponse {
 
 export const authService = {
   login: async (credentials: LoginRequest): Promise<LoginResponse> => {
-    // In real app: const response = await api.post<LoginResponse>('/auth/login', credentials);
-    // return response.data;
-    
-    // Mock for now
-    return new Promise((resolve) => {
-        setTimeout(() => {
-            resolve({
-                access_token: 'mock_access_token',
-                refresh_token: 'mock_refresh_token',
-                token_type: 'bearer',
-                user: {
-                    id: 1,
-                    email: credentials.email,
-                    full_name: 'Test User',
-                    role: 'admin'
-                }
-            })
-        }, 1000)
-    })
+    // FastAPI OAuth2 requires form data
+    const params = new URLSearchParams();
+    params.append('username', credentials.email);
+    params.append('password', credentials.password);
+
+    const response = await api.post<LoginResponse>('/login/access-token', params, {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+    });
+
+    const loginData = response.data;
+
+    // Fetch user details separately if not included in login response
+    const user = await authService.getCurrentUser();
+
+    return {
+      ...loginData,
+      user,
+    };
   },
 
   logout: async () => {

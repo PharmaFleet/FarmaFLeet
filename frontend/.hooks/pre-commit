@@ -1,0 +1,63 @@
+#!/bin/sh
+# Pre-commit hook for running tests and linting
+# Exit on any error
+set -e
+
+echo "🔍 Running pre-commit checks..."
+
+# Run tests with coverage
+echo "📊 Running tests with coverage..."
+npm run test:coverage
+
+# Check if coverage meets threshold
+COVERAGE_RESULT=$?
+if [ $COVERAGE_RESULT -ne 0 ]; then
+    echo "❌ Tests failed or coverage threshold not met"
+    echo "Please ensure all tests pass and coverage is at least 80%"
+    exit 1
+fi
+
+echo "✅ All tests passed!"
+
+# Run linter
+echo "🔧 Running linter..."
+npm run lint
+
+LINT_RESULT=$?
+if [ $LINT_RESULT -ne 0 ]; then
+    echo "❌ Linting failed"
+    echo "Please fix the linting errors before committing"
+    exit 1
+fi
+
+echo "✅ Linting passed!"
+
+# Check if there are any console.log statements in staged files
+echo "🔍 Checking for console.log statements..."
+STAGED_JS_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(js|jsx|ts|tsx)$' || true)
+
+if [ -n "$STAGED_JS_FILES" ]; then
+    CONSOLE_LOGS=$(git diff --cached $STAGED_JS_FILES | grep -E '^\+.*console\.(log|warn|error|info|debug)' || true)
+    
+    if [ -n "$CONSOLE_LOGS" ]; then
+        echo "❌ Found console.log statements in staged files:"
+        echo "$CONSOLE_LOGS"
+        echo "Please remove console statements before committing"
+        exit 1
+    fi
+fi
+
+echo "✅ No console statements found!"
+
+# Check if package.json lock file is up to date if it was modified
+if git diff --cached --name-only | grep -q "package.json"; then
+    echo "📦 Checking package-lock.json..."
+    if ! git diff --quiet HEAD^..HEAD package-lock.json 2>/dev/null; then
+        echo "⚠️  package.json was modified but package-lock.json is not up to date"
+        echo "Please run 'npm install' to update the lock file"
+        exit 1
+    fi
+fi
+
+echo "🎉 All pre-commit checks passed!"
+echo "You can now commit your changes!"

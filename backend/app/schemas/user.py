@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List, Any
 
 from pydantic import BaseModel, ConfigDict, EmailStr
 
@@ -32,6 +32,14 @@ class UserInDBBase(UserBase):
 # Additional properties to return via API
 class User(UserInDBBase):
     pass
+
+
+class PaginatedUserResponse(BaseModel):
+    items: List[User]
+    total: int
+    page: int
+    size: int
+    pages: int
 
 
 # Additional properties stored in DB

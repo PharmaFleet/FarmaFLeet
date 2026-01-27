@@ -1,0 +1,131 @@
+name: Mobile E2E Tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "mobile/**"
+  pull_request:
+    branches: [main]
+    paths:
+      - "mobile/**"
+
+jobs:
+  flutter-integration-tests:
+    name: Flutter Integration Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.24.0"
+          channel: "stable"
+          cache: true
+
+      - name: Install dependencies
+        working-directory: mobile/driver_app
+        run: flutter pub get
+
+      - name: Run unit tests
+        working-directory: mobile/driver_app
+        run: flutter test
+
+      - name: Build test APK
+        working-directory: mobile/driver_app
+        run: |
+          flutter build apk --debug
+        env:
+          MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+
+  # Integration tests require an emulator - run on macOS for iOS or use Android emulator
+  android-integration-tests:
+    name: Android Integration Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.24.0"
+          channel: "stable"
+          cache: true
+
+      - name: Install dependencies
+        working-directory: mobile/driver_app
+        run: flutter pub get
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Start Android Emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          working-directory: mobile/driver_app
+          script: |
+            flutter test integration_test/app_test.dart --verbose
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: integration-test-results
+          path: mobile/driver_app/build/app/outputs/
+          retention-days: 7
+
+  # iOS tests (runs on macOS)
+  ios-integration-tests:
+    name: iOS Integration Tests
+    runs-on: macos-latest
+    timeout-minutes: 60
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.24.0"
+          channel: "stable"
+          cache: true
+
+      - name: Install dependencies
+        working-directory: mobile/driver_app
+        run: flutter pub get
+
+      - name: Install CocoaPods
+        working-directory: mobile/driver_app/ios
+        run: pod install --repo-update
+
+      - name: Start iOS Simulator
+        run: |
+          xcrun simctl boot "iPhone 15 Pro" || true
+          xcrun simctl list devices
+
+      - name: Run integration tests on iOS
+        working-directory: mobile/driver_app
+        run: |
+          flutter test integration_test/app_test.dart -d "iPhone 15 Pro"

@@ -40,8 +40,9 @@ async def get_current_user(
     except (JWTError, ValidationError) as e:
         logger.error(f"JWT Validation Error: {e}")
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
         )
 
     # Fetch user

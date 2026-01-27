@@ -1,10 +1,12 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { LayoutShell } from '@/components/layout/LayoutShell';
 import LoginPage from '@/pages/auth/LoginPage';
 import DashboardHome from '@/pages/dashboard/DashboardHome';
 import OrdersPage from '@/pages/orders/OrdersPage';
+import OrderDetailsPage from '@/pages/orders/OrderDetailsPage';
 import DriversPage from '@/pages/drivers/DriversPage';
+import DriverDetailsPage from '@/pages/drivers/DriverDetailsPage';
 import MapView from '@/pages/map/MapView';
 import PaymentsPage from '@/pages/payments/PaymentsPage';
 import AnalyticsPage from '@/pages/analytics/AnalyticsPage';
@@ -18,7 +20,7 @@ const queryClient = new QueryClient();
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
+      <HashRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           
@@ -26,7 +28,9 @@ function App() {
           <Route element={<LayoutShell />}>
             <Route path="/" element={<DashboardHome />} />
             <Route path="/orders" element={<OrdersPage />} />
+            <Route path="/orders/:id" element={<OrderDetailsPage />} />
             <Route path="/drivers" element={<DriversPage />} />
+            <Route path="/drivers/:id" element={<DriverDetailsPage />} />
             <Route path="/map" element={<MapView />} />
             <Route path="/payments" element={<PaymentsPage />} />
             <Route path="/analytics" element={<AnalyticsPage />} />
@@ -37,7 +41,7 @@ function App() {
           
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
-      </BrowserRouter>
+      </HashRouter>
     </QueryClientProvider>
   );
 }

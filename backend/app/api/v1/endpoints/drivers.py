@@ -1,16 +1,16 @@
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Union
 from fastapi import (
     APIRouter,
     Body,
     Depends,
     HTTPException,
-    status,
     Query,
     WebSocket,
     WebSocketDisconnect,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, func, desc
+from sqlalchemy import select, func, desc
+from sqlalchemy.orm import selectinload
 from geoalchemy2.elements import WKTElement
 
 from app.api import deps
@@ -22,66 +22,152 @@ from app.schemas.driver import (
     Driver as DriverSchema,
     DriverCreate,
     DriverUpdate,
-    DriverDetail,
+    PaginatedDriverResponse,
 )
+import math
+
 from app.schemas.order import Order as OrderSchema
 from app.schemas.location import (
     DriverLocation as DriverLocationSchema,
     DriverLocationCreate,
 )
+from app.core.security import get_password_hash
+from app.schemas.driver import DriverWithUserCreate
 
 router = APIRouter()
 
 
-@router.get("", response_model=List[DriverSchema])
+@router.get("", response_model=PaginatedDriverResponse)
 async def read_drivers(
     db: AsyncSession = Depends(deps.get_db),
-    skip: int = 0,
-    limit: int = 100,
+    page: int = Query(1, ge=1),
+    size: int = Query(10, ge=1),
     active_only: bool = False,
     warehouse_id: Optional[int] = None,
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
-    Retrieve drivers.
+    Retrieve drivers with pagination.
     """
-    # Authorization: Admins, Managers, Dispatchers
-    # Warehouse managers can only see their warehouse drivers
+    skip = (page - 1) * size
 
-    query = select(Driver).join(Driver.user)
-
+    # Base query for counting and fetching
+    base_query = select(Driver)
     if active_only:
-        query = query.where(Driver.is_available == True)
-
+        base_query = base_query.where(Driver.is_available)
     if warehouse_id:
-        query = query.where(Driver.warehouse_id == warehouse_id)
+        base_query = base_query.where(Driver.warehouse_id == warehouse_id)
 
-    query = query.offset(skip).limit(limit)
+    # Get total count
+    count_query = select(func.count()).select_from(base_query.subquery())
+    total_res = await db.execute(count_query)
+    total = total_res.scalar_one()
+
+    query = (
+        base_query.options(selectinload(Driver.user), selectinload(Driver.warehouse))
+        .offset(skip)
+        .limit(size)
+    )
+
     result = await db.execute(query)
     drivers = result.scalars().all()
-    return drivers
+
+    pages = math.ceil(total / size) if total > 0 else 1
+
+    return {
+        "items": drivers,
+        "total": total,
+        "page": page,
+        "size": size,
+        "pages": pages,
+    }
 
 
-@router.post("/", response_model=DriverSchema)
+@router.get("/me", response_model=DriverSchema)
+async def read_driver_me(
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+) -> Any:
+    """
+    Get current driver profile.
+    """
+    result = await db.execute(select(Driver).where(Driver.user_id == current_user.id))
+    driver = result.scalars().first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver profile not found")
+    return driver
+
+
+@router.get("/me/orders", response_model=List[OrderSchema])
+async def read_driver_me_orders(
+    status_filter: Optional[str] = None,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+) -> Any:
+    """
+    Get orders assigned to the current logged-in driver.
+    """
+    result = await db.execute(select(Driver).where(Driver.user_id == current_user.id))
+    driver = result.scalars().first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver profile not found")
+
+    query = select(Order).where(Order.driver_id == driver.id)
+
+    if status_filter:
+        query = query.where(Order.status == status_filter)
+
+    result = await db.execute(query)
+    orders = result.scalars().all()
+    return orders
+
+
+@router.post("", response_model=DriverSchema)
 async def create_driver(
     *,
     db: AsyncSession = Depends(deps.get_db),
-    driver_in: DriverCreate,
+    driver_in: Union[DriverCreate, DriverWithUserCreate],
     current_user: User = Depends(deps.get_current_active_superuser),  # Only admins
 ) -> Any:
     """
-    Create new driver profile.
+    Create new driver profile, optionally creating a new user account atomically.
     """
-    # Check if user exists
-    user = await db.get(User, driver_in.user_id)
-    if not user:
+    user_id = getattr(driver_in, "user_id", None)
+
+    # Flow 1: Atomic creation of User + Driver
+    if isinstance(driver_in, DriverWithUserCreate):
+        # Check if email is available
+        stmt = select(User).where(User.email == driver_in.email)
+        res = await db.execute(stmt)
+        if res.scalars().first():
+            raise HTTPException(
+                status_code=400, detail="User with this email already exists"
+            )
+
+        # Create User
+        new_user = User(
+            email=driver_in.email,
+            full_name=driver_in.full_name,
+            hashed_password=get_password_hash(driver_in.password),
+            role="driver",
+            is_active=True,
+        )
+        db.add(new_user)
+        await db.flush()  # Get the user ID
+        user_id = new_user.id
+
+    # Flow 2: Use existing User ID
+    elif user_id:
+        user = await db.get(User, user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+    else:
         raise HTTPException(
-            status_code=404,
-            detail="User not found",
+            status_code=400, detail="Either user_id or user details must be provided"
         )
 
     # Check if driver profile already exists
-    result = await db.execute(select(Driver).where(Driver.user_id == driver_in.user_id))
+    result = await db.execute(select(Driver).where(Driver.user_id == user_id))
     if result.scalars().first():
         raise HTTPException(
             status_code=400,
@@ -89,7 +175,7 @@ async def create_driver(
         )
 
     db_obj = Driver(
-        user_id=driver_in.user_id,
+        user_id=user_id,
         vehicle_info=driver_in.vehicle_info,
         biometric_id=driver_in.biometric_id,
         warehouse_id=driver_in.warehouse_id,
