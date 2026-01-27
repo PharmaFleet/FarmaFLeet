@@ -298,10 +298,12 @@ async def import_orders(
         return {"created": created_count, "errors": errors}
 
     except Exception as e:
-        with open("error.log", "w") as f:
-            import traceback
+        import traceback
+        import logging
 
-            traceback.print_exc(file=f)
+        logger = logging.getLogger(__name__)
+        logger.error(f"Import failed: {str(e)}")
+        logger.error(traceback.format_exc())
         raise HTTPException(status_code=400, detail=f"Import failed: {str(e)}")
 
 
