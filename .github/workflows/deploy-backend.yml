@@ -19,7 +19,7 @@ on:
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   REGION: me-central1 # Kuwait region
-  SERVICE_NAME: pharmafleet-api
+  SERVICE_NAME: pharmafleet-backend
 
 jobs:
   deploy:
