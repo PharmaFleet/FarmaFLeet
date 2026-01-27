@@ -61,7 +61,7 @@ jobs:
           docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/pharmafleet/${{ env.SERVICE_NAME }}:latest
 
       - name: Deploy to Cloud Run (Staging)
-        if: github.event.inputs.environment == 'staging' || github.event.inputs.environment == ''
+        if: github.event.inputs.environment == 'staging'
         run: |
           gcloud run deploy ${{ env.SERVICE_NAME }}-staging \
             --image ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/pharmafleet/${{ env.SERVICE_NAME }}:${{ github.sha }} \
@@ -76,7 +76,7 @@ jobs:
             --set-secrets "DATABASE_URL=pharmafleet-db-url-staging:latest,SECRET_KEY=pharmafleet-secret-key:latest"
 
       - name: Deploy to Cloud Run (Production)
-        if: github.event.inputs.environment == 'production'
+        if: github.event.inputs.environment == 'production' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
         run: |
           gcloud run deploy ${{ env.SERVICE_NAME }} \
             --image ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/pharmafleet/${{ env.SERVICE_NAME }}:${{ github.sha }} \
