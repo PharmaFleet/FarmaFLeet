@@ -51,7 +51,7 @@ jobs:
       - name: Build Docker image
         working-directory: backend
         run: |
-          docker build -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/pharmafleet/${{ env.SERVICE_NAME }}:${{ github.sha }} .
+          docker build -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/pharmafleet/${{ env.SERVICE_NAME }}:${{ github.sha }} -f Dockerfile.prod .
           docker tag ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/pharmafleet/${{ env.SERVICE_NAME }}:${{ github.sha }} \
                      ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/pharmafleet/${{ env.SERVICE_NAME }}:latest
 
