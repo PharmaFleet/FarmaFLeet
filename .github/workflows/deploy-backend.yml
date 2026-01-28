@@ -53,20 +53,20 @@ jobs:
       - name: Build Docker image
         working-directory: backend
         run: |
-          docker build -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/pharmafleet/${{ env.SERVICE_NAME }}:${{ github.sha }} -f Dockerfile.prod .
-          docker tag ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/pharmafleet/${{ env.SERVICE_NAME }}:${{ github.sha }} \
-                     ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/pharmafleet/${{ env.SERVICE_NAME }}:latest
+          docker build -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/pharmafleet-repo/${{ env.SERVICE_NAME }}:${{ github.sha }} -f Dockerfile.prod .
+          docker tag ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/pharmafleet-repo/${{ env.SERVICE_NAME }}:${{ github.sha }} \
+                     ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/pharmafleet-repo/${{ env.SERVICE_NAME }}:latest
 
       - name: Push Docker image
         run: |
-          docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/pharmafleet/${{ env.SERVICE_NAME }}:${{ github.sha }}
-          docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/pharmafleet/${{ env.SERVICE_NAME }}:latest
+          docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/pharmafleet-repo/${{ env.SERVICE_NAME }}:${{ github.sha }}
+          docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/pharmafleet-repo/${{ env.SERVICE_NAME }}:latest
 
       - name: Deploy to Cloud Run (Staging)
         if: github.event.inputs.environment == 'staging'
         run: |
           gcloud run deploy ${{ env.SERVICE_NAME }}-staging \
-            --image ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/pharmafleet/${{ env.SERVICE_NAME }}:${{ github.sha }} \
+            --image ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/pharmafleet-repo/${{ env.SERVICE_NAME }}:${{ github.sha }} \
             --region ${{ env.REGION }} \
             --platform managed \
             --allow-unauthenticated \
@@ -81,7 +81,7 @@ jobs:
         if: github.event.inputs.environment == 'production' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
         run: |
           gcloud run deploy ${{ env.SERVICE_NAME }} \
-            --image ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/pharmafleet/${{ env.SERVICE_NAME }}:${{ github.sha }} \
+            --image ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/pharmafleet-repo/${{ env.SERVICE_NAME }}:${{ github.sha }} \
             --region ${{ env.REGION }} \
             --platform managed \
             --allow-unauthenticated \
