@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { LoginPage } from './pages/LoginPage';
 import { OrdersPage } from './pages/OrdersPage';
+import { DashboardPage } from './pages/DashboardPage';
 
 test.describe('Orders Management Flow', () => {
   // Login before each test
@@ -8,7 +9,9 @@ test.describe('Orders Management Flow', () => {
     const loginPage = new LoginPage(page);
     await loginPage.goto();
     await loginPage.login('admin@pharmafleet.com', 'admin123');
-    await page.waitForURL('/');
+    // Wait for Dashboard
+    const dashboard = new DashboardPage(page);
+    await dashboard.expectLoaded();
   });
 
   test('orders page loads with table', async ({ page }) => {
@@ -85,17 +88,17 @@ test.describe('Orders Management Flow', () => {
 
   test('navigation between dashboard and orders works', async ({ page }) => {
     // Start at dashboard
-    await page.goto('/');
+    await page.goto('/#/');
     await expect(page.locator('h2:has-text("Dashboard")')).toBeVisible();
 
     // Navigate to orders via sidebar/nav
-    const ordersLink = page.locator('a[href="/orders"], nav >> text=Orders').first();
+    const ordersLink = page.locator('a[href="#/orders"], nav >> text=Orders').first();
     if (await ordersLink.isVisible()) {
       await ordersLink.click();
-      await expect(page).toHaveURL('/orders');
+      await expect(page).toHaveURL(/.*orders/);
     } else {
       // Direct navigation fallback
-      await page.goto('/orders');
+      await page.goto('/#/orders');
     }
 
     const ordersPage = new OrdersPage(page);

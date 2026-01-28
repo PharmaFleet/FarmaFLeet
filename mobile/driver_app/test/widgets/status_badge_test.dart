@@ -1,8 +1,8 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_test/flutter_test.dart';
-import 'package:driver_app/widgets/status_badge.dart';
 import 'package:driver_app/theme/app_colors.dart';
 import 'package:driver_app/theme/app_spacing.dart';
+import 'package:driver_app/widgets/status_badge.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('StatusBadge', () {
@@ -10,7 +10,7 @@ void main() {
       const testText = 'Active';
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: StatusBadge(
               text: testText,
@@ -33,7 +33,7 @@ void main() {
       const testText = 'Completed';
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: StatusBadge(
               text: testText,
@@ -55,7 +55,7 @@ void main() {
       const testText = 'Failed';
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: StatusBadge(
               text: testText,
@@ -77,7 +77,7 @@ void main() {
       const testText = 'Pending';
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: StatusBadge(
               text: testText,
@@ -99,7 +99,7 @@ void main() {
       const testText = 'Processing';
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: StatusBadge(
               text: testText,
@@ -123,7 +123,7 @@ void main() {
       const customTextColor = Colors.white;
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: StatusBadge(
               text: testText,
@@ -147,7 +147,7 @@ void main() {
       const testIcon = Icons.star;
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: StatusBadge(
               text: testText,
@@ -169,7 +169,7 @@ void main() {
 
       // Test small size
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: StatusBadge(
               text: testText,
@@ -184,7 +184,7 @@ void main() {
 
       // Test medium size
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: StatusBadge(
               text: testText,
@@ -199,7 +199,7 @@ void main() {
 
       // Test large size
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: StatusBadge(
               text: testText,
@@ -217,7 +217,7 @@ void main() {
       const testText = 'Compact';
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: StatusBadge(
               text: testText,
@@ -237,7 +237,7 @@ void main() {
       const customPadding = EdgeInsets.all(16.0);
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: StatusBadge(
               text: testText,
@@ -256,7 +256,7 @@ void main() {
       const semanticLabel = 'Status: Test Badge';
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: StatusBadge(
               text: testText,
@@ -273,7 +273,7 @@ void main() {
       const testText = 'Pulsing';
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: StatusBadge(
               text: testText,
@@ -358,7 +358,7 @@ void main() {
       const longText = 'This is a very long status text that should be truncated';
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: StatusBadge(
               text: longText,

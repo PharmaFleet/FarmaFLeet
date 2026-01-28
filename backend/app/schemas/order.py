@@ -39,7 +39,7 @@ class ProofOfDelivery(ProofOfDeliveryBase):
 
 
 class OrderBase(BaseModel):
-    sales_order_number: str
+    sales_order_number: Optional[str] = None
     customer_info: Dict[str, Any]
     payment_method: str
     total_amount: float
@@ -63,6 +63,7 @@ class OrderInDBBase(OrderBase):
     driver_id: Optional[int] = None
     created_at: datetime
     updated_at: datetime
+    is_archived: bool = False
     model_config = ConfigDict(from_attributes=True)
 
 

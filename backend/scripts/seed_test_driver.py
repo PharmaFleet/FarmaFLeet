@@ -7,7 +7,6 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import select
 
-from app.core.config import settings
 from app.core.security import get_password_hash
 from app.db.base import Base, User, Driver, Warehouse
 from app.models.user import UserRole

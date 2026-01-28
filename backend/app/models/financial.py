@@ -4,10 +4,14 @@ from sqlalchemy import ForeignKey, DateTime, String, Float, Enum as SQLEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base_class import Base
 
+
 class PaymentMethod(str, Enum):
     CASH = "CASH"
+    COD = "COD"
     KNET = "KNET"
+    LINK = "LINK"
     CREDIT_CARD = "CREDIT_CARD"
+
 
 class PaymentCollection(Base):
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
@@ -17,9 +21,11 @@ class PaymentCollection(Base):
     method: Mapped[PaymentMethod] = mapped_column(SQLEnum(PaymentMethod))
     transaction_id: Mapped[str | None] = mapped_column(String, nullable=True)
     collected_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    verified_by_id: Mapped[int | None] = mapped_column(ForeignKey("user.id"), nullable=True)
+    verified_by_id: Mapped[int | None] = mapped_column(
+        ForeignKey("user.id"), nullable=True
+    )
     verified_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    
+
     # Relationships
     order = relationship("Order", back_populates="payment")
     driver = relationship("Driver", back_populates="payments_collected")

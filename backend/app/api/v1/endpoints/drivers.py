@@ -1,4 +1,5 @@
 from typing import Any, List, Optional, Union
+from datetime import datetime, timedelta
 from fastapi import (
     APIRouter,
     Body,
@@ -9,7 +10,7 @@ from fastapi import (
     WebSocketDisconnect,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, desc
+from sqlalchemy import select, func, desc, or_
 from sqlalchemy.orm import selectinload
 from geoalchemy2.elements import WKTElement
 
@@ -18,6 +19,7 @@ from app.models.driver import Driver
 from app.models.user import User
 from app.models.order import Order, OrderStatus
 from app.models.location import DriverLocation
+from app.services.notification import notification_service
 from app.schemas.driver import (
     Driver as DriverSchema,
     DriverCreate,
@@ -43,6 +45,8 @@ async def read_drivers(
     page: int = Query(1, ge=1),
     size: int = Query(10, ge=1),
     active_only: bool = False,
+    status: Optional[str] = None,
+    search: Optional[str] = None,
     warehouse_id: Optional[int] = None,
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
@@ -53,8 +57,23 @@ async def read_drivers(
 
     # Base query for counting and fetching
     base_query = select(Driver)
-    if active_only:
-        base_query = base_query.where(Driver.is_available)
+
+    # Apply search filter if provided
+    if search:
+        base_query = base_query.join(Driver.user, isouter=True).where(
+            or_(
+                User.full_name.ilike(f"%{search}%"),
+                User.email.ilike(f"%{search}%"),
+                Driver.vehicle_info.ilike(f"%{search}%"),
+            )
+        )
+
+    # Status filter logic
+    if active_only or status == "online":
+        base_query = base_query.where(Driver.is_available.is_(True))
+    elif status == "offline":
+        base_query = base_query.where(Driver.is_available.is_(False))
+
     if warehouse_id:
         base_query = base_query.where(Driver.warehouse_id == warehouse_id)
 
@@ -112,7 +131,16 @@ async def read_driver_me_orders(
     if not driver:
         raise HTTPException(status_code=404, detail="Driver profile not found")
 
-    query = select(Order).where(Order.driver_id == driver.id)
+    query = (
+        select(Order)
+        .where(Order.driver_id == driver.id)
+        .options(
+            selectinload(Order.driver),
+            selectinload(Order.warehouse),
+            selectinload(Order.status_history),
+            selectinload(Order.proof_of_delivery),
+        )
+    )
 
     if status_filter:
         query = query.where(Order.status == status_filter)
@@ -120,6 +148,51 @@ async def read_driver_me_orders(
     result = await db.execute(query)
     orders = result.scalars().all()
     return orders
+
+
+@router.patch("/me/status", response_model=DriverSchema)
+async def update_driver_me_status(
+    is_available: bool = Body(..., embed=True),
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+) -> Any:
+    """
+    Update current driver's availability status.
+    """
+    result = await db.execute(
+        select(Driver)
+        .where(Driver.user_id == current_user.id)
+        .options(selectinload(Driver.user), selectinload(Driver.warehouse))
+    )
+    driver = result.scalars().first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver profile not found")
+
+    driver.is_available = is_available
+    if is_available:
+        driver.last_online_at = datetime.utcnow()
+    db.add(driver)
+    await db.commit()
+    await db.refresh(driver)
+    print(
+        f"Driver {driver.id} status updated to {is_available}, last_online_at: {driver.last_online_at}"
+    )
+    return driver
+
+
+@router.post("/me/fcm-token")
+async def update_fcm_token(
+    token: str = Body(..., embed=True),
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+) -> Any:
+    """
+    Update current user's FCM token.
+    """
+    current_user.fcm_token = token
+    db.add(current_user)
+    await db.commit()
+    return {"msg": "FCM token updated successfully"}
 
 
 @router.post("", response_model=DriverSchema)
@@ -187,6 +260,110 @@ async def create_driver(
     return db_obj
 
 
+@router.post("/location", response_model=DriverLocationSchema)
+async def update_location(
+    *,
+    db: AsyncSession = Depends(deps.get_db),
+    location_in: DriverLocationCreate,
+    current_user: User = Depends(deps.get_current_active_user),
+) -> Any:
+    """
+    Update driver location.
+    """
+    # Find driver profile for current user
+    result = await db.execute(select(Driver).where(Driver.user_id == current_user.id))
+    driver = result.scalars().first()
+
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver profile not found")
+
+    # Create point geometry
+    point = f"POINT({location_in.longitude} {location_in.latitude})"
+
+    db_obj = DriverLocation(driver_id=driver.id, location=WKTElement(point, srid=4326))
+    db.add(db_obj)
+
+    # Check for shift limit (12 hours)
+    if driver.is_available and driver.last_online_at:
+        shift_duration = datetime.utcnow() - driver.last_online_at
+        if shift_duration > timedelta(hours=12):
+            # We should probably only notify once or throttle this.
+            # For now, we rely on the mobile app to handle duplicate alerts or user to toggle offline.
+            if current_user.fcm_token:
+                await notification_service.notify_driver_shift_limit(
+                    driver.id, current_user.fcm_token
+                )
+
+    await db.commit()
+    await db.refresh(db_obj)
+    return db_obj
+
+
+@router.get("/locations", response_model=List[dict])
+async def get_driver_locations(
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+) -> Any:
+    """
+    Get latest location of all online drivers.
+    """
+    # This might require a complex query to get latest location per driver
+    subquery = (
+        select(
+            DriverLocation.driver_id, func.max(DriverLocation.timestamp).label("max_ts")
+        )
+        .group_by(DriverLocation.driver_id)
+        .subquery()
+    )
+
+    query_geo = (
+        select(
+            Driver.id,
+            Driver.vehicle_info,
+            func.ST_X(DriverLocation.location).label("lng"),
+            func.ST_Y(DriverLocation.location).label("lat"),
+            DriverLocation.timestamp,
+        )
+        .join(
+            subquery,
+            (DriverLocation.driver_id == subquery.c.driver_id)
+            & (DriverLocation.timestamp == subquery.c.max_ts),
+        )
+        .join(Driver, DriverLocation.driver_id == Driver.id)
+        .where(Driver.is_available)
+    )
+
+    result_geo = await db.execute(query_geo)
+    locations_data = []
+    for row in result_geo:
+        locations_data.append(
+            {
+                "driver_id": row.id,
+                "vehicle_info": row.vehicle_info,
+                "latitude": row.lat,
+                "longitude": row.lng,
+                "timestamp": row.timestamp,
+            }
+        )
+
+    return locations_data
+
+
+@router.get("/{driver_id}", response_model=DriverSchema)
+async def read_driver(
+    driver_id: int,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+) -> Any:
+    """
+    Get driver by ID.
+    """
+    driver = await db.get(Driver, driver_id)
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver not found")
+    return driver
+
+
 @router.put("/{driver_id}", response_model=DriverSchema)
 async def update_driver(
     *,
@@ -228,6 +405,8 @@ async def update_driver_status(
         raise HTTPException(status_code=404, detail="Driver not found")
 
     driver.is_available = is_available
+    if is_available:
+        driver.last_online_at = datetime.utcnow()
     db.add(driver)
     await db.commit()
     await db.refresh(driver)
@@ -254,110 +433,6 @@ async def read_driver_orders(
     return orders
 
 
-@router.post("/location", response_model=DriverLocationSchema)
-async def update_location(
-    *,
-    db: AsyncSession = Depends(deps.get_db),
-    location_in: DriverLocationCreate,
-    current_user: User = Depends(deps.get_current_active_user),
-) -> Any:
-    """
-    Update driver location.
-    """
-    # Find driver profile for current user
-    result = await db.execute(select(Driver).where(Driver.user_id == current_user.id))
-    driver = result.scalars().first()
-
-    if not driver:
-        raise HTTPException(status_code=404, detail="Driver profile not found")
-
-    # Create point geometry
-    point = f"POINT({location_in.longitude} {location_in.latitude})"
-
-    db_obj = DriverLocation(driver_id=driver.id, location=WKTElement(point, srid=4326))
-    db.add(db_obj)
-    await db.commit()
-    await db.refresh(db_obj)
-    return db_obj
-
-
-@router.get("/locations", response_model=List[Any])  # Need a schema for this
-async def get_driver_locations(
-    db: AsyncSession = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_user),
-) -> Any:
-    """
-    Get latest location of all online drivers.
-    """
-    # This might require a complex query to get latest location per driver
-    subquery = (
-        select(
-            DriverLocation.driver_id, func.max(DriverLocation.timestamp).label("max_ts")
-        )
-        .group_by(DriverLocation.driver_id)
-        .subquery()
-    )
-
-    query = (
-        select(DriverLocation, Driver)
-        .join(
-            subquery,
-            (DriverLocation.driver_id == subquery.c.driver_id)
-            & (DriverLocation.timestamp == subquery.c.max_ts),
-        )
-        .join(Driver, DriverLocation.driver_id == Driver.id)
-        .where(Driver.is_available == True)
-    )
-
-    result = await db.execute(query)
-    rows = result.all()
-
-    # Transform to simple format
-    locations = []
-    for loc, drv in rows:
-        # Note: Handling Geometry to lat/lon requires attention.
-        # Ideally, we cast to text in query or use a utility.
-        # For now, simplistic return.
-
-        # We need to extract coordinates from WKB/WKTElement if possible
-        # Or use ST_X, ST_Y functions
-        pass
-        # Placeholder implementation - ideally query should select ST_X and ST_Y
-
-    # Better query:
-    query_geo = (
-        select(
-            Driver.id,
-            Driver.vehicle_info,
-            func.ST_X(DriverLocation.location).label("lng"),
-            func.ST_Y(DriverLocation.location).label("lat"),
-            DriverLocation.timestamp,
-        )
-        .join(
-            subquery,
-            (DriverLocation.driver_id == subquery.c.driver_id)
-            & (DriverLocation.timestamp == subquery.c.max_ts),
-        )
-        .join(Driver, DriverLocation.driver_id == Driver.id)
-        .where(Driver.is_available == True)
-    )
-
-    result_geo = await db.execute(query_geo)
-    locations_data = []
-    for row in result_geo:
-        locations_data.append(
-            {
-                "driver_id": row.id,
-                "vehicle_info": row.vehicle_info,
-                "latitude": row.lat,
-                "longitude": row.lng,
-                "timestamp": row.timestamp,
-            }
-        )
-
-    return locations_data
-
-
 @router.get("/{driver_id}/delivery-history", response_model=List[OrderSchema])
 async def read_driver_delivery_history(
     driver_id: int,
@@ -380,6 +455,12 @@ async def read_driver_delivery_history(
         .order_by(desc(Order.updated_at))
         .offset(skip)
         .limit(limit)
+        .options(
+            selectinload(Order.driver),
+            selectinload(Order.warehouse),
+            selectinload(Order.status_history),
+            selectinload(Order.proof_of_delivery),
+        )
     )
 
     result = await db.execute(query)

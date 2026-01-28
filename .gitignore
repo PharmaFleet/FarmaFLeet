@@ -58,3 +58,9 @@ mobile/pubspec.lock
 .DS_Store
 Thumbs.db
 ~$*
+
+# Temporary/Secret files
+mobile/driver_app/android/keystore_base64.txt
+backend/entered.txt
+backend/pod_error.txt
+backend/progress.txt

@@ -11,6 +11,7 @@ import * as React from "react"
     description?: React.ReactNode
     action?: React.ReactNode
     variant?: "default" | "destructive"
+    duration?: number
   }
   
   let count = 0
@@ -145,6 +146,13 @@ import * as React from "react"
         id,
       },
     })
+
+    // Auto dismiss
+    if (props.duration !== Infinity) {
+        setTimeout(() => {
+            dismiss()
+        }, props.duration || 5000)
+    }
   
     return {
       id: id,

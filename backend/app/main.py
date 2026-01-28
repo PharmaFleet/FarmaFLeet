@@ -1,5 +1,7 @@
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from starlette.middleware.cors import CORSMiddleware
+import os
 
 from app.api.v1.api import api_router
 from app.core.config import settings
@@ -28,9 +30,14 @@ app.add_middleware(RateLimitMiddleware, limit=1000, window=60)
 # CORS Middleware added LAST to be the outermost layer
 if settings.BACKEND_CORS_ORIGINS:
     origins = [str(origin).rstrip("/") for origin in settings.BACKEND_CORS_ORIGINS]
-    # Ensure port 3001 is included for the current user's dev environment
-    if "http://localhost:3001" not in origins:
-        origins.append("http://localhost:3001")
+    # Ensure port 3001, 3000, 5173 are included for dev environment
+    for port in ["3001", "3000", "5173"]:
+        origin = f"http://localhost:{port}"
+        if origin not in origins:
+            origins.append(origin)
+        origin_ip = f"http://127.0.0.1:{port}"
+        if origin_ip not in origins:
+            origins.append(origin_ip)
 
     app.add_middleware(
         CORSMiddleware,
@@ -41,3 +48,10 @@ if settings.BACKEND_CORS_ORIGINS:
     )
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
+
+# Mount static files
+static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
+if not os.path.exists(static_dir):
+    os.makedirs(static_dir)
+
+app.mount("/static", StaticFiles(directory=static_dir), name="static")

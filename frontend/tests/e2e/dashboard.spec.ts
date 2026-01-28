@@ -4,11 +4,15 @@ import { DashboardPage } from './pages/DashboardPage';
 
 test.describe('Dashboard Flow', () => {
   // Login before each test
+  // Login before each test
+  // Login before each test
   test.beforeEach(async ({ page }) => {
     const loginPage = new LoginPage(page);
     await loginPage.goto();
     await loginPage.login('admin@pharmafleet.com', 'admin123');
-    await page.waitForURL('/');
+    // Wait for Dashboard to load to confirm login
+    const dashboard = new DashboardPage(page);
+    await dashboard.expectLoaded();
   });
 
   test('dashboard loads with all stat cards', async ({ page }) => {
@@ -61,9 +65,9 @@ test.describe('Dashboard Flow', () => {
 
     // Wait for potential auto-refresh (30s interval, but we'll just verify the mechanism works)
     // For testing, we'll trigger a refetch by navigating away and back
-    await page.goto('/orders');
+    await page.goto('/#/orders');
     await page.waitForLoadState('networkidle');
-    await page.goto('/');
+    await page.goto('/#/');
     
     await dashboard.expectLoaded();
     await dashboard.expectStatsLoaded();

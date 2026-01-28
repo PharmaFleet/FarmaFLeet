@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 from typing import Any, List, Optional, Dict
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Body
 from pydantic import BaseModel
@@ -11,12 +12,16 @@ from app.api import deps
 from app.models.order import Order, OrderStatus, OrderStatusHistory, ProofOfDelivery
 from app.models.user import User
 from app.models.driver import Driver
+from app.models.warehouse import Warehouse
+from app.models.financial import PaymentCollection
+from geoalchemy2.elements import WKTElement
 from app.schemas.order import (
     Order as OrderSchema,
     OrderCreate,
     ProofOfDeliveryCreate,
 )
 from app.services.excel import excel_service
+from app.services.notification import notification_service
 import pandas as pd
 
 router = APIRouter()
@@ -39,16 +44,23 @@ async def read_orders(
     warehouse_id: Optional[int] = None,
     driver_id: Optional[int] = None,
     search: Optional[str] = None,
+    include_archived: bool = False,
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
     Retrieve orders with pagination.
+    By default, archived orders are excluded. Set include_archived=True to see all orders.
     """
     # Build query
     query = select(Order)
     count_query = select(func.count()).select_from(Order)
 
     filters = []
+
+    # Archive filter - by default, hide archived orders
+    if not include_archived:
+        filters.append(Order.is_archived.is_(False))
+
     if status:
         filters.append(Order.status == status)
     if warehouse_id:
@@ -252,7 +264,34 @@ async def import_orders(
                 amount_raw = row.get("Total amount") or row.get("Amount")
                 total_amount = float(amount_raw) if not pd.isna(amount_raw) else 0.0
 
-                target_wh_id = 1
+                # Extract payment method from Excel - support various column names
+                payment_method_raw = (
+                    row.get("Payment Method")
+                    or row.get("Payment method")
+                    or row.get("payment_method")
+                    or row.get("Payment")
+                    or row.get("Method")
+                )
+                # Clean and normalize payment method, default to CASH if empty
+                payment_method = clean_value(payment_method_raw) or "CASH"
+
+                # Ensure a default warehouse exists
+                wh_stmt = select(Warehouse).limit(1)
+                wh_result = await db.execute(wh_stmt)
+                default_wh = wh_result.scalars().first()
+
+                if not default_wh:
+                    # Create default warehouse if none exists
+                    default_wh = Warehouse(
+                        code="WH-DEFAULT",
+                        name="Main Warehouse",
+                        location=WKTElement("POINT(47.9774 29.3759)", srid=4326),
+                    )
+                    db.add(default_wh)
+                    await db.commit()
+                    await db.refresh(default_wh)
+
+                target_wh_id = default_wh.id
 
                 # If we had warehouse code logic, insert here.
 
@@ -265,7 +304,7 @@ async def import_orders(
                         "area": cust_area,
                     },
                     total_amount=total_amount,
-                    payment_method="CASH",
+                    payment_method=payment_method,
                     warehouse_id=target_wh_id,
                     status=OrderStatus.PENDING,
                 )
@@ -321,7 +360,11 @@ async def assign_order(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    driver = await db.get(Driver, driver_id)
+    stmt = (
+        select(Driver).where(Driver.id == driver_id).options(selectinload(Driver.user))
+    )
+    result = await db.execute(stmt)
+    driver = result.scalars().first()
     if not driver:
         raise HTTPException(status_code=404, detail="Driver not found")
 
@@ -346,6 +389,13 @@ async def assign_order(
         )
     )
     result = await db.execute(query)
+
+    # Notify driver
+    if driver.user.fcm_token:
+        await notification_service.notify_driver_new_orders(
+            db, driver.user_id, 1, driver.user.fcm_token
+        )
+
     return result.scalars().first()
 
 
@@ -376,11 +426,18 @@ async def update_order_status(
         select(Order)
         .where(Order.id == order.id)
         .options(
-            selectinload(Order.status_history), selectinload(Order.proof_of_delivery)
+            selectinload(Order.status_history),
+            selectinload(Order.proof_of_delivery),
+            selectinload(Order.driver).selectinload(Driver.user),
+            selectinload(Order.driver).selectinload(Driver.warehouse),
+            selectinload(Order.warehouse),
         )
     )
     result = await db.execute(query)
-    return result.scalars().first()
+    order_obj = result.scalars().first()
+
+    # Return Pydantic model to avoid lazy loading issues with raw SQLAlchemy object
+    return OrderSchema.model_validate(order_obj)
 
 
 @router.post("/{order_id}/proof-of-delivery")
@@ -393,16 +450,31 @@ async def upload_proof_of_delivery(
     """
     Upload proof of delivery.
     """
-    order = await db.get(Order, order_id)
+    query = (
+        select(Order)
+        .where(Order.id == order_id)
+        .options(
+            selectinload(Order.driver).selectinload(Driver.user),
+            selectinload(Order.proof_of_delivery),
+        )
+    )
+    result = await db.execute(query)
+    order = result.scalars().first()
+
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    pod = ProofOfDelivery(
-        order_id=order.id,
-        signature_url=pod_in.signature_url,
-        photo_url=pod_in.photo_url,
-    )
-    db.add(pod)
+    if order.proof_of_delivery:
+        order.proof_of_delivery.signature_url = pod_in.signature_url
+        order.proof_of_delivery.photo_url = pod_in.photo_url
+        order.proof_of_delivery.timestamp = datetime.utcnow()
+    else:
+        pod = ProofOfDelivery(
+            order_id=order.id,
+            signature_url=pod_in.signature_url,
+            photo_url=pod_in.photo_url,
+        )
+        db.add(pod)
 
     order.status = OrderStatus.DELIVERED
     history = OrderStatusHistory(
@@ -411,6 +483,53 @@ async def upload_proof_of_delivery(
         notes="Proof of delivery uploaded",
     )
     db.add(history)
+
+    await db.commit()
+
+    # Re-fetch order with relationships to avoid async lazy load errors during notification
+    query = (
+        select(Order)
+        .where(Order.id == order.id)
+        .options(
+            selectinload(Order.driver).selectinload(Driver.user),
+        )
+    )
+    result = await db.execute(query)
+    order = result.scalars().first()
+
+    # Trigger notifications
+    if order.driver and order.driver.user and order.driver.user.fcm_token:
+        # Delivery notification
+        await notification_service.notify_driver_order_delivered(
+            db, order.driver.user_id, order.id, order.driver.user.fcm_token
+        )
+
+        # Payment collection notification (Cash/COD)
+        # Also auto-create PaymentCollection record for tracking
+        if (
+            order.payment_method
+            and order.payment_method.upper() in ["CASH", "COD"]
+            and order.total_amount > 0
+        ):
+            # Create pending payment collection
+            payment = PaymentCollection(
+                order_id=order.id,
+                driver_id=order.driver_id,
+                amount=order.total_amount,
+                method=order.payment_method,
+                created_at=datetime.utcnow(),
+                collected_at=datetime.utcnow(),
+            )
+            db.add(payment)
+            # Note: We commit below with the order update, or we can add it to the same transaction
+
+            await notification_service.notify_driver_payment_collected(
+                db,
+                order.driver.user_id,
+                order.id,
+                order.total_amount,
+                order.driver.user.fcm_token,
+            )
 
     await db.commit()
     return {"msg": "Proof of delivery uploaded successfully"}
@@ -474,6 +593,8 @@ async def batch_assign_orders(
     Batch assign orders.
     """
     count = 0
+    driver_notifications = {}  # driver_id -> {token: str, count: int}
+
     for assign in assignments:
         order_id = assign.get("order_id")
         driver_id = assign.get("driver_id")
@@ -481,7 +602,14 @@ async def batch_assign_orders(
             continue
 
         order = await db.get(Order, order_id)
-        driver = await db.get(Driver, driver_id)
+        # Load driver with user for token
+        drv_stmt = (
+            select(Driver)
+            .where(Driver.id == driver_id)
+            .options(selectinload(Driver.user))
+        )
+        drv_res = await db.execute(drv_stmt)
+        driver = drv_res.scalars().first()
 
         if order and driver:
             order.driver_id = driver.id
@@ -495,7 +623,25 @@ async def batch_assign_orders(
             db.add(order)
             count += 1
 
+            # Store for notification
+            if driver.user.fcm_token:
+                if driver_id not in driver_notifications:
+                    driver_notifications[driver_id] = {
+                        "token": driver.user.fcm_token,
+                        "user_id": driver.user_id,
+                        "count": 0,
+                    }
+                driver_notifications[driver_id]["count"] += 1
+
     await db.commit()
+
+    # Send notifications
+    for drv_id, data in driver_notifications.items():
+        if data["count"] > 0:
+            await notification_service.notify_driver_new_orders(
+                db, data["user_id"], data["count"], data["token"]
+            )
+
     return {"assigned": count}
 
 
@@ -551,3 +697,135 @@ async def reject_order(
     db.add(order)
     await db.commit()
     return {"msg": "Order rejected"}
+
+
+@router.post("/{order_id}/cancel")
+async def cancel_order(
+    order_id: int,
+    reason: Optional[str] = Body(None),
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+) -> Any:
+    """
+    Cancel an order (soft cancellation - changes status to CANCELLED).
+    """
+    order = await db.get(Order, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    if order.status == OrderStatus.DELIVERED:
+        raise HTTPException(status_code=400, detail="Cannot cancel a delivered order")
+
+    order.status = OrderStatus.CANCELLED
+
+    history = OrderStatusHistory(
+        order_id=order.id,
+        status=OrderStatus.CANCELLED,
+        notes=f"Cancelled: {reason}" if reason else "Order cancelled",
+    )
+    db.add(history)
+    db.add(order)
+    await db.commit()
+    return {"msg": "Order cancelled successfully"}
+
+
+@router.delete("/{order_id}")
+async def delete_order(
+    order_id: int,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+) -> Any:
+    """
+    Permanently delete an order (hard deletion).
+    Admin only - removes order and all related data (history, POD).
+    """
+    # Check admin role
+    if current_user.role not in ["admin", "super_admin"]:
+        raise HTTPException(
+            status_code=403, detail="Only administrators can permanently delete orders"
+        )
+
+    order = await db.get(Order, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    # Delete related records first (cascade handles this but being explicit)
+    await db.delete(order)
+    await db.commit()
+
+    return {"msg": f"Order {order_id} permanently deleted"}
+
+
+@router.post("/{order_id}/archive")
+async def archive_order(
+    order_id: int,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+) -> Any:
+    """
+    Archive an order (hide from default view).
+    """
+    order = await db.get(Order, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    order.is_archived = True
+    db.add(order)
+    await db.commit()
+    return {"msg": f"Order {order_id} archived"}
+
+
+@router.post("/{order_id}/unarchive")
+async def unarchive_order(
+    order_id: int,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+) -> Any:
+    """
+    Unarchive an order (restore to active view).
+    """
+    order = await db.get(Order, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    order.is_archived = False
+    db.add(order)
+    await db.commit()
+    return {"msg": f"Order {order_id} restored from archive"}
+
+
+@router.post("/auto-archive")
+async def auto_archive_orders(
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+) -> Any:
+    """
+    Auto-archive delivered orders older than 7 days.
+    This endpoint is designed to be called by a daily cron job.
+    Admin only.
+    """
+    if current_user.role not in ["admin", "super_admin"]:
+        raise HTTPException(
+            status_code=403, detail="Only administrators can run auto-archive"
+        )
+
+    cutoff_date = datetime.utcnow() - timedelta(days=7)
+
+    # Find delivered orders older than 7 days that aren't archived yet
+    stmt = (
+        select(Order)
+        .where(Order.status == OrderStatus.DELIVERED)
+        .where(Order.updated_at < cutoff_date)
+        .where(Order.is_archived.is_(False))
+    )
+    result = await db.execute(stmt)
+    orders_to_archive = result.scalars().all()
+
+    archived_count = 0
+    for order in orders_to_archive:
+        order.is_archived = True
+        db.add(order)
+        archived_count += 1
+
+    await db.commit()
+    return {"msg": f"Archived {archived_count} orders"}

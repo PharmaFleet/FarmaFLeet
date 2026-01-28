@@ -9,6 +9,7 @@ class UserBase(BaseModel):
     is_superuser: bool = False
     full_name: Optional[str] = None
     role: Optional[str] = None
+    fcm_token: Optional[str] = None
 
 
 # Properties to receive via API on creation

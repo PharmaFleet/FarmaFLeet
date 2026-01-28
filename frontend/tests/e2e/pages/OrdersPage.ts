@@ -18,7 +18,7 @@ export class OrdersPage {
   constructor(page: Page) {
     this.page = page;
     this.heading = page.locator('h2:has-text("Orders")');
-    this.searchInput = page.locator('input[placeholder*="Search"]');
+    this.searchInput = page.locator('input[placeholder="Search orders, customers, phone..."]');
     this.ordersTable = page.locator('table');
     this.orderRows = page.locator('table tbody tr');
     this.importButton = page.locator('button:has-text("Import")');
@@ -28,7 +28,7 @@ export class OrdersPage {
   }
 
   async goto() {
-    await this.page.goto('/orders');
+    await this.page.goto('/#/orders');
   }
 
   async expectLoaded() {

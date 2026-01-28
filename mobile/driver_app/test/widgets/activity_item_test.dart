@@ -1,9 +1,9 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_test/flutter_test.dart';
-import 'package:driver_app/widgets/activity_item.dart';
-import 'package:driver_app/widgets/status_badge.dart';
 import 'package:driver_app/theme/app_colors.dart';
 import 'package:driver_app/theme/app_spacing.dart';
+import 'package:driver_app/widgets/activity_item.dart';
+import 'package:driver_app/widgets/status_badge.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('ActivityItem', () {
@@ -13,7 +13,7 @@ void main() {
       const testIcon = Icons.notifications;
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: ActivityItem(
               title: testTitle,
@@ -37,7 +37,7 @@ void main() {
       const testIcon = Icons.check_circle;
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: ActivityItem(
               title: testTitle,
@@ -59,7 +59,7 @@ void main() {
       const testStatus = 'Completed';
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: ActivityItem(
               title: testTitle,
@@ -81,7 +81,7 @@ void main() {
 
       // Test order type
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: ActivityItem(
               title: testTitle,
@@ -98,7 +98,7 @@ void main() {
 
       // Test payment type
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: ActivityItem(
               title: testTitle,
@@ -115,7 +115,7 @@ void main() {
 
       // Test driver type
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: ActivityItem(
               title: testTitle,
@@ -132,7 +132,7 @@ void main() {
 
       // Test delivery type
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: ActivityItem(
               title: testTitle,
@@ -177,7 +177,7 @@ void main() {
       const testIcon = Icons.compress;
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: ActivityItem(
               title: testTitle,
@@ -205,7 +205,7 @@ void main() {
       const testAmount = '\$45.67';
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: ActivityItem(
               title: testTitle,
@@ -227,7 +227,7 @@ void main() {
 
       // Test with divider (default)
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: ActivityItem(
               title: testTitle,
@@ -243,7 +243,7 @@ void main() {
 
       // Test without divider
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: ActivityItem(
               title: testTitle,
@@ -265,7 +265,7 @@ void main() {
 
       // Test with timestamp (default)
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: ActivityItem(
               title: testTitle,
@@ -282,7 +282,7 @@ void main() {
 
       // Test without timestamp
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: ActivityItem(
               title: testTitle,
@@ -305,7 +305,7 @@ void main() {
       const customColor = Colors.purple;
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: ActivityItem(
               title: testTitle,
@@ -328,7 +328,7 @@ void main() {
       const semanticLabel = 'Activity notification';
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: ActivityItem(
               title: testTitle,
@@ -349,7 +349,7 @@ void main() {
       const testIcon = Icons.title;
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: ActivityItem(
               title: longTitle,
@@ -372,7 +372,7 @@ void main() {
       const testIcon = Icons.description;
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: ActivityItem(
               title: testTitle,
@@ -399,7 +399,7 @@ void main() {
       const testAmount = 45.67;
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: OrderActivityItem(
               orderId: testOrderId,
@@ -425,7 +425,7 @@ void main() {
 
       // Test delivered status
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: OrderActivityItem(
               orderId: testOrderId,
@@ -441,7 +441,7 @@ void main() {
 
       // Test cancelled status
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: OrderActivityItem(
               orderId: testOrderId,
@@ -457,7 +457,7 @@ void main() {
 
       // Test processing status
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: OrderActivityItem(
               orderId: testOrderId,
@@ -482,7 +482,7 @@ void main() {
       const testTimestamp = '15 minutes ago';
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: PaymentActivityItem(
               amount: testAmount,
@@ -508,7 +508,7 @@ void main() {
 
       // Test completed status
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: PaymentActivityItem(
               amount: testAmount,
@@ -524,7 +524,7 @@ void main() {
 
       // Test failed status
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: PaymentActivityItem(
               amount: testAmount,
@@ -540,7 +540,7 @@ void main() {
 
       // Test pending status
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: PaymentActivityItem(
               amount: testAmount,
@@ -564,7 +564,7 @@ void main() {
       const testStatus = 'Active';
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: DriverActivityItem(
               driverName: testDriverName,

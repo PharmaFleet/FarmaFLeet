@@ -31,8 +31,19 @@ jobs:
       run:
         working-directory: mobile/driver_app
 
+    permissions:
+      contents: read
+      id-token: write
+
     steps:
       - uses: actions/checkout@v4
+
+      # Authenticate to GCP using Workload Identity
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -90,29 +101,19 @@ jobs:
       # Firebase App Distribution
       - name: Deploy to Firebase (Internal)
         if: github.event.inputs.distribution == 'internal' || github.event.inputs.distribution == ''
-        uses: wzieba/Firebase-Distribution-Github-Action@v1
-        with:
-          appId: ${{ secrets.FIREBASE_APP_ID }}
-          serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          groups: internal-testers
-          file: mobile/driver_app/build/app/outputs/flutter-apk/app-release.apk
-          releaseNotes: |
-            Build: ${{ github.run_number }}
-            Commit: ${{ github.sha }}
-            Branch: ${{ github.ref_name }}
+        run: |
+          firebase appdistribution:distribute build/app/outputs/flutter-apk/app-release.apk \
+            --app ${{ secrets.FIREBASE_APP_ID }} \
+            --groups "internal-testers" \
+            --release-notes "Build: ${{ github.run_number }} | Commit: ${{ github.sha }} | Branch: ${{ github.ref_name }}"
 
       - name: Deploy to Firebase (Beta)
         if: github.event.inputs.distribution == 'beta'
-        uses: wzieba/Firebase-Distribution-Github-Action@v1
-        with:
-          appId: ${{ secrets.FIREBASE_APP_ID }}
-          serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          groups: beta-testers
-          file: mobile/driver_app/build/app/outputs/flutter-apk/app-release.apk
-          releaseNotes: |
-            🚀 Beta Release
-            Build: ${{ github.run_number }}
-            Commit: ${{ github.sha }}
+        run: |
+          firebase appdistribution:distribute build/app/outputs/flutter-apk/app-release.apk \
+            --app ${{ secrets.FIREBASE_APP_ID }} \
+            --groups "beta-testers" \
+            --release-notes "🚀 Beta Release | Build: ${{ github.run_number }} | Commit: ${{ github.sha }}"
 
       - name: Deploy to Firebase (Production - All Drivers)
         if: github.event.inputs.distribution == 'production' || startsWith(github.ref, 'refs/tags/v')

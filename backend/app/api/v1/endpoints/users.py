@@ -25,7 +25,9 @@ async def read_users(
     page: int = Query(1, ge=1),
     size: int = Query(10, ge=1),
     search: Optional[str] = None,
-    current_user: User = Depends(deps.get_current_active_superuser),
+    current_user: User = Depends(
+        deps.requires_role(["admin", "super_admin", "warehouse_manager"])
+    ),
 ) -> Any:
     """
     Retrieve users with pagination and search.
@@ -96,6 +98,7 @@ async def update_user_me(
     password: str = Body(None),
     full_name: str = Body(None),
     email: str = Body(None),
+    fcm_token: str = Body(None),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
@@ -110,6 +113,8 @@ async def update_user_me(
         current_user.full_name = full_name
     if email:
         current_user.email = email
+    if fcm_token:
+        current_user.fcm_token = fcm_token
 
     db.add(current_user)
     await db.commit()

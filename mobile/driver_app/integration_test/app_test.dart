@@ -1,7 +1,7 @@
+import 'package:driver_app/main.dart' as app;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:driver_app/main.dart' as app;
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -9,7 +9,7 @@ void main() {
   testWidgets('Full App E2E Test', (tester) async {
     print('Starting E2E Test...');
     // Start the app
-    await app.main();
+    app.main();
     await tester.pumpAndSettle();
 
     // Helper to wait while loading

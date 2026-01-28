@@ -1,9 +1,9 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_test/flutter_test.dart';
+import 'package:driver_app/theme/app_colors.dart';
+import 'package:driver_app/widgets/app_button.dart';
 import 'package:driver_app/widgets/order_card.dart';
 import 'package:driver_app/widgets/status_badge.dart';
-import 'package:driver_app/widgets/app_button.dart';
-import 'package:driver_app/theme/app_colors.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('OrderCard', () {
@@ -15,7 +15,7 @@ void main() {
 
     testWidgets('displays order information correctly', (tester) async {
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: OrderCard(
               orderId: defaultOrderId,
@@ -41,7 +41,7 @@ void main() {
 
     testWidgets('displays priority indicator when not normal', (tester) async {
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: OrderCard(
               orderId: defaultOrderId,
@@ -62,7 +62,7 @@ void main() {
 
     testWidgets('displays customer avatar when enabled', (tester) async {
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: OrderCard(
               orderId: defaultOrderId,
@@ -84,7 +84,7 @@ void main() {
       const customerPhone = '+1 555-123-4567';
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: OrderCard(
               orderId: defaultOrderId,
@@ -105,7 +105,7 @@ void main() {
       const orderDate = 'Jan 24, 2024';
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: OrderCard(
               orderId: defaultOrderId,
@@ -127,7 +127,7 @@ void main() {
       const itemCount = 5;
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: OrderCard(
               orderId: defaultOrderId,
@@ -149,7 +149,7 @@ void main() {
       const instructions = 'Please deliver to back door';
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: OrderCard(
               orderId: defaultOrderId,
@@ -170,7 +170,7 @@ void main() {
     testWidgets('shows correct actions based on status', (tester) async {
       // Test pending status
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: OrderCard(
               orderId: defaultOrderId,
@@ -190,7 +190,7 @@ void main() {
 
       // Test accepted status
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: OrderCard(
               orderId: defaultOrderId,
@@ -260,7 +260,7 @@ void main() {
 
     testWidgets('displays loading state correctly', (tester) async {
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: OrderCard(
               orderId: defaultOrderId,
@@ -285,7 +285,7 @@ void main() {
 
     testWidgets('hides actions when showActions is false', (tester) async {
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: OrderCard(
               orderId: defaultOrderId,
@@ -305,7 +305,7 @@ void main() {
     testWidgets('applies different priority levels', (tester) async {
       // Test urgent priority
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: OrderCard(
               orderId: defaultOrderId,
@@ -325,7 +325,7 @@ void main() {
 
       // Test high priority
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: OrderCard(
               orderId: defaultOrderId,
@@ -345,7 +345,7 @@ void main() {
 
       // Test low priority
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: OrderCard(
               orderId: defaultOrderId,
@@ -368,7 +368,7 @@ void main() {
       const semanticLabel = 'Order Card';
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: OrderCard(
               orderId: defaultOrderId,
@@ -388,7 +388,7 @@ void main() {
     testWidgets('shows/hides bottom divider', (tester) async {
       // Test with divider (default)
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: OrderCard(
               orderId: defaultOrderId,
@@ -406,7 +406,7 @@ void main() {
 
       // Test without divider
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: OrderCard(
               orderId: defaultOrderId,
@@ -428,7 +428,7 @@ void main() {
           '123 Very Long Street Name That Should Be Truncated, Very Long City Name, Very Long State Name With Long Zip Code';
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: OrderCard(
               orderId: defaultOrderId,

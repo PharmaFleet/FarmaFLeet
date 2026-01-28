@@ -44,7 +44,8 @@ export class DashboardPage {
   }
 
   async getStatValue(cardLocator: Locator): Promise<string> {
-    const valueElement = cardLocator.locator('.text-2xl');
+    const valueElement = cardLocator.locator('.text-3xl');
+    await valueElement.waitFor({ state: 'visible' });
     return await valueElement.textContent() || '';
   }
 }

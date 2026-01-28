@@ -28,12 +28,16 @@ export interface Warehouse {
 }
 
 export enum OrderStatus {
-  PENDING = "PENDING",
-  ASSIGNED = "ASSIGNED",
-  OUT_FOR_DELIVERY = "OUT_FOR_DELIVERY",
-  DELIVERED = "DELIVERED",
-  FAILED = "FAILED",
-  CANCELLED = "CANCELLED",
+  PENDING = "pending",
+  ASSIGNED = "assigned",
+  PICKED_UP = "picked_up",
+  IN_TRANSIT = "in_transit",
+  OUT_FOR_DELIVERY = "out_for_delivery",
+  DELIVERED = "delivered",
+  REJECTED = "rejected",
+  RETURNED = "returned",
+  CANCELLED = "cancelled",
+  FAILED = "failed",
 }
 
 export interface OrderStatusHistory {

@@ -1,7 +1,7 @@
+import 'package:driver_app/theme/app_colors.dart';
+import 'package:driver_app/widgets/app_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:driver_app/widgets/app_button.dart';
-import 'package:driver_app/theme/app_colors.dart';
 
 void main() {
   group('AppButton', () {
@@ -319,7 +319,7 @@ void main() {
       const testText = 'Disabled';
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: AppButton(
               text: testText,

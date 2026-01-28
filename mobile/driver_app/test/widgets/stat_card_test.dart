@@ -1,7 +1,7 @@
+import 'package:driver_app/theme/app_colors.dart';
+import 'package:driver_app/widgets/stat_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:driver_app/widgets/stat_card.dart';
-import 'package:driver_app/theme/app_colors.dart';
 
 void main() {
   group('StatCard', () {
@@ -11,7 +11,7 @@ void main() {
       const testDescription = '+12% from last month';
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: StatCard(
               title: testTitle,
@@ -34,7 +34,7 @@ void main() {
       const testValue = '\$45,678';
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: StatCard(
               title: testTitle,
@@ -55,7 +55,7 @@ void main() {
       const testValue = '567';
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: StatCard(
               title: testTitle,
@@ -76,7 +76,7 @@ void main() {
       const testValue = '---';
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: StatCard(title: testTitle, value: testValue, isLoading: true),
           ),
@@ -122,7 +122,7 @@ void main() {
       const trend = '+15%';
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: StatCard(
               title: testTitle,
@@ -148,7 +148,7 @@ void main() {
 
       // Test up trend
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: StatCard(
               title: testTitle,
@@ -166,7 +166,7 @@ void main() {
 
       // Test down trend
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: StatCard(
               title: testTitle,
@@ -184,7 +184,7 @@ void main() {
 
       // Test neutral trend
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: StatCard(
               title: testTitle,
@@ -207,7 +207,7 @@ void main() {
       const footerText = 'View Details';
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: StatCard(
               title: testTitle,
@@ -235,7 +235,7 @@ void main() {
       const semanticLabel = 'Orders Status: 50 this week';
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: StatCard(
               title: testTitle,
@@ -256,7 +256,7 @@ void main() {
       const bgColor = Colors.amber;
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: StatCard(
               title: testTitle,
@@ -281,7 +281,7 @@ void main() {
       const testDescription = 'Q1 2024';
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: FinancialStatCard(
               title: testTitle,
@@ -331,7 +331,7 @@ void main() {
 
       // Test positive change
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: FinancialStatCard(
               title: testTitle,
@@ -348,7 +348,7 @@ void main() {
 
       // Test negative change
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: FinancialStatCard(
               title: testTitle,
@@ -373,7 +373,7 @@ void main() {
       const testIcon = Icons.people;
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: CountStatCard(
               title: testTitle,
@@ -430,7 +430,7 @@ void main() {
 
       // Test positive change
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: CountStatCard(
               title: testTitle,
@@ -449,7 +449,7 @@ void main() {
 
       // Test negative change
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: CountStatCard(
               title: testTitle,

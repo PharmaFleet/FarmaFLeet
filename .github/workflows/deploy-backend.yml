@@ -17,7 +17,6 @@ on:
           - production
 
 env:
-  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   REGION: me-central1 # Kuwait region
   SERVICE_NAME: pharmafleet-backend
 
@@ -26,6 +25,9 @@ jobs:
     name: Build and Deploy
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment || 'staging' }}
+
+    env:
+      PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
 
     permissions:
       contents: read

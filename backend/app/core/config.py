@@ -21,10 +21,15 @@ class Settings(BaseSettings):
     # Redis
     REDIS_URL: str = "redis://redis:6379/0"
 
-    # CORS
+    # CORS - Include all operational domains
     BACKEND_CORS_ORIGINS: List[str] | str = [
         "http://localhost:3000",
         "http://localhost:3001",
+        "https://dashboard.pharmafleet.com",
+        "https://staging.dashboard.pharmafleet.com",
+        "https://storage.googleapis.com",
+        "https://pharmafleet-dashboard.storage.googleapis.com",
+        "https://pharmafleet-dashboard-staging.storage.googleapis.com",
     ]
 
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")

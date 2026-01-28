@@ -116,10 +116,33 @@ To start the entire stack (Backend + Database + Redis) using Docker:
 docker-compose up -d --build
 ```
 
+## 🧪 Testing
+
+The project includes a comprehensive testing suite for both backend and frontend.
+
+### Frontend E2E (Playwright)
+
+```bash
+cd frontend
+npx playwright test
+```
+
+_Note: Our Playwright tests are optimized for HashRouter and multi-browser compatibility (Chromium, Firefox, WebKit)._
+
+### Backend Tests (Pytest)
+
+```bash
+cd backend
+pytest
+```
+
+For more details on testing strategies, HashRouter patterns, and environment setup, see the **[Testing Guide](docs/TESTING.md)**.
+
 ## 📖 Documentation
 
 - **[Product Requirements (PRD)](prd.md):** Detailed breakdown of features and user stories.
 - **[Development Plan](plan.md):** Project milestones and task tracking.
+- **[Testing Guide](docs/TESTING.md):** E2E and Backend testing best practices.
 - **[API Reference](docs/API_REFERENCE.md):** Complete endpoint documentation.
 - **[Database Schema](docs/database/ERD.md):** Entity Relationship Diagram.
 - **[Architecture Overview](docs/ARCHITECTURE.md):** System design and tech stack.

@@ -6,15 +6,18 @@ export interface Payment {
     order_id: number;
     amount: number;
     method: 'CASH' | 'KNET' | 'CREDIT_CARD';
-    status: 'PENDING' | 'COMPLETED' | 'FAILED';
+    status: 'PENDING' | 'COMPLETED' | 'FAILED'; // Inferred from verified_at usually
     transaction_id?: string;
-    created_at: string;
-    collected_by?: number; // driver_id
+    collected_at: string;
+    created_at?: string; // Fallback
+    driver_id: number;
+    driver_name?: string;
+    verified_at?: string;
 }
 
 export const paymentService = {
   getAll: async (params?: any): Promise<PaginatedResponse<Payment>> => {
-    const response = await api.get('/payments/pending', { params });
+    const response = await api.get('/payments', { params });
     return handlePaginatedResponse<Payment>(response.data);
   },
 
@@ -32,5 +35,10 @@ export const paymentService = {
       document.body.appendChild(link);
       link.click();
       link.remove();
+  },
+
+  verify: async (id: number) => {
+      const response = await api.post(`/payments/${id}/clear`);
+      return response.data;
   }
 };

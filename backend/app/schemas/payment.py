@@ -23,6 +23,7 @@ class PaymentCollectionInDBBase(PaymentCollectionBase):
     id: int
     order_id: int
     driver_id: int
+    driver_name: Optional[str] = None
     collected_at: datetime
     verified_by_id: Optional[int] = None
     verified_at: Optional[datetime] = None

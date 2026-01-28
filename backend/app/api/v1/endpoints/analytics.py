@@ -1,7 +1,7 @@
-from typing import Any, List, Dict
+from typing import Any
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, case
+from sqlalchemy import select, func, case, desc, literal
 
 from app.api import deps
 from app.models.driver import Driver
@@ -11,6 +11,87 @@ from app.models.user import User
 from app.models.financial import PaymentCollection
 
 router = APIRouter()
+
+
+@router.get("/activities")
+async def get_recent_activities(
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+    limit: int = 10,
+) -> Any:
+    """
+    Get recent system activities (Delivered orders, Payments).
+    """
+    # 1. Recent Delivered Orders
+    orders_query = (
+        select(
+            Order.id,
+            literal("order_delivered").label("type"),
+            Order.updated_at.label("created_at"),
+            Order.id.label("ref_id"),
+        )
+        .where(Order.status == OrderStatus.DELIVERED)
+        .order_by(desc(Order.updated_at))
+        .limit(limit)
+    )
+
+    # 2. Recent Payments
+    payments_query = (
+        select(
+            PaymentCollection.id,
+            literal("payment_collected").label("type"),
+            PaymentCollection.collected_at.label("created_at"),
+            PaymentCollection.order_id.label("ref_id"),
+        )
+        .order_by(desc(PaymentCollection.collected_at))
+        .limit(limit)
+    )
+
+    # Combine? Union is tricky with different tables.
+    # Let's simple fetch top N of each and merge in python.
+
+    # Fetch orders
+    res_o = await db.execute(orders_query)
+    activities = []
+    for row in res_o:
+        activities.append(
+            {
+                "id": f"ord_{row.id}",
+                "title": f"Order #{row.id} Delivered",
+                "body": f"Order #{row.id} was successfully delivered.",
+                "created_at": row.created_at,
+                "data": {"type": "order_delivered", "id": row.id},
+            }
+        )
+
+    # Fetch payments
+    res_p = await db.execute(payments_query)
+    for row in res_p:
+        activities.append(
+            {
+                "id": f"pay_{row.id}",
+                "title": "Payment Collected",
+                "body": f"Payment collected for Order #{row.ref_id}",
+                "created_at": row.created_at,
+                "data": {"type": "payment_collected", "id": row.id},
+            }
+        )
+
+    # Sort and slice
+    # Handle None dates safely by defaulting to min datetime
+    from datetime import datetime
+
+    def safe_date(d):
+        return d if d else datetime.min
+
+    try:
+        activities.sort(key=lambda x: safe_date(x["created_at"]), reverse=True)
+    except Exception as e:
+        print(f"Error sorting activities: {e}")
+        # Return unsorted as fallback
+        pass
+
+    return activities[:limit]
 
 
 @router.get("/executive-dashboard")
@@ -40,7 +121,7 @@ async def executive_dashboard(
 
     # Active Drivers
     online_drivers = await db.scalar(
-        select(func.count(Driver.id)).where(Driver.is_available == True)
+        select(func.count(Driver.id)).where(Driver.is_available)
     )
 
     # Revenue & Success Rate (Today's)
@@ -59,7 +140,7 @@ async def executive_dashboard(
     pay_query = select(
         func.count(PaymentCollection.id).label("count"),
         func.sum(PaymentCollection.amount).label("amount"),
-    ).where(PaymentCollection.verified_at == None)
+    ).where(PaymentCollection.verified_at.is_(None))
     pay_res = await db.execute(pay_query)
     pay_data = pay_res.one()
 
@@ -99,9 +180,7 @@ async def active_drivers(
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """Get count of active (online) drivers."""
-    count = await db.scalar(
-        select(func.count(Driver.id)).where(Driver.is_available == True)
-    )
+    count = await db.scalar(select(func.count(Driver.id)).where(Driver.is_available))
     return {"count": count or 0}
 
 

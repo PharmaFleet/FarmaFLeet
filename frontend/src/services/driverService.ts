@@ -9,7 +9,7 @@ getAll: async (params?: any): Promise<PaginatedResponse<Driver>> => {
 
   getAllOnline: async (): Promise<Driver[]> => {
     // For prototype, any available driver is considered online
-    const response = await api.get('/drivers', { params: { is_available: true } });
+    const response = await api.get('/drivers', { params: { active_only: true, size: 100 } });
     const data = response.data;
     return Array.isArray(data) ? data : (data.items || []);
   },
@@ -31,6 +31,11 @@ getAll: async (params?: any): Promise<PaginatedResponse<Driver>> => {
 
   updateStatus: async (id: number, is_available: boolean): Promise<Driver> => {
       const response = await api.patch(`/drivers/${id}/status`, { is_available });
+      return response.data;
+  },
+
+  getLocations: async (): Promise<any[]> => {
+      const response = await api.get('/drivers/locations');
       return response.data;
   }
 };

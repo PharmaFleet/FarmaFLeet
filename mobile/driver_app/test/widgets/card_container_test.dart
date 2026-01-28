@@ -1,8 +1,8 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_test/flutter_test.dart';
-import 'package:driver_app/widgets/card_container.dart';
 import 'package:driver_app/theme/app_colors.dart';
 import 'package:driver_app/theme/app_spacing.dart';
+import 'package:driver_app/widgets/card_container.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('CardContainer', () {
@@ -10,7 +10,7 @@ void main() {
       const testChild = Text('Test Content');
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: CardContainer(
               child: testChild,
@@ -34,7 +34,7 @@ void main() {
       const testChild = Text('Test Content');
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: CardContainer(
               padding: customPadding,
@@ -53,7 +53,7 @@ void main() {
       const testChild = Text('Test Content');
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: CardContainer(
               margin: customMargin,
@@ -71,7 +71,7 @@ void main() {
       const testChild = Text('Test Content');
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: CardContainer(
               backgroundColor: AppColors.primary,
@@ -90,7 +90,7 @@ void main() {
       const testChild = Text('Test Content');
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: CardContainer(
               borderRadius: AppSpacing.radiusXL,
@@ -130,7 +130,7 @@ void main() {
       const elevation = 8.0;
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: CardContainer(
               elevation: elevation,
@@ -152,7 +152,7 @@ void main() {
       const testChild = Text('Test Content');
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: CardContainer(
               showShadow: false,
@@ -192,7 +192,7 @@ void main() {
       const semanticLabel = 'Card Description';
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: CardContainer(
               semanticLabel: semanticLabel,
@@ -211,7 +211,7 @@ void main() {
       const height = 100.0;
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: CardContainer(
               width: width,
@@ -233,7 +233,7 @@ void main() {
       const testChild = Text('Test Content');
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: BorderedCardContainer(
               child: testChild,
@@ -257,7 +257,7 @@ void main() {
       const borderWidth = 3.0;
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: BorderedCardContainer(
               borderColor: borderColor,
@@ -280,7 +280,7 @@ void main() {
       const testChild = Text('Test Content');
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: HighlightedCardContainer(
               child: testChild,

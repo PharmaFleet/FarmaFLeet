@@ -43,5 +43,25 @@ export const orderService = {
         }
       });
       return response.data;
+  },
+
+  cancelOrder: async (orderId: number, reason?: string) => {
+    const response = await api.post(`/orders/${orderId}/cancel`, { reason: reason || null });
+    return response.data;
+  },
+
+  deleteOrder: async (orderId: number) => {
+    const response = await api.delete(`/orders/${orderId}`);
+    return response.data;
+  },
+
+  archiveOrder: async (orderId: number) => {
+    const response = await api.post(`/orders/${orderId}/archive`);
+    return response.data;
+  },
+
+  unarchiveOrder: async (orderId: number) => {
+    const response = await api.post(`/orders/${orderId}/unarchive`);
+    return response.data;
   }
 };

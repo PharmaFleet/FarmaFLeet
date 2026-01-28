@@ -1,18 +1,104 @@
 from typing import Any, List, Optional
-from fastapi import APIRouter, Body, Depends, HTTPException
+import math
+import io
+from datetime import datetime
+import pandas as pd  # type: ignore
+
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_, cast, String
 
 from app.api import deps
-from app.models.financial import PaymentCollection, PaymentMethod
+from app.models.financial import PaymentCollection
 from app.models.order import Order
 from app.models.user import User
+from app.models.driver import Driver
 from app.schemas.payment import (
     PaymentCollection as PaymentSchema,
     PaymentCollectionCreate,
 )
 
 router = APIRouter()
+
+
+@router.get("", response_model=Any)
+async def read_payments(
+    page: int = 1,
+    limit: int = 10,
+    search: Optional[str] = None,
+    method: Optional[str] = None,
+    status: Optional[str] = None,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+) -> Any:
+    """
+    Retrieve payments with pagination.
+    """
+    # Base query: Join Payment -> Driver -> User to get driver name
+    query = (
+        select(PaymentCollection, User.full_name.label("driver_name"))
+        .join(Driver, PaymentCollection.driver_id == Driver.id)
+        .join(User, Driver.user_id == User.id)
+    )
+
+    # Count query: Needs to handle joins if we search by driver name
+    count_q = select(func.count(PaymentCollection.id)).select_from(PaymentCollection)
+    needs_join_for_count = False
+
+    filters = []
+    if search:
+        search_term = f"%{search}%"
+        filters.append(
+            or_(
+                PaymentCollection.transaction_id.ilike(search_term),
+                cast(PaymentCollection.order_id, String).ilike(search_term),
+                User.full_name.ilike(search_term),
+            )
+        )
+        needs_join_for_count = True
+
+    if method and method != "ALL":
+        filters.append(PaymentCollection.method == method)
+
+    if status and status != "ALL":
+        if status.upper() == "VERIFIED":
+            filters.append(PaymentCollection.verified_at.is_not(None))
+        elif status.upper() == "PENDING":
+            filters.append(PaymentCollection.verified_at.is_(None))
+
+    if filters:
+        query = query.where(*filters)
+        if needs_join_for_count:
+            count_q = count_q.join(
+                Driver, PaymentCollection.driver_id == Driver.id
+            ).join(User, Driver.user_id == User.id)
+        count_q = count_q.where(*filters)
+
+    # Calculate offset
+    offset = (page - 1) * limit
+
+    # Get total count
+    total = await db.scalar(count_q) or 0
+
+    # Get items
+    query = (
+        query.order_by(PaymentCollection.collected_at.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    result = await db.execute(query)
+    rows = result.all()
+
+    items = []
+    for payment, driver_name in rows:
+        p_data = PaymentSchema.model_validate(payment)
+        p_data.driver_name = driver_name
+        items.append(p_data)
+
+    pages = math.ceil(total / limit) if limit > 0 else 0
+
+    return {"items": items, "total": total, "page": page, "size": limit, "pages": pages}
 
 
 @router.get("/pending", response_model=List[PaymentSchema])
@@ -23,7 +109,7 @@ async def read_pending_payments(
     """
     Get all pending payments (not yet verified).
     """
-    query = select(PaymentCollection).where(PaymentCollection.verified_at == None)
+    query = select(PaymentCollection).where(PaymentCollection.verified_at.is_(None))
     result = await db.execute(query)
     payments = result.scalars().all()
     return payments
@@ -70,8 +156,6 @@ async def clear_payment(
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")
 
-    from datetime import datetime
-
     payment.verified_by_id = current_user.id
     payment.verified_at = datetime.utcnow()
 
@@ -106,10 +190,6 @@ async def export_payments(
     """
     Export payments to Excel.
     """
-    import pandas as pd
-    import io
-    from fastapi.responses import StreamingResponse
-
     query = select(PaymentCollection).order_by(PaymentCollection.created_at.desc())
     result = await db.execute(query)
     payments = result.scalars().all()
@@ -122,7 +202,7 @@ async def export_payments(
                 "Order ID": p.order_id,
                 "Amount": p.amount,
                 "Method": p.method,
-                "Status": p.status,
+                "Status": "VERIFIED" if p.verified_at else "PENDING",
                 "Transaction ID": p.transaction_id,
                 "Date": p.created_at,
                 "Verified": "Yes" if p.verified_at else "No",

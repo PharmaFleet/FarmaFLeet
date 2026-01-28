@@ -12,11 +12,42 @@ from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
+from sqlalchemy.ext.compiler import compiles
+from geoalchemy2 import Geometry
+from sqlalchemy.dialects.postgresql import JSONB
+import geoalchemy2.admin.dialects.sqlite as sqlite_dialect
 
 from app.main import app
 from app.core.security import create_access_token
 from app.db.base_class import Base
 from app.api.deps import get_db
+
+# --- PATCHING FOR SQLITE ---
+
+
+# 1. Compile Geometry columns as BLOB for SQLite
+@compiles(Geometry, "sqlite")
+def compile_geometry_sqlite(type_, compiler, **kw):
+    return "BLOB"
+
+
+# 2. Compile JSONB columns as JSON for SQLite
+@compiles(JSONB, "sqlite")
+def compile_jsonb_sqlite(type_, compiler, **kw):
+    return "JSON"
+
+
+# 3. Disable GeoAlchemy2 SQLite management hooks
+# These hooks try to call SpatiaLite functions which don't exist in standard SQLite
+def no_op(*args, **kwargs):
+    pass
+
+
+sqlite_dialect.before_create = no_op
+sqlite_dialect.after_create = no_op
+sqlite_dialect.before_drop = no_op
+sqlite_dialect.after_drop = no_op
+sqlite_dialect.reflect_geometry_column = no_op
 
 
 # Use SQLite for fast, in-memory testing (no Docker required)

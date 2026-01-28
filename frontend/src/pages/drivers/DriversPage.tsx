@@ -25,18 +25,37 @@ import { Badge } from '@/components/ui/badge';
 import { AddDriverDialog } from '@/components/drivers/AddDriverDialog';
 import { cn } from '@/lib/utils';
 
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from '@/components/ui/select';
+
+import { warehouseService } from '@/services/warehouseService';
+
 export default function DriversPage() {
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [warehouseFilter, setWarehouseFilter] = useState('ALL');
   const [addOpen, setAddOpen] = useState(false);
 
+  const { data: warehouses } = useQuery({
+    queryKey: ['warehouses'],
+    queryFn: warehouseService.getAll,
+  });
+
   const { data, isLoading } = useQuery({
-    queryKey: ['drivers', page, search],
+    queryKey: ['drivers', page, search, statusFilter, warehouseFilter],
     queryFn: () => driverService.getAll({ 
         page, 
         limit: 10,
-        search: search || undefined
+        search: search || undefined,
+        status: statusFilter === 'ALL' ? undefined : statusFilter,
+        warehouse_id: warehouseFilter === 'ALL' ? undefined : Number(warehouseFilter)
     }),
     placeholderData: keepPreviousData,
   });
@@ -70,9 +89,29 @@ export default function DriversPage() {
                     className="w-full pl-10 border-slate-200 focus:ring-emerald-500/20"
                 />
             </div>
-            {/* <Button variant="outline" size="icon" className="shrink-0 bg-white">
-                <Filter className="h-4 w-4" />
-            </Button> */}
+            <div className="flex gap-2 w-full sm:w-auto">
+                 <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="w-[140px] bg-white border-slate-200">
+                        <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="ALL">All Status</SelectItem>
+                        <SelectItem value="online">Online</SelectItem>
+                        <SelectItem value="offline">Offline</SelectItem>
+                    </SelectContent>
+                </Select>
+                <Select value={warehouseFilter} onValueChange={setWarehouseFilter}>
+                    <SelectTrigger className="w-[160px] bg-white border-slate-200">
+                        <SelectValue placeholder="Warehouse" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="ALL">All Warehouses</SelectItem>
+                         {warehouses?.map((w: any) => (
+                             <SelectItem key={w.id} value={String(w.id)}>{w.name}</SelectItem>
+                         ))}
+                    </SelectContent>
+                </Select>
+            </div>
         </div>
 
         {/* Table Content */}
