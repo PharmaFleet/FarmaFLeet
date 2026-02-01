@@ -19,6 +19,7 @@ if config.config_file_name is not None:
 # add your model's MetaData object here
 # for 'autogenerate' support
 from app.db.base import Base  # noqa
+
 target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,
@@ -66,13 +67,15 @@ async def run_migrations_online() -> None:
 
     """
     from app.core.config import settings
+
     configuration = config.get_section(config.config_ini_section)
     configuration["sqlalchemy.url"] = str(settings.SQLALCHEMY_DATABASE_URI)
-    
+
     connectable = async_engine_from_config(
         configuration,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        connect_args={"statement_cache_size": 0},
     )
 
     async with connectable.connect() as connection:

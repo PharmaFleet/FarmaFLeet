@@ -13,8 +13,17 @@ async def setup():
 
         if not wh:
             print("No warehouse found. Creating 'Main Warehouse'...")
+            from geoalchemy2.elements import WKTElement
+
+            # Location: Sabah Al Ahmad (approx)
+            location = WKTElement("POINT(48.077 28.775)", srid=4326)
+
             wh = Warehouse(
-                name="Main Warehouse", address="Sabah Al Ahmed", is_active=True
+                name="Main Warehouse",
+                code="WH01",
+                # address="Sabah Al Ahmed", # Removed invalid field
+                location=location,
+                # is_active=True, # Removed invalid field
             )
             db.add(wh)
             await db.commit()

@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     POSTGRES_PASSWORD: str = "postgres"
     POSTGRES_DB: str = "pharmafleet"
     POSTGRES_PORT: int = 5444
+    DATABASE_URL: str | None = None
 
     # Redis
     REDIS_URL: str = "redis://redis:6379/0"
@@ -47,6 +48,9 @@ class Settings(BaseSettings):
     @computed_field
     @property
     def SQLALCHEMY_DATABASE_URI(self) -> str:
+        if self.DATABASE_URL:
+            return self.DATABASE_URL
+
         from urllib.parse import quote_plus
 
         if self.POSTGRES_SERVER.startswith("/cloudsql"):

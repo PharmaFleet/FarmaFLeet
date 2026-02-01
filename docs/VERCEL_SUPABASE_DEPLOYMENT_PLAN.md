@@ -11,18 +11,22 @@ This document outlines the comprehensive step-by-step plan to deploy the PharmaF
 
 ## 1. Project Setup & Prerequisites
 
-- [ ] **Supabase Project Creation**
+- [x] **Supabase Project Creation**
   - Create a new project on [supabase.com](https://supabase.com)
   - Region: Choose one close to your users (e.g., Frankfurt or London)
   - Save `SUPABASE_URL`, `SUPABASE_KEY` (Anon), and `DATABASE_URL` (Transaction pooler preferred)
   - **Action**: Enable `postgis` extension in Supabase dashboard (Database -> Extensions).
-
-- [ ] **Upstash Redis Creation**
+    Supabase Database Password: Pharmafleet0101
+    Supabase URL: https://ubmgphjlpjovebkuthrf.supabase.co
+    Supabase Anon Key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVibWdwaGpscGpvdmVia3V0aHJmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk5Mzg4NDksImV4cCI6MjA4NTUxNDg0OX0.5qw8N0vv8FwSsYPqRRubL2WXyUn3ZX08YjhHl2torT8
+    Database URL: postgresql://postgres.ubmgphjlpjovebkuthrf:Pharmafleet0101@aws-1-eu-central-1.pooler.supabase.com:6543/postgres
+- [x] **Upstash Redis Creation**
   - Create a database on [upstash.com](https://upstash.com)
   - Region: ideally same as Supabase (AWS eu-central-1 if possible)
   - Save `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` (or the `redis://` connection string).
-
-- [ ] **Vercel Project Setup**
+    UPSTASH_REDIS_REST_URL: rediss://default:AfMdAAIncDE0NmU4M2JiZTlmZmI0MzliYjM0MDc5YjFhNzExY2VkY3AxNjIyMzc@touching-cattle-62237.upstash.io:6379
+    UPSTASH_REDIS_REST_TOKEN: AfMdAAIncDE0NmU4M2JiZTlmZmI0MzliYjM0MDc5YjFhNzExY2VkY3AxNjIyMzc
+- [x] **Vercel Project Setup**
   - Create simple Vercel projects (can use CLI later or Dashboard).
   - Prepare to link GitHub repository.
 

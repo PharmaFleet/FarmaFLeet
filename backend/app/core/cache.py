@@ -6,6 +6,11 @@ from fastapi import Request, Response
 from app.core.config import settings
 import redis.asyncio as redis
 
+# Global Redis Client (Connection Pool)
+redis_client = redis.from_url(
+    settings.REDIS_URL, encoding="utf-8", decode_responses=True
+)
+
 
 def cache_response(expiration: int = 60):
     """
@@ -34,10 +39,8 @@ def cache_response(expiration: int = 60):
             hashed_key = hashlib.md5(cache_key.encode()).hexdigest()
             final_key = f"api_cache:{hashed_key}"
 
-            # Check Redis
-            redis_client = redis.from_url(
-                settings.REDIS_URL, encoding="utf-8", decode_responses=True
-            )
+            # Use Global Client
+            # redis_client already defined
             cached_data = await redis_client.get(final_key)
 
             if cached_data:
