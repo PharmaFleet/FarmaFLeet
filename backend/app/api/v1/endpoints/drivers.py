@@ -1,5 +1,10 @@
-from typing import Any, List, Optional, Union
+from __future__ import annotations
+
+import logging
+import math
 from datetime import datetime, timedelta
+from typing import Any, List, Optional, Union
+
 from fastapi import (
     APIRouter,
     Body,
@@ -8,33 +13,35 @@ from fastapi import (
     Query,
     WebSocket,
     WebSocketDisconnect,
+    status,
 )
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, desc, or_
-from sqlalchemy.orm import selectinload
 from geoalchemy2.elements import WKTElement
+from sqlalchemy import desc, func, or_, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.api import deps
 from app.models.driver import Driver
-from app.models.user import User
-from app.models.order import Order, OrderStatus
 from app.models.location import DriverLocation
-from app.services.notification import notification_service
+from app.models.order import Order, OrderStatus
+from app.models.user import User
 from app.schemas.driver import (
     Driver as DriverSchema,
     DriverCreate,
     DriverUpdate,
+    DriverWithUserCreate,
     PaginatedDriverResponse,
 )
-import math
-
-from app.schemas.order import Order as OrderSchema
 from app.schemas.location import (
     DriverLocation as DriverLocationSchema,
     DriverLocationCreate,
+    DriverLocationResponse,
 )
+from app.schemas.order import Order as OrderSchema
 from app.core.security import get_password_hash
-from app.schemas.driver import DriverWithUserCreate
+from app.services.notification import notification_service
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 

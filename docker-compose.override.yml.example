@@ -1,0 +1,116 @@
+# Docker Compose Override Example for Network Issues
+# 
+# Usage:
+# 1. Copy this file to docker-compose.override.yml
+# 2. Uncomment the sections you need based on your network situation
+# 3. Run: docker-compose up --build
+#
+# This file is automatically picked up by docker-compose and merges with docker-compose.yml
+
+version: "3.8"
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+      # Build args for npm configuration
+      args:
+        # Uncomment to use a different npm registry mirror
+        # - NPM_REGISTRY=https://registry.npmmirror.com
+        # - NPM_REGISTRY=https://registry.yarnpkg.com
+        
+        # Uncomment to disable strict SSL (use with caution, for development only)
+        # - NPM_CONFIG_STRICT_SSL=false
+        
+        # Increase network timeouts during build
+        - NPM_CONFIG_FETCH_TIMEOUT=120000
+        - NPM_CONFIG_FETCH_RETRIES=5
+    
+    # Use host network mode as fallback for network issues
+    # Uncomment the following line if you're experiencing DNS or network connectivity issues
+    # WARNING: This only works on Linux. Does not work on Docker Desktop for Mac/Windows
+    # network_mode: host
+    
+    # Alternative: Custom DNS configuration
+    # Uncomment if you're experiencing DNS resolution issues
+    # dns:
+    #   - 8.8.8.8
+    #   - 8.8.4.4
+    #   - 1.1.1.1
+    
+    # DNS options for better resolution
+    # dns_opt:
+    #   - timeout:2
+    #   - attempts:3
+    
+    # Environment variables for npm
+    environment:
+      # Increase Node.js memory limit (helpful for large dependency trees)
+      - NODE_OPTIONS=--max-old-space-size=4096
+      
+      # npm configuration via environment variables
+      - NPM_CONFIG_FETCH_TIMEOUT=60000
+      - NPM_CONFIG_FETCH_RETRIES=5
+      - NPM_CONFIG_MAXSOCKETS=5
+      - NPM_CONFIG_STRICT_SSL=true
+      
+      # Vite dev server configuration
+      - VITE_DEV_SERVER_HOST=0.0.0.0
+      - VITE_DEV_SERVER_PORT=5173
+    
+    # Volume mounts for development
+    volumes:
+      - ./frontend:/app
+      # Use named volume for node_modules to persist across rebuilds
+      - frontend_node_modules:/app/node_modules
+      # Use named volume for npm cache to speed up subsequent installs
+      - frontend_npm_cache:/root/.npm
+    
+    ports:
+      - "5173:5173"
+    
+    # Health check to ensure the dev server is running
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:5173"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  backend:
+    # Optional: DNS configuration for backend if needed
+    # dns:
+    #   - 8.8.8.8
+    #   - 8.8.4.4
+    
+    environment:
+      # Increase Python/pip timeout for package installation
+      - PIP_DEFAULT_TIMEOUT=120
+      - PIP_RETRIES=5
+
+  # Optional: Add a proxy service for better network handling
+  # Uncomment if you're behind a corporate proxy
+  # proxy:
+  #   image: nginx:alpine
+  #   volumes:
+  #     - ./proxy.conf:/etc/nginx/conf.d/default.conf:ro
+  #   ports:
+  #     - "8080:80"
+  #   networks:
+  #     - default
+
+volumes:
+  # Named volume for frontend node_modules (persists across container restarts)
+  frontend_node_modules:
+  
+  # Named volume for npm cache (speeds up subsequent builds)
+  frontend_npm_cache:
+
+# Custom network configuration (optional)
+# networks:
+#   default:
+#     driver: bridge
+#     driver_opts:
+#       # Increase MTU for VPN compatibility
+#       com.docker.network.driver.mtu: 1400

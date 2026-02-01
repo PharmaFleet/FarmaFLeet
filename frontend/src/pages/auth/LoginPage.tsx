@@ -58,7 +58,7 @@ export default function LoginPage() {
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMzAiLz48L2c+PC9nPjwvc3ZnPg==')] opacity-30"></div>
         
         {/* Floating cards */}
-        <div className="absolute top-20 left-10 w-48 h-32 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 p-4 transform -rotate-6 animate-pulse">
+        <div className="absolute top-6 left-6 w-44 h-28 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 p-3 transform -rotate-12 animate-pulse">
           <div className="flex items-center gap-3 mb-3">
             <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
               <Package className="w-5 h-5 text-white" />
@@ -69,7 +69,7 @@ export default function LoginPage() {
           <div className="text-emerald-200 text-sm">+12% this week</div>
         </div>
         
-        <div className="absolute bottom-32 left-20 w-52 h-36 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 p-4 transform rotate-3">
+        <div className="absolute bottom-6 right-6 w-48 h-32 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 p-3 transform rotate-6">
           <div className="flex items-center gap-3 mb-3">
             <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
               <Users className="w-5 h-5 text-white" />
@@ -80,7 +80,7 @@ export default function LoginPage() {
           <div className="text-emerald-200 text-sm">Online now</div>
         </div>
         
-        <div className="absolute top-40 right-16 w-44 h-28 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 p-4 transform rotate-6">
+        <div className="absolute top-1/4 right-6 w-40 h-24 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20 p-3 transform -rotate-6">
           <div className="flex items-center gap-3 mb-2">
             <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
               <MapPin className="w-4 h-4 text-white" />

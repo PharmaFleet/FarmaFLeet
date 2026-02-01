@@ -1,0 +1,76 @@
+# Frontend Development Dockerfile with Network Resilience
+# This Dockerfile handles poor network conditions and ECONNRESET errors
+
+FROM node:18-alpine
+
+# Install system dependencies for better network handling
+RUN apk add --no-cache \
+    curl \
+    ca-certificates \
+    && update-ca-certificates
+
+WORKDIR /app
+
+# Configure npm for better network resilience
+# These settings help with ECONNRESET and timeout issues
+RUN npm config set fetch-timeout 60000 \
+    && npm config set fetch-retries 5 \
+    && npm config set fetch-retry-mintimeout 20000 \
+    && npm config set fetch-retry-maxtimeout 120000 \
+    && npm config set maxsockets 5 \
+    && npm config set registry https://registry.npmjs.org/ \
+    && npm config set strict-ssl true
+
+# Optional: Use npmrc for additional resilience
+# Create .npmrc with network resilience settings
+RUN echo "fetch-timeout=60000" >> /root/.npmrc \
+    && echo "fetch-retries=5" >> /root/.npmrc \
+    && echo "fetch-retry-mintimeout=20000" >> /root/.npmrc \
+    && echo "fetch-retry-maxtimeout=120000" >> /root/.npmrc \
+    && echo "maxsockets=5" >> /root/.npmrc \
+    && echo "prefer-offline=true" >> /root/.npmrc \
+    && echo "progress=false" >> /root/.npmrc \
+    && echo "loglevel=warn" >> /root/.npmrc
+
+# Copy package files first for better layer caching
+COPY package*.json ./
+
+# Install dependencies with retry logic and network resilience
+# Using npm install instead of npm ci for better error handling
+# --no-audit: Skip security audit (faster install)
+# --no-fund: Skip funding messages
+# --legacy-peer-deps: Handle peer dependency conflicts
+# --prefer-offline: Use cached packages when available
+RUN set -eux; \
+    for i in 1 2 3; do \
+        echo "Attempt $i: Installing npm dependencies..."; \
+        if npm install \
+            --no-audit \
+            --no-fund \
+            --legacy-peer-deps \
+            --prefer-offline \
+            2>&1; then \
+            echo "npm install succeeded on attempt $i"; \
+            break; \
+        else \
+            if [ "$i" -eq 3 ]; then \
+                echo "npm install failed after 3 attempts"; \
+                exit 1; \
+            fi; \
+            echo "npm install failed on attempt $i, waiting before retry..."; \
+            sleep 10; \
+        fi; \
+    done
+
+# Copy the rest of the application code
+COPY . .
+
+# Expose the Vite development server port
+EXPOSE 5173
+
+# Use Vite's default host to allow external connections
+ENV HOST=0.0.0.0
+ENV PORT=5173
+
+# Start the development server
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
