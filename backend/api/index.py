@@ -11,6 +11,19 @@ backend_dir = os.path.dirname(current_dir)  # backend/
 
 sys.path.append(backend_dir)
 
+print(f"DEBUG: sys.path: {sys.path}")
+
+try:
+    from app.core.config import settings
+
+    uri = str(settings.SQLALCHEMY_DATABASE_URI)
+    # Simple masking
+    print(
+        f"DEBUG: SQLALCHEMY_DATABASE_URI: {uri.split('@')[1] if '@' in uri else 'NO_CREDENTIALS_FOUND'}"
+    )
+except Exception as e:
+    print(f"DEBUG: Error loading settings: {e}")
+
 from app.main import app
 from mangum import Mangum
 
