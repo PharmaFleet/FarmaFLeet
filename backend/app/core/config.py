@@ -53,6 +53,10 @@ class Settings(BaseSettings):
                 return self.DATABASE_URL.replace(
                     "postgresql://", "postgresql+asyncpg://", 1
                 )
+            if self.DATABASE_URL.startswith("postgres://"):
+                return self.DATABASE_URL.replace(
+                    "postgres://", "postgresql+asyncpg://", 1
+                )
             return self.DATABASE_URL
 
         from urllib.parse import quote_plus
