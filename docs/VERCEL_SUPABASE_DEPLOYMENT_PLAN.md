@@ -28,6 +28,10 @@ This document outlines the comprehensive step-by-step plan to deploy the PharmaF
   - Save `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`.
     UPSTASH_REDIS_REST_URL: ...
     UPSTASH_REDIS_REST_TOKEN: ...
+- [ ] **Supabase Storage Bucket**
+  - Create a new bucket named `pharmafleet-uploads`.
+  - Set it to **Public** (recommended for easy display) or Private (requires extra signing logic).
+  - **Environment Variables**: Add `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` to Vercel (for backend upload).
 
 ### 1.2 Google Maps Configuration
 

@@ -1,4 +1,3 @@
-import shutil
 import os
 import uuid
 from typing import Any
@@ -37,18 +36,17 @@ async def upload_file(
 ) -> Any:
     """
     Upload a file and return its public URL.
-    Saves to 'static/uploads'.
-
-    Requires authentication.
+    Saves to Supabase Storage.
     """
+    from app.services.storage import storage_service
+
     try:
         # Validate file extension
         file_ext = validate_file_extension(file.filename)
 
-        # Check file size (read first chunk to estimate)
-        file.file.seek(0, 2)  # Seek to end
-        file_size = file.file.tell()
-        file.file.seek(0)  # Reset to beginning
+        # Check file size (approximate)
+        contents = await file.read()
+        file_size = len(contents)
 
         if file_size > MAX_FILE_SIZE_MB * 1024 * 1024:
             raise HTTPException(
@@ -56,22 +54,20 @@ async def upload_file(
                 detail=f"File too large. Maximum size is {MAX_FILE_SIZE_MB}MB",
             )
 
-        # Create static/uploads directory if it doesn't exist
-        base_static_dir = os.path.join(os.getcwd(), "static")
-        upload_dir = os.path.join(base_static_dir, "uploads")
-
-        if not os.path.exists(upload_dir):
-            os.makedirs(upload_dir, exist_ok=True)
-
-        # Generate unique filename (prevents path traversal and overwrites)
+        # Generate unique filename
         unique_filename = f"{uuid.uuid4()}{file_ext}"
-        file_path = os.path.join(upload_dir, unique_filename)
 
-        # Save file
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+        # Upload to Supabase
+        url = await storage_service.upload_file(
+            file_content=contents,
+            file_name=unique_filename,
+            content_type=file.content_type or "application/octet-stream",
+        )
 
-        url = f"/static/uploads/{unique_filename}"
+        if not url:
+            raise HTTPException(
+                status_code=500, detail="Failed to upload file to cloud storage"
+            )
 
         return {"url": url}
 

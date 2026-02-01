@@ -1,25 +1,51 @@
-from typing import BinaryIO
-import shutil
-from pathlib import Path
+from typing import Optional
+from supabase import create_client, Client
+from app.core.config import settings
+import logging
 
-# In a real implementation, this would connect to Google Cloud Storage
-# For now, we implement a local filesystem fallback
-
-UPLOAD_DIR = Path("uploads")
+logger = logging.getLogger(__name__)
 
 
 class StorageService:
     def __init__(self):
-        UPLOAD_DIR.mkdir(exist_ok=True)
+        self._client: Optional[Client] = None
+        if settings.SUPABASE_URL and settings.SUPABASE_SERVICE_ROLE_KEY:
+            try:
+                self._client = create_client(
+                    settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY
+                )
+                logger.info("Supabase storage client initialized")
+            except Exception as e:
+                logger.error(f"Failed to initialize Supabase client: {e}")
 
-    async def upload_file(self, file: BinaryIO, filename: str) -> str:
-        file_path = UPLOAD_DIR / filename
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file, buffer)
+    async def upload_file(
+        self,
+        file_content: bytes,
+        file_name: str,
+        content_type: str,
+        bucket: str = settings.SUPABASE_BUCKET,
+    ) -> Optional[str]:
+        """
+        Upload a file to Supabase Storage and return the public URL.
+        """
+        if not self._client:
+            logger.error("Supabase client not initialized. Cannot upload.")
+            return None
 
-        # Return a relative URL or absolute URL depending on requirements
-        # For local dev, we might serve this via StaticFiles
-        return f"/static/{filename}"
+        try:
+            # Upload file
+            self._client.storage.from_(bucket).upload(
+                path=file_name,
+                file=file_content,
+                file_options={"content-type": content_type, "upsert": "true"},
+            )
+
+            # Get public URL
+            url = self._client.storage.from_(bucket).get_public_url(file_name)
+            return url
+        except Exception as e:
+            logger.error(f"Supabase upload failed: {e}")
+            return None
 
 
 storage_service = StorageService()

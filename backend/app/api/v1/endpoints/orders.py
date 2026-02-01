@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+import uuid
 from typing import Any, List, Optional, Dict
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Body
 from pydantic import BaseModel
@@ -18,7 +19,6 @@ from geoalchemy2.elements import WKTElement
 from app.schemas.order import (
     Order as OrderSchema,
     OrderCreate,
-    ProofOfDeliveryCreate,
 )
 from app.services.excel import excel_service
 from app.services.notification import notification_service
@@ -443,13 +443,18 @@ async def update_order_status(
 @router.post("/{order_id}/proof-of-delivery")
 async def upload_proof_of_delivery(
     order_id: int,
-    pod_in: ProofOfDeliveryCreate,
+    photo: UploadFile = File(...),
+    signature: Optional[str] = Body(None),
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
-    Upload proof of delivery.
+    Upload proof of delivery (photo and optional signature).
+    Saved to Supabase Storage.
     """
+    from app.services.storage import storage_service
+
+    # Check order exists and user has access
     query = (
         select(Order)
         .where(Order.id == order_id)
@@ -464,15 +469,27 @@ async def upload_proof_of_delivery(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
+    # Upload Photo to Supabase
+    photo_contents = await photo.read()
+    photo_filename = f"orders/{order_id}/photo_{uuid.uuid4()}.jpg"
+    photo_url = await storage_service.upload_file(
+        file_content=photo_contents,
+        file_name=photo_filename,
+        content_type=photo.content_type or "image/jpeg",
+    )
+
+    if not photo_url:
+        raise HTTPException(status_code=500, detail="Failed to upload photo to storage")
+
     if order.proof_of_delivery:
-        order.proof_of_delivery.signature_url = pod_in.signature_url
-        order.proof_of_delivery.photo_url = pod_in.photo_url
+        order.proof_of_delivery.signature_url = signature
+        order.proof_of_delivery.photo_url = photo_url
         order.proof_of_delivery.timestamp = datetime.utcnow()
     else:
         pod = ProofOfDelivery(
             order_id=order.id,
-            signature_url=pod_in.signature_url,
-            photo_url=pod_in.photo_url,
+            signature_url=signature,
+            photo_url=photo_url,
         )
         db.add(pod)
 
@@ -480,38 +497,33 @@ async def upload_proof_of_delivery(
     history = OrderStatusHistory(
         order_id=order.id,
         status=OrderStatus.DELIVERED,
-        notes="Proof of delivery uploaded",
+        notes="Proof of delivery uploaded via mobile app",
     )
     db.add(history)
 
     await db.commit()
 
-    # Re-fetch order with relationships to avoid async lazy load errors during notification
+    # Re-fetch order for notification
     query = (
         select(Order)
         .where(Order.id == order.id)
-        .options(
-            selectinload(Order.driver).selectinload(Driver.user),
-        )
+        .options(selectinload(Order.driver).selectinload(Driver.user))
     )
     result = await db.execute(query)
     order = result.scalars().first()
 
     # Trigger notifications
     if order.driver and order.driver.user and order.driver.user.fcm_token:
-        # Delivery notification
         await notification_service.notify_driver_order_delivered(
             db, order.driver.user_id, order.id, order.driver.user.fcm_token
         )
 
-        # Payment collection notification (Cash/COD)
-        # Also auto-create PaymentCollection record for tracking
+        # Payment collection notification
         if (
             order.payment_method
             and order.payment_method.upper() in ["CASH", "COD"]
             and order.total_amount > 0
         ):
-            # Create pending payment collection
             payment = PaymentCollection(
                 order_id=order.id,
                 driver_id=order.driver_id,
@@ -521,7 +533,6 @@ async def upload_proof_of_delivery(
                 collected_at=datetime.utcnow(),
             )
             db.add(payment)
-            # Note: We commit below with the order update, or we can add it to the same transaction
 
             await notification_service.notify_driver_payment_collected(
                 db,
@@ -532,7 +543,7 @@ async def upload_proof_of_delivery(
             )
 
     await db.commit()
-    return {"msg": "Proof of delivery uploaded successfully"}
+    return {"msg": "Proof of delivery uploaded successfully", "photo_url": photo_url}
 
 
 @router.post("/export")

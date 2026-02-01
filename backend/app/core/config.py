@@ -22,6 +22,12 @@ class Settings(BaseSettings):
     # Redis
     REDIS_URL: str = "redis://redis:6379/0"
 
+    # Supabase
+    SUPABASE_URL: str | None = None
+    SUPABASE_ANON_KEY: str | None = None
+    SUPABASE_SERVICE_ROLE_KEY: str | None = None
+    SUPABASE_BUCKET: str = "pharmafleet-uploads"
+
     # CORS - Include all operational domains
     BACKEND_CORS_ORIGINS: List[str] | str = [
         "http://localhost:3000",
