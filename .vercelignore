@@ -1,0 +1,14 @@
+# Vercel Ignore
+.git
+.vercel
+*.log
+*.pyc
+__pycache__
+backend/venv
+backend/__pycache__
+backend/.pytest_cache
+frontend/node_modules
+frontend/dist
+mobile
+venv
+env

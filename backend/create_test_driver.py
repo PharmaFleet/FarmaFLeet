@@ -1,12 +1,26 @@
 import asyncio
-from app.db.session import SessionLocal
-from sqlalchemy import select
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+from sqlalchemy.pool import NullPool
+
+# from app.db.session import SessionLocal # Avoid using shared session to ensure connect_args are applied
+from sqlalchemy import select, text
 from app.models.user import User
 from app.models.driver import Driver
 from app.core.security import get_password_hash
 
+# Direct connection string to ensure we hit the transaction pooler with correct settings
+DATABASE_URL = "postgresql+asyncpg://postgres.ubmgphjlpjovebkuthrf:Pharmafleet0101@aws-1-eu-central-1.pooler.supabase.com:6543/postgres"
+
 
 async def create_test_driver():
+    # Create dedicated engine with statement_cache_size=0 for PgBouncer
+    engine = create_async_engine(
+        DATABASE_URL, connect_args={"statement_cache_size": 0}, poolclass=NullPool
+    )
+    SessionLocal = async_sessionmaker(
+        bind=engine, class_=AsyncSession, expire_on_commit=False
+    )
+
     async with SessionLocal() as db:
         # Check if test driver exists
         result = await db.execute(

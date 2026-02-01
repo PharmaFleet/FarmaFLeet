@@ -34,58 +34,60 @@ This document outlines the comprehensive step-by-step plan to deploy the PharmaF
 
 The current FastAPI app runs as a long-running container. Vercel runs it as serverless functions.
 
-- [ ] **Dependency Update** (`backend/requirements.txt`)
-  - [ ] Add `mangum` (Adapter for running ASGI apps on Vercel/Lambda) or verify Vercel Python runtime requirements.
-  - [ ] Ensure `psycopg2-binary` is compatible or use `psycopg2` (Vercel has prebuilt binaries).
+- [x] **Dependency Update** (`backend/requirements.txt`)
+  - [x] Add `mangum` (Adapter for running ASGI apps on Vercel/Lambda) or verify Vercel Python runtime requirements.
+  - [x] Ensure `psycopg2-binary` is compatible or use `psycopg2` (Vercel has prebuilt binaries).
 
-- [ ] **Vercel Configuration** (`vercel.json`)
-  - [ ] Create `vercel.json` in root (or separate if monorepo structure allows).
-  - [ ] Configure `rewrites` to route `/api/*` to `backend/api/index.py` (or adapter).
-  - [ ] Configure `build` settings for Python.
+- [x] **Vercel Configuration** (`vercel.json`)
+  - [x] Create `vercel.json` in root (or separate if monorepo structure allows).
+  - [x] Configure `rewrites` to route `/api/*` to `backend/api/index.py` (or adapter).
+  - [x] Configure `build` settings for Python.
 
-- [ ] **Entrypoint Creation**
-  - [ ] Create `backend/api/index.py` (Vercel entrypoint) that wraps `app` with `Mangum` handler is a common pattern, OR use Vercel's native FastAPI support.
+- [x] **Entrypoint Creation**
+  - [x] Create `backend/api/index.py` (Vercel entrypoint) that wraps `app` with `Mangum` handler is a common pattern, OR use Vercel's native FastAPI support.
   - _Recommendation_: Use standard `vercel.json` builds with `app` entrypoint.
 
-- [ ] **Environment Variables Mapping**
+- [x] **Environment Variables Mapping**
   - Map `POSTGRES_SERVER`, `POSTGRES_USER`, etc., to Supabase connection strings.
   - Map `REDIS_URL` to Upstash.
 
 ## 3. Database Migration (PostGIS & Data)
 
-- [ ] **Schema Migration**
-  - [ ] Use `alembic` to generate migration scripts if not up to date.
-  - [ ] Run migrations against Supabase using connection string.
+- [x] **Schema Migration**
+  - [x] Use `alembic` to generate migration scripts if not up to date.
+  - [x] Run migrations against Supabase using connection string.
   - _Alternative_: Dump local schema `pg_dump -s` and import to Supabase SQL Editor.
 
-- [ ] **Data Seeding**
-  - [ ] Export local data (users, drivers, etc.).
-  - [ ] Import to Supabase (be careful with PostGIS binary formats, use HEX if transferring via SQL).
+- [x] **Data Seeding**
+  - [x] Export local data (users, drivers, etc.).
+  - [x] Import to Supabase (be careful with PostGIS binary formats, use HEX if transferring via SQL).
 
 ## 4. Feature-Specific Backend (Redis & CORS)
 
-- [ ] **Redis Client Update** (`backend/app/core/cache.py`)
-  - [ ] Verify `redis.asyncio` works well with Upstash (it usually does).
+- [x] **Redis Client Update** (`backend/app/core/cache.py`)
+  - [x] Verify `redis.asyncio` works well with Upstash (it usually does).
   - _Optional_: Switch to `@upstash/redis` HTTP client if connection pooling issues arise in serverless environment.
 
-- [ ] **CORS Configuration**
-  - [ ] Update `backend/app/main.py` to allow the Vercel Frontend Production Domain.
+- [x] **CORS Configuration**
+  - [x] Update `backend/app/main.py` to allow the Vercel Frontend Production Domain.
 
 ## 5. Frontend Foundation
 
-- [ ] **Environment Variables**
-  - [ ] Set `VITE_API_URL` to the Vercel Backend URL (relative `/api/v1` if on same domain, or absolute).
-  - [ ] Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` if using Supabase Client directly in frontend.
+## 5. Frontend Foundation
 
-- [ ] **Build Configuration**
-  - [ ] Ensure `vite build` output (`dist/`) is correctly detected by Vercel.
-  - [ ] Settings: Framework Preset = Vite. Root Directory = `frontend`.
+- [x] **Environment Variables**
+  - [x] Set `VITE_API_URL` to the Vercel Backend URL (relative `/api/v1` if on same domain, or absolute).
+  - [x] Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` if using Supabase Client directly in frontend.
+
+- [x] **Build Configuration**
+  - [x] Ensure `vite build` output (`dist/`) is correctly detected by Vercel.
+  - [x] Settings: Framework Preset = Vite. Root Directory = `frontend`.
 
 ## 6. Deployment Strategy (Monorepo)
 
 Since Frontend and Backend are in the same repo:
 
-- [ ] **Root Config**
+- [x] **Root Config**
   - Configure Vercel to have ONE project for Frontend.
   - Configure a SECOND project for Backend (or use Rewrites in a single project).
   - _Single Project Approach_: Deploy root as the project. Configure `vercel.json` to have:
@@ -96,11 +98,11 @@ Since Frontend and Backend are in the same repo:
 
 ## 7. Execution Steps for "The Agent" (Me)
 
-1. **Create `vercel.json`** with `builds`, `routes`, and `rewrites` logic.
-2. **Update `backend/requirements.txt`**.
-3. **Notify User** to provide Supabase/Upstash credentials.
-4. **Run Database Migration** (using Supabase MCP if allowed, or script).
-5. **Verify Locally** (simulate Vercel environment if possible).
+1. [x] **Create `vercel.json`** with `builds`, `routes`, and `rewrites` logic.
+2. [x] **Update `backend/requirements.txt`**.
+3. [x] **Notify User** to provide Supabase/Upstash credentials.
+4. [x] **Run Database Migration** (using Supabase MCP if allowed, or script).
+5. [x] **Verify Locally** (simulate Vercel environment if possible).
 
 ## 8. Verification Plan
 

@@ -1,5 +1,5 @@
 from typing import List
-from pydantic import AnyHttpUrl, PostgresDsn, computed_field, field_validator
+from pydantic import PostgresDsn, computed_field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
