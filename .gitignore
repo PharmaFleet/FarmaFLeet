@@ -11,7 +11,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+/lib/
 lib64/
 parts/
 sdist/
@@ -64,3 +64,5 @@ mobile/driver_app/android/keystore_base64.txt
 backend/entered.txt
 backend/pod_error.txt
 backend/progress.txt
+.vercel
+.env*.local
