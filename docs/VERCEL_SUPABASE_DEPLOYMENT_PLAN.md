@@ -11,6 +11,8 @@ This document outlines the comprehensive step-by-step plan to deploy the PharmaF
 
 ## 1. Project Setup & Prerequisites
 
+### 1.1 Core Infrastructure (Supabase & Upstash)
+
 - [x] **Supabase Project Creation**
   - Create a new project on [supabase.com](https://supabase.com)
   - Region: Choose one close to your users (e.g., Frankfurt or London)
@@ -18,14 +20,42 @@ This document outlines the comprehensive step-by-step plan to deploy the PharmaF
   - **Action**: Enable `postgis` extension in Supabase dashboard (Database -> Extensions).
     Supabase Database Password: Pharmafleet0101
     Supabase URL: https://ubmgphjlpjovebkuthrf.supabase.co
-    Supabase Anon Key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVibWdwaGpscGpvdmVia3V0aHJmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk5Mzg4NDksImV4cCI6MjA4NTUxNDg0OX0.5qw8N0vv8FwSsYPqRRubL2WXyUn3ZX08YjhHl2torT8
+    Supabase Anon Key: ...
     Database URL: postgresql://postgres.ubmgphjlpjovebkuthrf:Pharmafleet0101@aws-1-eu-central-1.pooler.supabase.com:6543/postgres
 - [x] **Upstash Redis Creation**
   - Create a database on [upstash.com](https://upstash.com)
   - Region: ideally same as Supabase (AWS eu-central-1 if possible)
-  - Save `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` (or the `redis://` connection string).
-    UPSTASH_REDIS_REST_URL: rediss://default:AfMdAAIncDE0NmU4M2JiZTlmZmI0MzliYjM0MDc5YjFhNzExY2VkY3AxNjIyMzc@touching-cattle-62237.upstash.io:6379
-    UPSTASH_REDIS_REST_TOKEN: AfMdAAIncDE0NmU4M2JiZTlmZmI0MzliYjM0MDc5YjFhNzExY2VkY3AxNjIyMzc
+  - Save `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`.
+    UPSTASH_REDIS_REST_URL: ...
+    UPSTASH_REDIS_REST_TOKEN: ...
+
+### 1.2 Google Maps Configuration
+
+- [ ] **Google Cloud Project**
+  - Create or select a project in [Google Cloud Console](https://console.cloud.google.com).
+  - Enable the following APIs:
+    - **Maps JavaScript API** (Frontend map visualization)
+    - **Places API (New)** (Location search & autocomplete)
+    - **Geometry API** (Distance/Area calculations)
+  - **Credentials**: Create an API Key.
+    - _Security_: Restrict this key to your Vercel domains (e.g., `*.vercel.app`, `your-domain.com`) and `localhost` for development.
+  - **Environment Variable**: `VITE_GOOGLE_MAPS_API_KEY` (Add to Vercel Frontend project).
+
+### 1.3 Firebase (FCM) Configuration
+
+- [ ] **Firebase Project**
+  - Create a project in [Firebase Console](https://console.firebase.google.com).
+  - Go to **Project Settings** -> **Service Accounts**.
+  - Click **Generate new private key**. This downloads a JSON file.
+- [ ] **Backend Configuration**
+  - Open the JSON file and copy its entire content.
+  - **Environment Variable**: `FIREBASE_CREDENTIALS_JSON` (Add to Vercel Backend project).
+    - _Value_: Paste the full minified JSON string.
+- [ ] **Frontend Configuration** (If generating tokens in frontend)
+  - Go to **Project Settings** -> **General** -> **Your apps**.
+  - Add a Web App (if not exists) and copy the `firebaseConfig`.
+  - Use these values if your frontend needs to directly talk to Firebase (usually for `onMessage` listeners), otherwise the Backend SDK handles the sending.
+
 - [x] **Vercel Project Setup**
   - Create simple Vercel projects (can use CLI later or Dashboard).
   - Prepare to link GitHub repository.

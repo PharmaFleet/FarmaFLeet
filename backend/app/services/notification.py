@@ -1,8 +1,9 @@
 from typing import List, Optional, Dict, Any
 
-# Placeholder for Firebase Admin SDK
-# import firebase_admin
-# from firebase_admin import messaging
+import os
+import json
+import firebase_admin
+from firebase_admin import credentials, messaging
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.notification import Notification
 from datetime import datetime
@@ -10,34 +11,62 @@ from datetime import datetime
 
 class NotificationService:
     def __init__(self):
-        # Initialize Firebase App here
-        pass
+        # Initialize Firebase App
+        try:
+            # Check if already initialized to avoid "legacy" app errors in reloads
+            if not firebase_admin._apps:
+                cred_json = os.getenv("FIREBASE_CREDENTIALS_JSON")
+                if cred_json:
+                    cred_dict = json.loads(cred_json)
+                    cred = credentials.Certificate(cred_dict)
+                    firebase_admin.initialize_app(cred)
+                    print("[FCM] Firebase initialized successfully.")
+                else:
+                    print(
+                        "[FCM] FIREBASE_CREDENTIALS_JSON not found. Running in mock mode."
+                    )
+        except Exception as e:
+            print(f"[FCM] Failed to initialize Firebase: {e}")
 
     async def send_to_topic(
         self, topic: str, title: str, body: str, data: Optional[Dict[str, Any]] = None
     ):
         """Send a message to a topic."""
-        print(f"[MOCK FCM] Sending to topic {topic}: {title} - {body}")
-        # message = messaging.Message(
-        #     topic=topic,
-        #     notification=messaging.Notification(title=title, body=body),
-        #     data=data or {},
-        # )
-        # response = messaging.send(message)
-        return "mock-message-id"
+        try:
+            if not firebase_admin._apps:
+                print(f"[MOCK FCM] Sending to topic {topic}: {title} - {body}")
+                return "mock-message-id"
+
+            message = messaging.Message(
+                topic=topic,
+                notification=messaging.Notification(title=title, body=body),
+                data=data or {},
+            )
+            response = messaging.send(message)
+            return response
+        except Exception as e:
+            print(f"[FCM Error] send_to_topic: {e}")
+            return None
 
     async def send_to_token(
         self, token: str, title: str, body: str, data: Optional[Dict[str, Any]] = None
     ):
         """Send a message to a specific device token."""
-        print(f"[MOCK FCM] Sending to token {token[:10]}...: {title} - {body}")
-        # message = messaging.Message(
-        #     token=token,
-        #     notification=messaging.Notification(title=title, body=body),
-        #     data=data or {},
-        # )
-        # response = messaging.send(message)
-        return "mock-message-id"
+        try:
+            if not firebase_admin._apps:
+                print(f"[MOCK FCM] Sending to token {token[:10]}...: {title} - {body}")
+                return "mock-message-id"
+
+            message = messaging.Message(
+                token=token,
+                notification=messaging.Notification(title=title, body=body),
+                data=data or {},
+            )
+            response = messaging.send(message)
+            return response
+        except Exception as e:
+            print(f"[FCM Error] send_to_token: {e}")
+            return None
 
     async def send_multicast(
         self,
@@ -47,14 +76,21 @@ class NotificationService:
         data: Optional[Dict[str, Any]] = None,
     ):
         """Send a message to multiple device tokens."""
-        print(f"[MOCK FCM] Sending to {len(tokens)} tokens: {title} - {body}")
-        # message = messaging.MulticastMessage(
-        #     tokens=tokens,
-        #     notification=messaging.Notification(title=title, body=body),
-        #     data=data or {},
-        # )
-        # response = messaging.send_multicast(message)
-        return "mock-batch-response-id"
+        try:
+            if not firebase_admin._apps:
+                print(f"[MOCK FCM] Sending to {len(tokens)} tokens: {title} - {body}")
+                return "mock-batch-response-id"
+
+            message = messaging.MulticastMessage(
+                tokens=tokens,
+                notification=messaging.Notification(title=title, body=body),
+                data=data or {},
+            )
+            response = messaging.send_multicast(message)
+            return response
+        except Exception as e:
+            print(f"[FCM Error] send_multicast: {e}")
+            return None
 
     async def notify_driver_new_orders(
         self, db: AsyncSession, user_id: int, count: int, token: Optional[str] = None

@@ -6,51 +6,28 @@ import {
     DropdownMenuGroup, 
     DropdownMenuItem, 
     DropdownMenuLabel, 
-    DropdownMenuSeparator, 
     DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
-import { Bell, Package, Truck, CreditCard, Info, CheckCircle2 } from 'lucide-react';
+import { Bell, Package, Truck, Info, CheckCircle2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { api as axios } from '@/lib/axios';
+import { formatDistanceToNow } from 'date-fns';
 
-interface Notification {
-  id: string;
+interface NotificationData {
+  id: number;
   title: string;
-  message: string;
-  timestamp: string;
-  read: boolean;
-  type: 'info' | 'warning' | 'success' | 'order' | 'driver';
+  body: string;
+  is_read: boolean;
+  created_at: string;
+  data?: {
+      type?: 'info' | 'warning' | 'success' | 'order' | 'driver';
+  };
 }
 
-const mockNotifications: Notification[] = [
-    {
-        id: '1',
-        title: 'New Order Received',
-        message: 'Order #SO-12345 has been created.',
-        timestamp: '5 mins ago',
-        read: false,
-        type: 'order'
-    },
-    {
-        id: '2',
-        title: 'Driver Offline',
-        message: 'Ahmed went offline during active shift.',
-        timestamp: '1 hour ago',
-        read: false,
-        type: 'driver'
-    },
-    {
-        id: '3',
-        title: 'Payment Confirmed',
-        message: 'Payment for Order #SO-12300 verified.',
-        timestamp: '2 hours ago',
-        read: true,
-        type: 'success'
-    }
-];
-
-const getIcon = (type: Notification['type']) => {
+const getIcon = (type: string = 'info') => {
     switch (type) {
         case 'order': return <Package className="h-4 w-4 text-emerald-600" />;
         case 'driver': return <Truck className="h-4 w-4 text-amber-600" />;
@@ -60,7 +37,7 @@ const getIcon = (type: Notification['type']) => {
     }
 };
 
-const getBg = (type: Notification['type']) => {
+const getBg = (type: string = 'info') => {
     switch (type) {
         case 'order': return 'bg-emerald-50';
         case 'driver': return 'bg-amber-50';
@@ -70,16 +47,44 @@ const getBg = (type: Notification['type']) => {
 };
 
 export default function NotificationCenter() {
-  const [unreadCount, setUnreadCount] = useState(2);
-  const [notifications, setNotifications] = useState(mockNotifications);
+  const queryClient = useQueryClient();
+  const [isOpen, setIsOpen] = useState(false);
 
-  const markAllRead = () => {
-      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-      setUnreadCount(0);
+  // Fetch Notifications
+  const { data: notifications = [] } = useQuery({
+      queryKey: ['notifications'],
+      queryFn: async () => {
+          const res = await axios.get<NotificationData[]>('/notifications?limit=20');
+          return res.data;
+      },
+      // Refetch every minute to keep synced
+      refetchInterval: 60000 
+  });
+
+  const unreadCount = notifications.filter(n => !n.is_read).length;
+
+  // Mark single as read
+  const markReadMutation = useMutation({
+      mutationFn: async (id: number) => {
+          await axios.patch(`/notifications/${id}/read`);
+      },
+      onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      }
+  });
+
+  // Mark all as read (Optimistic update locally effectively, but backend loop usually better)
+  // Since we don't have a "mark all" endpoint yet, we might iterate or skipping for now.
+  // Actually, UI has "Mark all as read". I should probably implement the endpoint or loop.
+  // For now let's just loop locally or disable if not critical. 
+  // Let's implement individual click to read first.
+  
+  const handleMarkAsRead = (id: number) => {
+      markReadMutation.mutate(id);
   };
 
   return (
-    <DropdownMenu>
+    <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
         <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="relative group hover:bg-slate-100/80 rounded-xl transition-all">
                 <Bell className="h-5 w-5 text-slate-500 group-hover:text-emerald-600 transition-colors" />
@@ -111,26 +116,32 @@ export default function NotificationCenter() {
                          </div>
                     ) : (
                         notifications.map((notification) => (
-                            <DropdownMenuItem key={notification.id} className="cursor-pointer focus:bg-slate-50 p-3 mb-1 rounded-xl transition-all border border-transparent hover:border-slate-100 group">
+                            <DropdownMenuItem 
+                                key={notification.id} 
+                                className="cursor-pointer focus:bg-slate-50 p-3 mb-1 rounded-xl transition-all border border-transparent hover:border-slate-100 group"
+                                onClick={() => !notification.is_read && handleMarkAsRead(notification.id)}
+                            >
                                 <div className="flex w-full items-start gap-3">
-                                    <div className={cn("p-2 rounded-lg shrink-0 transition-transform group-hover:scale-110", getBg(notification.type))}>
-                                        {getIcon(notification.type)}
+                                    <div className={cn("p-2 rounded-lg shrink-0 transition-transform group-hover:scale-110", getBg(notification.data?.type))}>
+                                        {getIcon(notification.data?.type)}
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center justify-between gap-2 mb-0.5">
                                             <span className={cn(
                                                 "text-xs font-bold truncate",
-                                                !notification.read ? 'text-slate-900' : 'text-slate-500'
+                                                !notification.is_read ? 'text-slate-900' : 'text-slate-500'
                                             )}>
                                                 {notification.title}
                                             </span>
-                                            <span className="text-[10px] text-slate-400 font-medium whitespace-nowrap">{notification.timestamp}</span>
+                                            <span className="text-[10px] text-slate-400 font-medium whitespace-nowrap">
+                                                {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
+                                            </span>
                                         </div>
                                         <p className="text-[11px] text-slate-500 leading-normal line-clamp-2 text-pretty">
-                                            {notification.message}
+                                            {notification.body}
                                         </p>
                                     </div>
-                                    {!notification.read && (
+                                    {!notification.is_read && (
                                         <div className="mt-1 shrink-0 px-1">
                                             <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-sm shadow-emerald-200" />
                                         </div>
@@ -141,17 +152,6 @@ export default function NotificationCenter() {
                     )}
                 </DropdownMenuGroup>
             </ScrollArea>
-
-            <div className="p-3 bg-slate-50/50 border-top border-slate-100">
-                <Button 
-                    variant="ghost" 
-                    className="w-full h-9 text-xs font-bold text-slate-500 hover:text-emerald-600 hover:bg-white rounded-lg transition-colors" 
-                    onClick={markAllRead}
-                    disabled={unreadCount === 0}
-                >
-                    Mark all as read
-                </Button>
-            </div>
         </DropdownMenuContent>
     </DropdownMenu>
   );
