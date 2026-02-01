@@ -25,6 +25,5 @@ except Exception as e:
     print(f"DEBUG: Error loading settings: {e}")
 
 from app.main import app
-from mangum import Mangum
-
-handler = Mangum(app)
+# Vercel natively supports FastAPI app
+# handler = Mangum(app)
