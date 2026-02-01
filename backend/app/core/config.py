@@ -49,6 +49,10 @@ class Settings(BaseSettings):
     @property
     def SQLALCHEMY_DATABASE_URI(self) -> str:
         if self.DATABASE_URL:
+            if self.DATABASE_URL.startswith("postgresql://"):
+                return self.DATABASE_URL.replace(
+                    "postgresql://", "postgresql+asyncpg://", 1
+                )
             return self.DATABASE_URL
 
         from urllib.parse import quote_plus
