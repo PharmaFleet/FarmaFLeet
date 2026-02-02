@@ -7,8 +7,11 @@ IS_SERVERLESS = bool(os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNC
 
 # Use minimal pool for serverless, larger pool for traditional deployments
 if IS_SERVERLESS:
+    # Serverless environments often use PgBouncer which doesn't support prepared statements
+    # Set statement_cache_size=0 to disable prepared statements
     engine = create_async_engine(
         str(settings.SQLALCHEMY_DATABASE_URI),
+        connect_args={"statement_cache_size": 0},  # Disable for PgBouncer compatibility
         pool_pre_ping=True,
         pool_size=1,  # Minimal for serverless
         max_overflow=2,
