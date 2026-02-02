@@ -67,7 +67,7 @@ class ApiClient {
   Future<bool> updateLocation(LocationUpdateModel location) async {
     try {
       final response = await _dio.post(
-        '/api/v1/drivers/location',
+        '/drivers/location',  // baseUrl already includes /api/v1
         data: location.toJson(),
       );
 
@@ -89,7 +89,7 @@ class ApiClient {
   Future<bool> updateDriverStatus(bool isAvailable) async {
     try {
       final response = await _dio.patch(
-        '/api/v1/drivers/me/status',
+        '/drivers/me/status',  // baseUrl already includes /api/v1
         data: {'is_available': isAvailable},
       );
 
@@ -126,7 +126,8 @@ class AuthInterceptor extends Interceptor {
   final FlutterSecureStorage _secureStorage;
   final Logger _logger;
 
-  static const String _tokenKey = 'jwt_token';
+  // Must match AppConstants.tokenKey used by TokenStorageService
+  static const String _tokenKey = 'auth_token';
 
   @override
   Future<void> onRequest(

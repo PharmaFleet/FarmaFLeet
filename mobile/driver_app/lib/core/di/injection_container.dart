@@ -13,6 +13,11 @@ import '../../features/orders/domain/repositories/order_repository.dart';
 import '../../features/orders/presentation/bloc/orders_bloc.dart';
 import '../../features/profile/data/repositories/profile_repository.dart';
 import '../../features/profile/presentation/bloc/profile_bloc.dart';
+import 'package:hive/hive.dart';
+import '../api/api_client.dart';
+import '../constants/api_constants.dart';
+import '../models/location_model.dart';
+import '../services/location_service.dart';
 import '../network/dio_client.dart';
 import '../services/notification_service.dart';
 import '../services/token_storage_service.dart';
@@ -23,7 +28,7 @@ Future<void> init() async {
   // Features - Auth
   // Blocs
   sl.registerFactory(() => AuthBloc(sl(), sl()));
-  sl.registerFactory(() => DashboardBloc(sl()));
+  sl.registerFactory(() => DashboardBloc(sl(), sl()));
   sl.registerFactory(() => OrdersBloc(sl()));
   sl.registerFactory(() => ProfileBloc(sl()));
 
@@ -43,6 +48,20 @@ Future<void> init() async {
   // Services
   sl.registerLazySingleton(() => TokenStorageService(storage: sl()));
   sl.registerLazySingleton(() => NotificationService());
+
+  // Location & API
+  sl.registerLazySingleton(() => ApiClient(
+        baseUrl: ApiConstants.baseUrl,
+        secureStorage: sl(),
+      ));
+  
+  final locationBox = await Hive.openBox<LocationUpdateModel>('location_updates');
+  sl.registerSingleton<Box<LocationUpdateModel>>(locationBox);
+
+  sl.registerLazySingleton(() => LocationService(
+        apiClient: sl(),
+        locationBox: sl(),
+      ));
 
   // Network
   sl.registerLazySingleton(() => DioClient(sl()));

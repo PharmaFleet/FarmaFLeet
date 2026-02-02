@@ -7,12 +7,16 @@ import 'config/routes/app_router.dart';
 import 'core/di/injection_container.dart' as di;
 import 'core/network/dio_client.dart';
 import 'core/services/notification_service.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'core/theme/app_theme.dart';
+import 'core/models/location_model.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
+  await Hive.initFlutter();
+  Hive.registerAdapter(LocationUpdateModelAdapter());
   await di.init();
   
   // Initialize Notification Service (Fire and forget, or await if critical)

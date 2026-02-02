@@ -31,11 +31,11 @@ class LocationService {
   StreamSubscription<Position>? _positionStreamSubscription;
   String? _currentDriverId;
 
-  /// Minimum distance filter in meters (increased from 50m to 100m for battery savings)
-  static const double _distanceFilter = 100.0;
+  /// Minimum distance filter in meters (debug: 0)
+  static const double _distanceFilter = 0.0;
 
-  /// Minimum time interval between updates (increased from 30s to 60s for battery savings)
-  static const int _timeIntervalSeconds = 60;
+  /// Minimum time interval between updates (debug: 10s)
+  static const int _timeIntervalSeconds = 10;
 
   /// Timestamp of last location update
   DateTime? _lastUpdateTime;
@@ -143,7 +143,10 @@ class LocationService {
       _positionStreamSubscription = Geolocator.getPositionStream(
         locationSettings: locationSettings,
       ).listen(
-        _handlePositionUpdate,
+        (p) {
+            _logger.i('Raw position update received: ${p.latitude}, ${p.longitude} acc:${p.accuracy}');
+            _handlePositionUpdate(p);
+        },
         onError: _handlePositionError,
         onDone: () {
           _logger.i('Position stream closed');
@@ -180,7 +183,8 @@ class LocationService {
 
     // BATTERY OPTIMIZATION: Skip updates if accuracy is poor (> 100m)
     // Poor accuracy means GPS is struggling, which drains battery
-    if (position.accuracy > 100.0) {
+    // DEBUG: increased to 5000m for emulator
+    if (position.accuracy > 5000.0) {
       _logger.d('Skipping update - poor accuracy: ${position.accuracy}m');
       return;
     }

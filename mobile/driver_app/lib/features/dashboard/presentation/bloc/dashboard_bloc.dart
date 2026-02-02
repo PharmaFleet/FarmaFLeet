@@ -2,6 +2,7 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../../../../core/services/location_service.dart';
 import '../../domain/repositories/dashboard_repository.dart';
 
 // Events
@@ -64,8 +65,9 @@ class DashboardState extends Equatable {
 // Bloc
 class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   final DashboardRepository repository;
+  final LocationService locationService;
 
-  DashboardBloc(this.repository) : super(const DashboardState()) {
+  DashboardBloc(this.repository, this.locationService) : super(const DashboardState()) {
     on<DashboardInit>(_onInit);
     on<DashboardStatusToggled>(_onStatusToggled);
     on<DashboardLocationUpdated>(_onLocationUpdated);
@@ -79,7 +81,14 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   Future<void> _onStatusToggled(DashboardStatusToggled event, Emitter<DashboardState> emit) async {
     emit(state.copyWith(status: DriverStatus.loading));
     try {
-      await repository.updateStatus(event.isAvailable);
+      final user = await repository.updateStatus(event.isAvailable);
+      
+      if (event.isAvailable) {
+        await locationService.startTracking(user.id.toString());
+      } else {
+        await locationService.stopTracking();
+      }
+
       emit(state.copyWith(
         status: event.isAvailable ? DriverStatus.online : DriverStatus.offline,
         isAvailable: event.isAvailable,
