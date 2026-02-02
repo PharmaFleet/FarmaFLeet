@@ -20,24 +20,25 @@ export function MiniMapView() {
   const { data: driversWithLocation, isLoading, error } = useQuery({
     queryKey: ['drivers-with-location-mini'],
     queryFn: async () => {
-      // Fetch drivers and locations in parallel
+      // Fetch online drivers and locations in parallel
       const [driversResponse, locationsResponse] = await Promise.all([
-        driverService.getAll({ size: 50 }), // Get up to 50 drivers
+        driverService.getAll({ size: 50, status: 'online' }), // Only online drivers
         driverService.getLocations().catch(() => []),
       ]);
 
       console.log('[MiniMapView] Drivers fetched:', driversResponse.items?.length || 0);
       console.log('[MiniMapView] Live locations fetched:', locationsResponse?.length || 0);
 
-      // Create location lookup map
-      const locationMap = new Map(
-        (locationsResponse || []).map((loc: any) => [Number(loc.driver_id), loc])
-      );
+      // Create location lookup object (avoid using Map to prevent conflict with Google Maps)
+      const locationLookup: Record<number, any> = {};
+      (locationsResponse || []).forEach((loc: any) => {
+        locationLookup[Number(loc.driver_id)] = loc;
+      });
 
       // Merge drivers with their locations (live GPS or warehouse fallback)
       const merged = (driversResponse.items || [])
         .map((driver: any) => {
-          const liveLocation = locationMap.get(Number(driver.id));
+          const liveLocation = locationLookup[Number(driver.id)];
           const warehouseLat = driver.warehouse?.latitude;
           const warehouseLng = driver.warehouse?.longitude;
 
