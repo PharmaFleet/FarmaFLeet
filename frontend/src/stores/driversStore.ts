@@ -191,25 +191,35 @@ export const useDriversStore = create<DriversState>()(
               const warehouseLat = driver.warehouse?.latitude;
               const warehouseLng = driver.warehouse?.longitude;
 
+              // Check for valid coordinates (not 0,0 which is invalid)
+              const isValidCoord = (lat: number | undefined, lng: number | undefined) =>
+                lat != null && lng != null && !(lat === 0 && lng === 0);
+
+              const hasValidLiveLocation = liveLocation && isValidCoord(liveLocation.latitude, liveLocation.longitude);
+              const hasValidWarehouse = isValidCoord(warehouseLat, warehouseLng);
+
+              // Use live location if valid, otherwise warehouse if valid, otherwise undefined
+              const finalLat = hasValidLiveLocation ? liveLocation.latitude : (hasValidWarehouse ? warehouseLat : undefined);
+              const finalLng = hasValidLiveLocation ? liveLocation.longitude : (hasValidWarehouse ? warehouseLng : undefined);
+
               const driverWithLoc = {
                 ...driver,
                 status: determineDriverStatus(driver as DriverWithLocation),
-                // Use live location if available, otherwise fallback to warehouse
-                latitude: liveLocation?.latitude ?? warehouseLat,
-                longitude: liveLocation?.longitude ?? warehouseLng,
+                latitude: finalLat,
+                longitude: finalLng,
                 heading: liveLocation?.heading,
                 speed: liveLocation?.speed,
                 lastUpdated: liveLocation?.timestamp || new Date().toISOString(),
-                hasLiveLocation: !!liveLocation,
+                hasLiveLocation: !!hasValidLiveLocation,
               };
 
               // Debug logging
-              if (liveLocation) {
-                console.log(`[DriversStore] Driver ${driver.id}: LIVE at (${driverWithLoc.latitude}, ${driverWithLoc.longitude})`);
-              } else if (warehouseLat != null && warehouseLng != null) {
-                console.log(`[DriversStore] Driver ${driver.id}: WAREHOUSE fallback at (${warehouseLat}, ${warehouseLng})`);
+              if (hasValidLiveLocation) {
+                console.log(`[DriversStore] Driver ${driver.id}: LIVE at (${finalLat}, ${finalLng})`);
+              } else if (hasValidWarehouse) {
+                console.log(`[DriversStore] Driver ${driver.id}: WAREHOUSE fallback at (${finalLat}, ${finalLng})`);
               } else {
-                console.warn(`[DriversStore] Driver ${driver.id}: NO COORDINATES - warehouse_id=${driver.warehouse_id}, warehouse=${driver.warehouse?.name || 'none'}`);
+                console.warn(`[DriversStore] Driver ${driver.id}: NO VALID COORDINATES (warehouse has 0,0 or null)`);
               }
 
               return driverWithLoc;
