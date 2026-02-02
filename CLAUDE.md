@@ -60,6 +60,8 @@ uvicorn app.main:app --reload
 pytest                 # All tests
 pytest tests/ -v -m "not integration"  # Unit tests only
 pytest tests/ -v -m integration        # Integration tests only
+pytest tests/test_orders.py -v         # Single file
+pytest tests/test_orders.py::test_create_order -v  # Single test
 pytest --cov=app --cov-report=term-missing  # With coverage
 
 # Linting and formatting
@@ -86,6 +88,7 @@ npm run preview        # Preview production build
 npm run test           # Unit tests (Vitest)
 npm run test:watch     # Watch mode
 npm run test:coverage  # With coverage
+npm test -- OrdersPage.test.tsx        # Single test file
 npm run test:e2e       # E2E tests (Playwright)
 npm run test:e2e:ui    # Playwright UI mode
 
@@ -114,6 +117,28 @@ flutter test integration_test  # Integration tests
 
 # Code generation (for models/serialization)
 flutter pub run build_runner build --delete-conflicting-outputs
+```
+
+### Backend Scripts
+
+Utility scripts in `backend/scripts/` for common operations:
+
+```bash
+cd backend
+
+# Database seeding
+python scripts/seed_superadmin.py      # Create admin user
+python scripts/seed_accounts.py        # Seed from accounts.xlsx (drivers, managers, warehouses)
+python scripts/seed_warehouses.py      # Seed warehouse data from Excel
+
+# Debugging
+python scripts/check_users.py          # List all users
+python scripts/check_driver.py         # Check driver status
+python scripts/list_users.py           # List users with details
+
+# Maintenance
+python scripts/reset_driver_status.py  # Reset all drivers to offline
+python scripts/fix_data.py             # Fix data inconsistencies
 ```
 
 ## Architecture
@@ -161,6 +186,7 @@ backend/app/
 - **Async everywhere**: Uses async/await with asyncpg and AsyncSession
 - **JWT authentication**: Access tokens expire in 2 hours (improved from 8 days for security)
 - **Role-based access**: Five roles (super_admin, warehouse_manager, dispatcher, executive, driver)
+- **User fields**: email, full_name, phone, role, fcm_token (for push notifications)
 - **Supabase Storage**: Used for proof of delivery images (signatures, photos)
 - **WebSocket**: Real-time driver location updates (authenticated, 60-second adaptive intervals)
 - **Offline sync**: `/sync` endpoint handles queued actions from offline drivers

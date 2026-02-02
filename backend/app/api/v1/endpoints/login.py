@@ -24,80 +24,58 @@ async def login_access_token(
     """
     OAuth2 compatible token login, get an access token for future requests.
     """
-    import traceback
+    # Custom Login Rate Limiting (by Username/IP) - optional if Redis unavailable
+    client_ip = request.client.host if request.client else "unknown"
+    limiter_key = f"login_limit:{client_ip}"
 
+    redis_available = True
+    redis_client = None
     try:
-        print(f"[LOGIN] Starting login for: {form_data.username}")
+        import redis.asyncio as redis
 
-        # Custom Login Rate Limiting (by Username/IP) - optional if Redis unavailable
-        client_ip = request.client.host if request.client else "unknown"
-        limiter_key = f"login_limit:{client_ip}"
+        redis_client = redis.from_url(
+            settings.REDIS_URL, encoding="utf-8", decode_responses=True
+        )
 
-        redis_available = True
-        redis_client = None
-        try:
-            import redis.asyncio as redis
-
-            redis_client = redis.from_url(
-                settings.REDIS_URL, encoding="utf-8", decode_responses=True
+        attempts = await redis_client.get(limiter_key)
+        if attempts and int(attempts) > 5:
+            raise HTTPException(
+                status_code=429,
+                detail="Too many login attempts. Please try again later.",
             )
-
-            attempts = await redis_client.get(limiter_key)
-            if attempts and int(attempts) > 5:
-                raise HTTPException(
-                    status_code=429,
-                    detail="Too many login attempts. Please try again later.",
-                )
-        except HTTPException:
-            raise
-        except Exception as e:
-            # Redis unavailable - skip rate limiting for local dev
-            print(f"[LOGIN] Redis unavailable: {e}")
-            redis_available = False
-            redis_client = None
-
-        # Authenticate
-        print(f"[LOGIN] Querying database for user...")
-        result = await db.execute(select(User).where(User.email == form_data.username))
-        user = result.scalars().first()
-        print(f"[LOGIN] User found: {user is not None}")
-
-        if not user:
-            raise HTTPException(status_code=400, detail="Incorrect email or password")
-
-        print(f"[LOGIN] Verifying password...")
-        password_valid = security.verify_password(form_data.password, user.hashed_password)
-        print(f"[LOGIN] Password valid: {password_valid}")
-
-        if not password_valid:
-            # Increment failed attempts if Redis available
-            if redis_available and redis_client:
-                try:
-                    await redis_client.incr(limiter_key)
-                    await redis_client.expire(limiter_key, 300)  # 5 minutes block
-                except Exception:
-                    pass
-            raise HTTPException(status_code=400, detail="Incorrect email or password")
-        elif not user.is_active:
-            raise HTTPException(status_code=400, detail="Inactive user")
-
-        print(f"[LOGIN] Creating tokens...")
-        access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-        access_token = security.create_access_token(user.id, expires_delta=access_token_expires)
-        refresh_token = security.create_refresh_token(user.id)
-        print(f"[LOGIN] Login successful for user: {user.id}")
-
-        return {
-            "access_token": access_token,
-            "refresh_token": refresh_token,
-            "token_type": "bearer",
-        }
     except HTTPException:
         raise
-    except Exception as e:
-        print(f"[LOGIN] UNEXPECTED ERROR: {type(e).__name__}: {e}")
-        print(f"[LOGIN] Traceback: {traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=f"Login error: {str(e)}")
+    except Exception:
+        # Redis unavailable - skip rate limiting
+        redis_available = False
+        redis_client = None
+
+    # Authenticate
+    result = await db.execute(select(User).where(User.email == form_data.username))
+    user = result.scalars().first()
+
+    if not user or not security.verify_password(
+        form_data.password, user.hashed_password
+    ):
+        # Increment failed attempts if Redis available
+        if redis_available and redis_client:
+            try:
+                await redis_client.incr(limiter_key)
+                await redis_client.expire(limiter_key, 300)  # 5 minutes block
+            except Exception:
+                pass
+        raise HTTPException(status_code=400, detail="Incorrect email or password")
+    elif not user.is_active:
+        raise HTTPException(status_code=400, detail="Inactive user")
+
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    return {
+        "access_token": security.create_access_token(
+            user.id, expires_delta=access_token_expires
+        ),
+        "refresh_token": security.create_refresh_token(user.id),
+        "token_type": "bearer",
+    }
 
 
 @router.post("/auth/refresh", response_model=Token)
