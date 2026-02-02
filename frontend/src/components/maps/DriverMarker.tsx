@@ -19,21 +19,30 @@ const STATUS_COLORS: Record<DriverMapStatus, string> = {
 };
 
 /**
- * Create a simple colored circle marker as a data URL
+ * Create a motorcycle marker icon as a data URL
  */
 function createMarkerIcon(color: string, isSelected: boolean, hasLiveLocation: boolean | undefined): string {
-  const size = isSelected ? 32 : (hasLiveLocation === false ? 24 : 28);
-  const strokeWidth = isSelected ? 3 : 2;
+  const size = isSelected ? 40 : 32;
   const opacity = hasLiveLocation === false ? 0.7 : 1;
 
+  // Motorcycle icon SVG
   const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-      <circle cx="${size/2}" cy="${size/2}" r="${size/2 - strokeWidth}"
-        fill="${color}"
-        stroke="white"
-        stroke-width="${strokeWidth}"
-        opacity="${opacity}"
-      />
+    <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none">
+      <!-- Background circle -->
+      <circle cx="12" cy="12" r="11" fill="${color}" stroke="white" stroke-width="2" opacity="${opacity}"/>
+      <!-- Motorcycle icon (simplified scooter/delivery bike) -->
+      <g transform="translate(4, 6)" fill="white">
+        <!-- Body -->
+        <rect x="3" y="4" width="8" height="3" rx="1"/>
+        <!-- Front wheel -->
+        <circle cx="3" cy="9" r="2.5" fill="none" stroke="white" stroke-width="1.5"/>
+        <!-- Back wheel -->
+        <circle cx="13" cy="9" r="2.5" fill="none" stroke="white" stroke-width="1.5"/>
+        <!-- Handlebar -->
+        <path d="M2 3 L4 5" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+        <!-- Seat -->
+        <ellipse cx="9" cy="3.5" rx="2.5" ry="1" fill="white"/>
+      </g>
     </svg>
   `;
 
