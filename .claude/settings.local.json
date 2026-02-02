@@ -21,7 +21,15 @@
       "Bash(python -B -m pytest tests/test_bulk_order_operations.py::TestBatchCancelOrders::test_batch_cancel_endpoint_exists -v -s)",
       "Bash(python -B -m pytest tests/test_bulk_order_operations.py -v)",
       "Bash(npm run test:*)",
-      "Bash(python -B -m pytest tests/integration/test_bulk_operations_integration.py -v)"
+      "Bash(python -B -m pytest tests/integration/test_bulk_operations_integration.py -v)",
+      "Bash(vercel logs:*)",
+      "Bash(vercel ls:*)",
+      "Bash(vercel inspect:*)",
+      "Bash(vercel env:*)",
+      "Bash(curl:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push)"
     ]
   },
   "enabledPlugins": {

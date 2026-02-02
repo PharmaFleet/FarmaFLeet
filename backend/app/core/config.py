@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     SUPABASE_SERVICE_ROLE_KEY: str | None = None
     SUPABASE_BUCKET: str = "pharmafleet-uploads"
 
+    # Firebase
+    FIREBASE_CREDENTIALS_JSON: str | None = None
+
     # CORS - Include all operational domains
     BACKEND_CORS_ORIGINS: List[str] | str = [
         "http://localhost:3000",
