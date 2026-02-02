@@ -365,7 +365,13 @@ async def read_driver(
     """
     Get driver by ID.
     """
-    driver = await db.get(Driver, driver_id)
+    # Use select with eager loading for relationships
+    result = await db.execute(
+        select(Driver)
+        .where(Driver.id == driver_id)
+        .options(selectinload(Driver.user), selectinload(Driver.warehouse))
+    )
+    driver = result.scalars().first()
     if not driver:
         raise HTTPException(status_code=404, detail="Driver not found")
     return driver
@@ -392,8 +398,14 @@ async def update_driver(
 
     db.add(driver)
     await db.commit()
-    await db.refresh(driver)
-    return driver
+
+    # Re-fetch with relationships for response
+    result = await db.execute(
+        select(Driver)
+        .where(Driver.id == driver_id)
+        .options(selectinload(Driver.user), selectinload(Driver.warehouse))
+    )
+    return result.scalars().first()
 
 
 @router.patch("/{driver_id}/status", response_model=DriverSchema)
@@ -416,8 +428,14 @@ async def update_driver_status(
         driver.last_online_at = datetime.utcnow()
     db.add(driver)
     await db.commit()
-    await db.refresh(driver)
-    return driver
+
+    # Re-fetch with relationships for response
+    result = await db.execute(
+        select(Driver)
+        .where(Driver.id == driver_id)
+        .options(selectinload(Driver.user), selectinload(Driver.warehouse))
+    )
+    return result.scalars().first()
 
 
 @router.get("/{driver_id}/orders", response_model=List[OrderSchema])
