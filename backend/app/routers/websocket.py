@@ -13,7 +13,6 @@ from fastapi import (
     WebSocket,
     WebSocketDisconnect,
     status,
-    HTTPException,
 )
 from jose import jwt, JWTError
 
@@ -90,7 +89,7 @@ class ConnectionManager:
             logger.error(f"Failed to accept WebSocket connection: {e}")
             try:
                 await websocket.close(code=status.WS_1011_INTERNAL_ERROR)
-            except:
+            except Exception:
                 pass
             return False
 
@@ -202,15 +201,20 @@ async def redis_listener() -> None:
         pubsub = client.pubsub()
         await pubsub.subscribe("driver_locations")
 
-        logger.info("Redis listener started for 'driver_locations' channel")
+        logger.info(
+            "Redis listener started for 'driver_locations' channel. Waiting for messages..."
+        )
 
         async for message in pubsub.listen():
             if message["type"] == "message":
                 try:
+                    logger.info(
+                        f"Redis listener received message: {message['data'][:100]}..."
+                    )  # Log first 100 chars
                     data = message["data"]
                     # Broadcast to all WebSocket clients
                     await manager.broadcast(data)
-                    logger.debug(
+                    logger.info(
                         f"Broadcasted Redis message to {manager.get_connection_count()} clients"
                     )
                 except Exception as e:

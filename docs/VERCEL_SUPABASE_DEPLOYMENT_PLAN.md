@@ -26,8 +26,8 @@ This document outlines the comprehensive step-by-step plan to deploy the PharmaF
   - Create a database on [upstash.com](https://upstash.com)
   - Region: ideally same as Supabase (AWS eu-central-1 if possible)
   - Save `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`.
-    UPSTASH_REDIS_REST_URL: ...
-    UPSTASH_REDIS_REST_TOKEN: ...
+    UPSTASH_REDIS_REST_URL: rediss://default:AfMdAAIncDE0NmU4M2JiZTlmZmI0MzliYjM0MDc5YjFhNzExY2VkY3AxNjIyMzc@touching-cattle-62237.upstash.io:6379
+    UPSTASH_REDIS_REST_TOKEN: AfMdAAIncDE0NmU4M2JiZTlmZmI0MzliYjM0MDc5YjFhNzExY2VkY3AxNjIyMzc
 - [ ] **Supabase Storage Bucket**
   - Create a new bucket named `pharmafleet-uploads`.
   - Set it to **Public** (recommended for easy display) or Private (requires extra signing logic).

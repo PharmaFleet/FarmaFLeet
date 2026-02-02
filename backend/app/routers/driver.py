@@ -166,9 +166,17 @@ async def update_location(
             "is_available": driver.is_available,
         }
 
+        if not location_data:
+            logger.warning(f"Failed to create location message for driver {driver.id}")
+            return db_obj
+
         message = {"type": "driver_location_update", "data": location_data}
 
+        logger.info(
+            f"Publishing location update for driver {driver.id}: {location_data}"
+        )
         await redis_client.publish("driver_locations", json.dumps(message))
+
         logger.debug(f"Published location update for driver {driver.id} to Redis")
     except redis.ConnectionError:
         logger.warning(
@@ -300,6 +308,9 @@ async def update_driver_status(
 
         message = {"type": "driver_status_change", "data": status_data}
 
+        logger.info(
+            f"Publishing status update for driver {driver.id}: {status_data['status']}"
+        )
         await redis_client.publish("driver_locations", json.dumps(message))
     except Exception as e:
         logger.warning(f"Could not broadcast status change: {e}")

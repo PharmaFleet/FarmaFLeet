@@ -73,7 +73,7 @@ export function useWebSocket({
 
     // Construct WebSocket URL with token
     const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
-    const wsBaseUrl = baseUrl.replace(/^http/, 'ws').replace('/api/v1', '');
+    const wsBaseUrl = baseUrl.replace(/^http/, 'ws');
     const wsUrl = `${wsBaseUrl}${url}?token=${encodeURIComponent(token)}`;
 
     try {
