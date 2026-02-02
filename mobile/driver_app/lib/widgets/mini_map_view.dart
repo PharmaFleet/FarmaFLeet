@@ -150,7 +150,6 @@ class MiniMapView extends StatefulWidget {
 
 class _MiniMapViewState extends State<MiniMapView> {
   GoogleMapController? _mapController;
-  bool _isMapReady = false;
 
   @override
   Widget build(BuildContext context) {
@@ -191,7 +190,6 @@ class _MiniMapViewState extends State<MiniMapView> {
             onTap: widget.onTap,
             onMapCreated: (GoogleMapController controller) {
               _mapController = controller;
-              _isMapReady = true;
               widget.onMapReady?.call(controller);
             },
           ),

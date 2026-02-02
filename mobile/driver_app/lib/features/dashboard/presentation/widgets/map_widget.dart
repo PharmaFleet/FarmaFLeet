@@ -16,10 +16,13 @@ class MapWidget extends StatefulWidget {
 }
 
 class _MapWidgetState extends State<MapWidget> {
-  late GoogleMapController _controller;
-  
+  GoogleMapController? _controller;
+
   // Default to a central location (e.g. city center) if no location provided
   static const LatLng _defaultLocation = LatLng(37.7749, -122.4194); // SF
+
+  /// Returns the map controller if available
+  GoogleMapController? get controller => _controller;
 
   @override
   Widget build(BuildContext context) {

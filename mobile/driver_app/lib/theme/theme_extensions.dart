@@ -160,7 +160,9 @@ class AppColorsExtension extends ThemeExtension<AppColorsExtension> {
 
   @override
   AppColorsExtension lerp(ThemeExtension<AppColorsExtension>? other, double t) {
-    if (other is! AppColorsExtension) return this;
+    if (other is! AppColorsExtension) {
+      return this;
+    }
     return AppColorsExtension(
       orders: Color.lerp(orders, other.orders, t)!,
       ordersContainer: Color.lerp(ordersContainer, other.ordersContainer, t)!,

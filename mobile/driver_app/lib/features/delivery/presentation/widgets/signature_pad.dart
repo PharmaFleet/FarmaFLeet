@@ -51,7 +51,9 @@ class _SignaturePadWidgetState extends State<SignaturePadWidget> {
   }
 
   Future<Uint8List?> getSignatureImage() async {
-    if (_strokes.isEmpty) return null;
+    if (_strokes.isEmpty) {
+      return null;
+    }
 
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
@@ -69,7 +71,9 @@ class _SignaturePadWidgetState extends State<SignaturePadWidget> {
 
     // Draw strokes
     for (final stroke in _strokes) {
-      if (stroke.length < 2) continue;
+      if (stroke.length < 2) {
+        continue;
+      }
       final path = Path()..moveTo(stroke.first.dx, stroke.first.dy);
       for (int i = 1; i < stroke.length; i++) {
         path.lineTo(stroke[i].dx, stroke[i].dy);
@@ -157,7 +161,9 @@ class _SignaturePainter extends CustomPainter {
       ..style = PaintingStyle.stroke;
 
     for (final stroke in [...strokes, currentStroke]) {
-      if (stroke.length < 2) continue;
+      if (stroke.length < 2) {
+        continue;
+      }
       final path = Path()..moveTo(stroke.first.dx, stroke.first.dy);
       for (int i = 1; i < stroke.length; i++) {
         path.lineTo(stroke[i].dx, stroke[i].dy);

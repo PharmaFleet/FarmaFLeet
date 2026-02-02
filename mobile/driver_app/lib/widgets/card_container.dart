@@ -97,7 +97,6 @@ class CardContainer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final effectiveBackgroundColor = backgroundColor ?? AppColors.surface;
     final effectiveBorderRadius = borderRadius ?? AppSpacing.radiusCard;
     final effectivePadding = padding ?? AppSpacing.paddingCard;
@@ -246,7 +245,7 @@ class HighlightedCardContainer extends StatelessWidget {
       margin: margin,
       backgroundColor: AppColors.primaryContainer,
       border: Border.all(
-        color: AppColors.primary.withOpacity(0.2),
+        color: AppColors.primary.withValues(alpha: 0.2),
         width: 1,
       ),
       elevation: 1,

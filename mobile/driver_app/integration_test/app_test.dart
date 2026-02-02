@@ -7,7 +7,7 @@ void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets('Full App E2E Test', (tester) async {
-    print('Starting E2E Test...');
+    debugPrint('Starting E2E Test...');
     // Start the app
     app.main();
     await tester.pumpAndSettle();
@@ -20,14 +20,16 @@ void main() {
         await tester.pump(const Duration(milliseconds: 100));
         retries++;
       }
-      if (retries >= 100) print('Warning: Loader did not disappear');
+      if (retries >= 100) {
+        debugPrint('Warning: Loader did not disappear');
+      }
       await tester.pumpAndSettle();
     }
 
     // 1. Handle potential existing session (Logout if needed)
-    print('Checking for existing session...');
+    debugPrint('Checking for existing session...');
     if (find.byIcon(Icons.home_outlined).evaluate().isNotEmpty) {
-      print('App started in Authenticated state. Logging out...');
+      debugPrint('App started in Authenticated state. Logging out...');
       final settingsTab = find.byIcon(Icons.settings_outlined);
       await tester.tap(settingsTab);
       await tester.pumpAndSettle();
@@ -40,12 +42,12 @@ void main() {
     }
 
     // 2. Verify Login Screen
-    print('Verifying Login Screen...');
+    debugPrint('Verifying Login Screen...');
     // If we are still loading, wait
     await waitForLoader();
 
     if (find.text('PharmaFleet Driver').evaluate().isEmpty) {
-      print('Dump: ${find.byType(Widget).toString()}');
+      debugPrint('Dump: ${find.byType(Widget).toString()}');
       fail('Login screen not found');
     }
 
@@ -53,7 +55,7 @@ void main() {
     expect(find.byType(TextFormField), findsNWidgets(2));
 
     // 3. Perform Login
-    print('Performing Login...');
+    debugPrint('Performing Login...');
     final emailField = find.byType(TextFormField).first;
     final passwordField = find.byType(TextFormField).last;
 
@@ -65,28 +67,28 @@ void main() {
     await tester.tap(loginButton);
 
     // Validating login process which might show loader
-    print('Waiting for login to complete...');
+    debugPrint('Waiting for login to complete...');
     await waitForLoader();
 
     // 4. Verify Home Screen (Navigation to Home)
-    print('Verifying Home Screen...');
+    debugPrint('Verifying Home Screen...');
     expect(find.byType(NavigationBar), findsOneWidget);
     expect(find.text('Welcome back!'), findsOneWidget);
 
     // 5. Navigate to Orders
-    print('Navigating to Orders...');
+    debugPrint('Navigating to Orders...');
     final ordersTab = find.byIcon(Icons.list_alt_outlined);
     await tester.tap(ordersTab);
     await tester.pumpAndSettle();
 
     // 6. Navigate to Settings
-    print('Navigating to Settings...');
+    debugPrint('Navigating to Settings...');
     final settingsTab = find.byIcon(Icons.settings_outlined);
     await tester.tap(settingsTab);
     await tester.pumpAndSettle();
 
     // 7. Logout to clean up
-    print('Logging out...');
+    debugPrint('Logging out...');
     final logoutButton = find.text('Logout');
     if (logoutButton.evaluate().isNotEmpty) {
       await tester.tap(logoutButton);
@@ -96,6 +98,6 @@ void main() {
     // Verify back on login
     expect(find.text('PharmaFleet Driver'), findsOneWidget);
 
-    print('E2E Test Completed Successfully');
+    debugPrint('E2E Test Completed Successfully');
   });
 }

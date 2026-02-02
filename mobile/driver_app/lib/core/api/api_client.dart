@@ -255,17 +255,31 @@ class RetryInterceptor extends Interceptor {
     final statusCode = error.response?.statusCode;
 
     // Retry on rate limiting
-    if (statusCode == 429) return true;
+    if (statusCode == 429) {
+      return true;
+    }
 
     // Retry on server errors
-    if (statusCode != null && statusCode >= 500) return true;
+    if (statusCode != null && statusCode >= 500) {
+      return true;
+    }
 
     // Retry on network errors
-    if (error.type == DioExceptionType.connectionTimeout) return true;
-    if (error.type == DioExceptionType.receiveTimeout) return true;
-    if (error.type == DioExceptionType.sendTimeout) return true;
-    if (error.error is SocketException) return true;
-    if (error.type == DioExceptionType.unknown) return true;
+    if (error.type == DioExceptionType.connectionTimeout) {
+      return true;
+    }
+    if (error.type == DioExceptionType.receiveTimeout) {
+      return true;
+    }
+    if (error.type == DioExceptionType.sendTimeout) {
+      return true;
+    }
+    if (error.error is SocketException) {
+      return true;
+    }
+    if (error.type == DioExceptionType.unknown) {
+      return true;
+    }
 
     return false;
   }

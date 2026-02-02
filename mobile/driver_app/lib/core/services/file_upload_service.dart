@@ -22,7 +22,9 @@ class FileUploadService {
         imageQuality: 85,
       );
 
-      if (image == null) return null;
+      if (image == null) {
+        return null;
+      }
 
       return File(image.path);
     } catch (e) {
@@ -44,7 +46,9 @@ class FileUploadService {
         format: CompressFormat.jpeg,
       );
 
-      if (result == null) return file;
+      if (result == null) {
+        return file;
+      }
 
       final originalSize = file.lengthSync();
       final compressedSize = await result.length();

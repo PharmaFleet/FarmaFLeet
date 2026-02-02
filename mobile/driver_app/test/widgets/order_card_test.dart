@@ -527,7 +527,7 @@ void main() {
         (OrderPriority.low, 'Low', Icons.keyboard_arrow_down, AppColors.info),
       ];
 
-      for (final (priority, label, icon, color) in priorities) {
+      for (final (priority, label, icon, _) in priorities) {
         await tester.pumpWidget(
           MaterialApp(
             home: Scaffold(

@@ -130,7 +130,6 @@ class ActivityItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final effectiveIconColor = iconColor ?? _getIconColor();
 
     Widget content = Column(
@@ -154,7 +153,7 @@ class ActivityItem extends StatelessWidget {
                     ? const EdgeInsets.all(AppSpacing.sm)
                     : const EdgeInsets.all(AppSpacing.md),
                 decoration: BoxDecoration(
-                  color: effectiveIconColor.withOpacity(0.1),
+                  color: effectiveIconColor.withValues(alpha: 0.1),
                   borderRadius: AppSpacing.radiusSM,
                 ),
                 child: Icon(

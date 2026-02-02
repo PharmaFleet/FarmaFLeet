@@ -200,7 +200,9 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
               child: OutlinedButton.icon(
                 onPressed: () {
                    final phone = order.customerInfo['phone'];
-                   if (phone != null) launchUrl(Uri.parse('tel:$phone'));
+                   if (phone != null) {
+                     launchUrl(Uri.parse('tel:$phone'));
+                   }
                 },
                 icon: const Icon(Icons.call),
                 label: const Text("Call"),

@@ -24,6 +24,7 @@ vi.mock('@/components/ui/dropdown-menu', () => ({
   DropdownMenuSubContent: ({ children }: any) => <div>{children}</div>,
   DropdownMenuSubTrigger: ({ children }: any) => <div>{children}</div>,
   DropdownMenuRadioGroup: ({ children }: any) => <div>{children}</div>,
+  DropdownMenuSeparator: () => <hr data-testid="dropdown-separator" />,
 }));
 
 // Mock AssignDriverDialog
@@ -53,14 +54,22 @@ vi.mock('@/components/shared/StatusBadge', () => ({
   ),
 }));
 
-// Mock lucide-react icons
-vi.mock('lucide-react', () => ({
-  MoreHorizontal: () => <div data-testid="more-horizontal-icon" />,
-  Plus: () => <div data-testid="plus-icon" />,
-  FileUp: () => <div data-testid="file-up-icon" />,
-  Filter: () => <div data-testid="filter-icon" />,
-  Truck: () => <div data-testid="truck-icon" />,
-}));
+// Mock lucide-react icons - use importOriginal to include all icons and only override the ones we need for testing
+vi.mock('lucide-react', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('lucide-react')>();
+  return {
+    ...actual,
+    MoreHorizontal: () => <div data-testid="more-horizontal-icon" />,
+    Plus: () => <div data-testid="plus-icon" />,
+    Download: () => <div data-testid="download-icon" />,
+    Truck: () => <div data-testid="truck-icon" />,
+    Search: () => <div data-testid="search-icon" />,
+    AlertOctagon: () => <div data-testid="alert-octagon-icon" />,
+    Users: () => <div data-testid="users-icon" />,
+    XCircle: () => <div data-testid="x-circle-icon" />,
+    Trash2: () => <div data-testid="trash2-icon" />,
+  };
+});
 
 // Wrapper component for testing
 const TestWrapper = ({ children }: { children: React.ReactNode }) => {
@@ -163,7 +172,7 @@ describe('OrdersPage Component', () => {
       // Assert
       await waitFor(() => {
         expect(screen.getByText('Orders')).toBeInTheDocument();
-        expect(screen.getByText('Manage and track delivery orders.')).toBeInTheDocument();
+        expect(screen.getByText('Manage and track your delivery operations in real-time.')).toBeInTheDocument();
       });
     });
 
@@ -195,12 +204,10 @@ describe('OrdersPage Component', () => {
         </TestWrapper>
       );
 
-      // Assert
+      // Assert - The component displays status directly in Badge components (lowercase values from enum)
       await waitFor(() => {
-        const statusBadges = screen.getAllByTestId('status-badge');
-        expect(statusBadges).toHaveLength(2);
-        expect(statusBadges[0]).toHaveTextContent('PENDING');
-        expect(statusBadges[1]).toHaveTextContent('DELIVERED');
+        expect(screen.getByText('pending')).toBeInTheDocument();
+        expect(screen.getByText('delivered')).toBeInTheDocument();
       });
     });
 
@@ -215,7 +222,8 @@ describe('OrdersPage Component', () => {
       // Assert
       await waitFor(() => {
         expect(screen.getByText('Driver One')).toBeInTheDocument();
-        expect(screen.getByTestId('truck-icon')).toBeInTheDocument();
+        // There's a truck icon for each order row
+        expect(screen.getAllByTestId('truck-icon').length).toBeGreaterThan(0);
       });
     });
 
@@ -241,9 +249,10 @@ describe('OrdersPage Component', () => {
         </TestWrapper>
       );
 
-      // Assert
+      // Assert - The component displays "WH-{warehouse_id}" format
+      // Both orders have warehouse_id=1, so there are 2 elements
       await waitFor(() => {
-        expect(screen.getByText('Main Warehouse')).toBeInTheDocument();
+        expect(screen.getAllByText('WH-1').length).toBeGreaterThan(0);
       });
     });
   });
@@ -261,9 +270,9 @@ describe('OrdersPage Component', () => {
       );
 
       // Assert
-      expect(screen.getAllByRole('row')).toHaveLength(6); // 5 skeleton rows + header
-      const skeletons = screen.getAllByText('', { selector: '.animate-pulse' });
-      expect(skeletons.length).toBeGreaterThan(0);
+      expect(screen.getAllByRole('row')).toHaveLength(7); // 6 skeleton rows + header
+      const skeletonRows = screen.getAllByRole('row').filter(row => row.className.includes('animate-pulse'));
+      expect(skeletonRows.length).toBe(6);
     });
   });
 
@@ -287,7 +296,7 @@ describe('OrdersPage Component', () => {
 
       // Assert
       await waitFor(() => {
-        expect(screen.getByText('No results.')).toBeInTheDocument();
+        expect(screen.getByText('No orders found matching your criteria.')).toBeInTheDocument();
       });
     });
   });
@@ -301,7 +310,7 @@ describe('OrdersPage Component', () => {
         </TestWrapper>
       );
 
-      const searchInput = screen.getByPlaceholderText('Search orders...');
+      const searchInput = screen.getByPlaceholderText('Search orders, customers, phone...');
       
       // Assert - Initial state
       expect(searchInput).toBeInTheDocument();
@@ -320,6 +329,7 @@ describe('OrdersPage Component', () => {
           limit: 10,
           search: 'SO-001',
           status: undefined,
+          include_archived: false,
         });
       });
     });
@@ -332,11 +342,11 @@ describe('OrdersPage Component', () => {
         </TestWrapper>
       );
 
-      const searchInput = screen.getByPlaceholderText('Search orders...');
-      
+      const searchInput = screen.getByPlaceholderText('Search orders, customers, phone...');
+
       // Type search
       fireEvent.change(searchInput, { target: { value: 'test' } });
-      
+
       // Clear search
       fireEvent.change(searchInput, { target: { value: '' } });
 
@@ -347,6 +357,7 @@ describe('OrdersPage Component', () => {
           limit: 10,
           search: undefined,
           status: undefined,
+          include_archived: false,
         });
       });
     });
@@ -365,7 +376,7 @@ describe('OrdersPage Component', () => {
       await waitFor(() => {
         expect(screen.getByText('Previous')).toBeInTheDocument();
         expect(screen.getByText('Next')).toBeInTheDocument();
-        expect(screen.getByText('Page 1 of 1')).toBeInTheDocument();
+        expect(screen.getByText('Page 1 / 1')).toBeInTheDocument();
       });
     });
 
@@ -414,7 +425,7 @@ describe('OrdersPage Component', () => {
 
       // Wait for initial render
       await waitFor(() => {
-        expect(screen.getByText('Page 1 of 2')).toBeInTheDocument();
+        expect(screen.getByText('Page 1 / 2')).toBeInTheDocument();
       });
 
       // Act - Click Next
@@ -428,6 +439,7 @@ describe('OrdersPage Component', () => {
           limit: 10,
           search: undefined,
           status: undefined,
+          include_archived: false,
         });
       });
     });
@@ -442,7 +454,7 @@ describe('OrdersPage Component', () => {
 
       // Manually set page to 2
       await waitFor(() => {
-        expect(screen.getByText('Page 1 of 1')).toBeInTheDocument();
+        expect(screen.getByText('Page 1 / 1')).toBeInTheDocument();
       });
 
       // Navigate to next page (if possible)
@@ -476,12 +488,12 @@ describe('OrdersPage Component', () => {
       await waitFor(() => {
         expect(screen.getByText('Import')).toBeInTheDocument();
         expect(screen.getByText('Create Order')).toBeInTheDocument();
-        expect(screen.getByTestId('file-up-icon')).toBeInTheDocument();
+        expect(screen.getByTestId('download-icon')).toBeInTheDocument();
         expect(screen.getByTestId('plus-icon')).toBeInTheDocument();
       });
     });
 
-    it('should display filter button', async () => {
+    it('should display search input', async () => {
       // Act
       render(
         <TestWrapper>
@@ -491,7 +503,7 @@ describe('OrdersPage Component', () => {
 
       // Assert
       await waitFor(() => {
-        expect(screen.getByTestId('filter-icon')).toBeInTheDocument();
+        expect(screen.getByTestId('search-icon')).toBeInTheDocument();
       });
     });
   });
@@ -505,8 +517,11 @@ describe('OrdersPage Component', () => {
         </TestWrapper>
       );
 
-      const moreButtons = screen.getAllByTestId('more-horizontal-icon');
-      expect(moreButtons).toHaveLength(2);
+      // Wait for data to load first
+      await waitFor(() => {
+        const moreButtons = screen.getAllByTestId('more-horizontal-icon');
+        expect(moreButtons).toHaveLength(2);
+      });
 
       // Assert - Check if menu items appear (now they are always in DOM because of mock)
       expect(screen.getAllByText('View Details')[0]).toBeInTheDocument();
@@ -624,9 +639,9 @@ describe('OrdersPage Component', () => {
       await waitFor(() => {
         const table = screen.getByRole('table');
         expect(table).toBeInTheDocument();
-        
+
         const headers = screen.getAllByRole('columnheader');
-        expect(headers.length).toBe(7); // Order #, Customer, Status, Warehouse, Driver, Amount, Actions
+        expect(headers.length).toBe(8); // Checkbox, Order #, Customer, Status, Warehouse, Driver, Amount, Actions
       });
     });
   });

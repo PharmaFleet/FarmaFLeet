@@ -383,10 +383,11 @@ async def update_driver(
     db: AsyncSession = Depends(deps.get_db),
     driver_id: int,
     driver_in: DriverUpdate,
-    current_user: User = Depends(deps.get_current_active_user),
+    current_user: User = Depends(deps.get_current_manager_or_above),
 ) -> Any:
     """
     Update a driver.
+    Manager or admin only.
     """
     driver = await db.get(Driver, driver_id)
     if not driver:
@@ -414,10 +415,11 @@ async def update_driver_status(
     db: AsyncSession = Depends(deps.get_db),
     driver_id: int,
     is_available: bool = Body(..., embed=True),
-    current_user: User = Depends(deps.get_current_active_user),
+    current_user: User = Depends(deps.get_current_dispatcher_or_above),
 ) -> Any:
     """
     Update driver availability status.
+    Dispatcher, manager, or admin only.
     """
     driver = await db.get(Driver, driver_id)
     if not driver:
@@ -519,6 +521,45 @@ async def read_driver_location_history(
             {"latitude": row.lat, "longitude": row.lng, "timestamp": row.timestamp}
         )
     return history
+
+
+@router.delete("/{driver_id}")
+async def delete_driver(
+    driver_id: int,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_admin_user),
+) -> Any:
+    """
+    Delete a driver.
+    Admin only. Cannot delete drivers with active (non-delivered/non-cancelled) orders.
+    """
+    driver = await db.get(Driver, driver_id)
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver not found")
+
+    # Check for active orders assigned to this driver
+    active_statuses = [
+        OrderStatus.PENDING,
+        OrderStatus.ASSIGNED,
+        OrderStatus.PICKED_UP,
+        OrderStatus.IN_TRANSIT,
+    ]
+    result = await db.execute(
+        select(Order)
+        .where(Order.driver_id == driver_id)
+        .where(Order.status.in_(active_statuses))
+        .limit(1)
+    )
+    if result.scalars().first():
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot delete driver with active orders. Reassign or complete orders first.",
+        )
+
+    # Delete driver profile
+    await db.delete(driver)
+    await db.commit()
+    return {"msg": f"Driver {driver_id} deleted successfully"}
 
 
 class ConnectionManager:

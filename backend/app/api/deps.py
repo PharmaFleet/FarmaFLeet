@@ -88,6 +88,59 @@ def requires_role(allowed_roles: List[str]):
     return role_checker
 
 
+def get_current_admin_user(
+    current_user: User = Depends(get_current_active_user),
+) -> User:
+    """
+    Dependency that requires the user to be a super_admin.
+    Use for admin-only operations like user management and batch deletions.
+    """
+    from app.models.user import UserRole
+
+    if current_user.role != UserRole.SUPER_ADMIN and not current_user.is_superuser:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only administrators can perform this action",
+        )
+    return current_user
+
+
+def get_current_manager_or_above(
+    current_user: User = Depends(get_current_active_user),
+) -> User:
+    """
+    Dependency that requires the user to be a warehouse_manager or super_admin.
+    Use for operations like payment verification, driver management, etc.
+    """
+    from app.models.user import UserRole
+
+    allowed_roles = [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_MANAGER]
+    if current_user.role not in allowed_roles and not current_user.is_superuser:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only managers and administrators can perform this action",
+        )
+    return current_user
+
+
+def get_current_dispatcher_or_above(
+    current_user: User = Depends(get_current_active_user),
+) -> User:
+    """
+    Dependency that requires the user to be a dispatcher, warehouse_manager, or super_admin.
+    Use for operations like order assignment, driver status changes, etc.
+    """
+    from app.models.user import UserRole
+
+    allowed_roles = [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_MANAGER, UserRole.DISPATCHER]
+    if current_user.role not in allowed_roles and not current_user.is_superuser:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only dispatchers, managers, and administrators can perform this action",
+        )
+    return current_user
+
+
 async def get_user_warehouse_ids(
     user: User, db: AsyncSession
 ) -> List[int] | None:

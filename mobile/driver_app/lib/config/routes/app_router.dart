@@ -30,7 +30,9 @@ class AppRouter {
       }
 
       if (authState is AuthUnauthenticated) {
-         if (isLoggingIn) return null;
+         if (isLoggingIn) {
+           return null;
+         }
          return '/login';
       }
 

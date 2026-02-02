@@ -2,6 +2,7 @@ import 'package:driver_app/core/services/location_service.dart';
 import 'package:driver_app/features/orders/data/models/order_model.dart';
 import 'package:driver_app/features/orders/data/order_service.dart';
 import 'package:equatable/equatable.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 // Home Dashboard Events
@@ -38,7 +39,7 @@ class HomeLoading extends HomeState {}
 class HomeLoaded extends HomeState {
   final bool isOnline;
   final HomeStats stats;
-  final List<Order> recentOrders;
+  final List<OrderModel> recentOrders;
   final List<ActivityItem> recentActivities;
 
   HomeLoaded({
@@ -51,7 +52,7 @@ class HomeLoaded extends HomeState {
   HomeLoaded copyWith({
     bool? isOnline,
     HomeStats? stats,
-    List<Order>? recentOrders,
+    List<OrderModel>? recentOrders,
     List<ActivityItem>? recentActivities,
   }) {
     return HomeLoaded(
@@ -150,7 +151,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         _loadStats(),
       ]);
 
-      final orders = results[0] as List<Order>;
+      final orders = results[0] as List<OrderModel>;
       final stats = results[1] as HomeStats;
 
       // Filter recent orders (last 24 hours)
@@ -185,7 +186,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
           _loadStats(),
         ]);
 
-        final orders = results[0] as List<Order>;
+        final orders = results[0] as List<OrderModel>;
         final stats = results[1] as HomeStats;
 
         // Filter recent orders (last 24 hours)
@@ -234,7 +235,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         emit(currentState.copyWith(stats: stats));
       } catch (e) {
         // Don't change state on stats refresh failure, just log
-        print('Failed to refresh stats: $e');
+        debugPrint('Failed to refresh stats: $e');
       }
     }
   }
@@ -251,19 +252,19 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         return order.createdAt.isAfter(today) && order.createdAt.isBefore(tomorrow);
       }).toList();
 
-      final completedOrders = todayOrders.where((order) => 
-        order.status == OrderStatus.delivered
+      final completedOrders = todayOrders.where((order) =>
+        order.status == 'DELIVERED'
       ).length;
 
-      final activeDeliveries = orders.where((order) => 
-        order.status == OrderStatus.assigned || 
-        order.status == OrderStatus.pickedUp ||
-        order.status == OrderStatus.inTransit
+      final activeDeliveries = orders.where((order) =>
+        order.status == 'ASSIGNED' ||
+        order.status == 'PICKED_UP' ||
+        order.status == 'IN_TRANSIT'
       ).length;
 
       // Calculate earnings (sum of delivered orders)
       final earnings = orders
-          .where((order) => order.status == OrderStatus.delivered)
+          .where((order) => order.status == 'DELIVERED')
           .fold<double>(0.0, (sum, order) => sum + order.totalAmount);
 
       // Rating would typically come from a separate service
@@ -288,29 +289,29 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     }
   }
 
-  List<ActivityItem> _generateActivityItems(List<Order> orders) {
+  List<ActivityItem> _generateActivityItems(List<OrderModel> orders) {
     final activities = <ActivityItem>[];
-    
+
     for (final order in orders) {
       // Order assigned activity
       activities.add(ActivityItem(
         id: '${order.id}_assigned',
         title: 'New Order Assigned',
-        description: 'Order #${order.orderNumber} has been assigned to you',
+        description: 'Order #${order.salesOrderNumber ?? order.id} has been assigned to you',
         timestamp: order.createdAt,
         type: ActivityType.orderAssigned,
-        data: {'orderId': order.id, 'orderNumber': order.orderNumber},
+        data: {'orderId': order.id, 'orderNumber': order.salesOrderNumber ?? '${order.id}'},
       ));
 
       // Add other activity items based on order status
-      if (order.status == OrderStatus.delivered) {
+      if (order.status == 'DELIVERED') {
         activities.add(ActivityItem(
           id: '${order.id}_delivered',
           title: 'Order Delivered',
-          description: 'Order #${order.orderNumber} has been delivered successfully',
+          description: 'Order #${order.salesOrderNumber ?? order.id} has been delivered successfully',
           timestamp: order.createdAt, // Would use actual delivery time in real app
           type: ActivityType.orderDelivered,
-          data: {'orderId': order.id, 'orderNumber': order.orderNumber},
+          data: {'orderId': order.id, 'orderNumber': order.salesOrderNumber ?? '${order.id}'},
         ));
       }
     }

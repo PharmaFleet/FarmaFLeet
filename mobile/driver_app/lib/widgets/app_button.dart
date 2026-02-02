@@ -258,11 +258,8 @@ class AppButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final buttonStyle = _getButtonStyle();
     final textStyle = _getTextStyle();
-    final effectivePadding = padding ?? _getPadding();
-    final effectiveBorderRadius = borderRadius ?? AppSpacing.radiusButton;
     final effectiveHeight = height ?? _getHeight();
 
     final Widget buttonChild = _buildButtonChild(textStyle);
@@ -462,35 +459,35 @@ class AppButton extends StatelessWidget {
           backgroundColor: AppColors.primary,
           textColor: AppColors.onPrimary,
           borderColor: AppColors.primary,
-          overlayColor: AppColors.primary.withOpacity(0.1),
+          overlayColor: AppColors.primary.withValues(alpha: 0.1),
         );
       case AppButtonVariant.secondary:
         return (
           backgroundColor: AppColors.surfaceVariant,
           textColor: AppColors.textPrimary,
           borderColor: AppColors.outline,
-          overlayColor: AppColors.outline.withOpacity(0.1),
+          overlayColor: AppColors.outline.withValues(alpha: 0.1),
         );
       case AppButtonVariant.outline:
         return (
           backgroundColor: Colors.transparent,
           textColor: AppColors.primary,
           borderColor: AppColors.primary,
-          overlayColor: AppColors.primary.withOpacity(0.1),
+          overlayColor: AppColors.primary.withValues(alpha: 0.1),
         );
       case AppButtonVariant.destructive:
         return (
           backgroundColor: AppColors.error,
           textColor: AppColors.onError,
           borderColor: AppColors.error,
-          overlayColor: AppColors.error.withOpacity(0.1),
+          overlayColor: AppColors.error.withValues(alpha: 0.1),
         );
       case AppButtonVariant.ghost:
         return (
           backgroundColor: Colors.transparent,
           textColor: AppColors.textPrimary,
           borderColor: Colors.transparent,
-          overlayColor: AppColors.textSecondary.withOpacity(0.1),
+          overlayColor: AppColors.textSecondary.withValues(alpha: 0.1),
         );
     }
   }

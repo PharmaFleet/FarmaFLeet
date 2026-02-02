@@ -34,6 +34,21 @@ async def read_notifications(
     return notifications
 
 
+@router.post("/register-device")
+async def register_device(
+    fcm_token: str = Body(..., embed=True),
+    current_user: User = Depends(deps.get_current_active_user),
+) -> Any:
+    """
+    Register device FCM token for push notifications.
+    """
+    # Ideally store this in a Device model or User field.
+    # For now, print or mock.
+    # In real app: Redis or DB table 'UserDevices'
+    print(f"Registered FCM token for user {current_user.id}: {fcm_token}")
+    return {"msg": "Device registered successfully"}
+
+
 @router.patch("/{notification_id}/read")
 async def mark_notification_read(
     notification_id: int,
@@ -56,18 +71,3 @@ async def mark_notification_read(
     db.add(notification)
     await db.commit()
     return {"msg": "Notification marked as read"}
-
-
-@router.post("/register-device")
-async def register_device(
-    fcm_token: str = Body(..., embed=True),
-    current_user: User = Depends(deps.get_current_active_user),
-) -> Any:
-    """
-    Register device FCM token for push notifications.
-    """
-    # Ideally store this in a Device model or User field.
-    # For now, print or mock.
-    # In real app: Redis or DB table 'UserDevices'
-    print(f"Registered FCM token for user {current_user.id}: {fcm_token}")
-    return {"msg": "Device registered successfully"}

@@ -18,21 +18,21 @@ class LocalDatabaseService {
   }
 
   // Orders Cache
-  Future<void> cacheOrders(List<Order> orders) async {
+  Future<void> cacheOrders(List<OrderModel> orders) async {
     await _ordersBox.clear();
     for (final order in orders) {
-      await _ordersBox.put(order.id, _orderToMap(order));
+      await _ordersBox.put(order.id, order.toJson());
     }
   }
 
-  List<Order> getCachedOrders() {
+  List<OrderModel> getCachedOrders() {
     return _ordersBox.values
-        .map((map) => _orderFromMap(Map<String, dynamic>.from(map)))
+        .map((map) => OrderModel.fromJson(Map<String, dynamic>.from(map)))
         .toList();
   }
 
-  Future<void> updateCachedOrder(Order order) async {
-    await _ordersBox.put(order.id, _orderToMap(order));
+  Future<void> updateCachedOrder(OrderModel order) async {
+    await _ordersBox.put(order.id, order.toJson());
   }
 
   // Sync Queue
@@ -63,46 +63,6 @@ class LocalDatabaseService {
 
   T? getSetting<T>(String key, {T? defaultValue}) {
     return _settingsBox.get(key, defaultValue: defaultValue) as T?;
-  }
-
-  // Helper methods
-  Map<String, dynamic> _orderToMap(Order order) {
-    return {
-      'id': order.id,
-      'orderNumber': order.orderNumber,
-      'status': order.status.name,
-      'customerName': order.customerName,
-      'customerPhone': order.customerPhone,
-      'deliveryAddress': order.deliveryAddress,
-      'latitude': order.latitude,
-      'longitude': order.longitude,
-      'totalAmount': order.totalAmount,
-      'paymentMethod': order.paymentMethod,
-      'scheduledAt': order.scheduledAt?.toIso8601String(),
-      'createdAt': order.createdAt.toIso8601String(),
-    };
-  }
-
-  Order _orderFromMap(Map<String, dynamic> map) {
-    return Order(
-      id: map['id'],
-      orderNumber: map['orderNumber'],
-      status: OrderStatus.values.firstWhere(
-        (s) => s.name == map['status'],
-        orElse: () => OrderStatus.pending,
-      ),
-      customerName: map['customerName'],
-      customerPhone: map['customerPhone'],
-      deliveryAddress: map['deliveryAddress'],
-      latitude: map['latitude'],
-      longitude: map['longitude'],
-      totalAmount: (map['totalAmount'] ?? 0).toDouble(),
-      paymentMethod: map['paymentMethod'],
-      scheduledAt: map['scheduledAt'] != null
-          ? DateTime.parse(map['scheduledAt'])
-          : null,
-      createdAt: DateTime.parse(map['createdAt']),
-    );
   }
 }
 

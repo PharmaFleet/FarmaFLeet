@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../domain/entities/user_entity.dart';
@@ -49,7 +50,9 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<UserEntity> getProfile() async {
     try {
       final token = await _storage.read(key: AppConstants.tokenKey);
-      if (token == null) throw Exception('No token found');
+      if (token == null) {
+        throw Exception('No token found');
+      }
 
       final response = await _dio.get(
         AppConstants.profileEndpoint,
@@ -77,7 +80,9 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<void> updateFcmToken(String token) async {
     try {
       final authToken = await _storage.read(key: AppConstants.tokenKey);
-      if (authToken == null) return;
+      if (authToken == null) {
+        return;
+      }
 
       await _dio.put(
         AppConstants.profileEndpoint,
@@ -86,8 +91,8 @@ class AuthRepositoryImpl implements AuthRepository {
       );
     } catch (e) {
       // Log error but don't propagate to avoid crashing the flow
-      // kDebugMode check would be good here, but printing is fine for now
-      print('Error updating FCM token: $e');
+      // In production, this should use a proper logging framework
+      debugPrint('Error updating FCM token: $e');
     }
   }
 }

@@ -92,7 +92,6 @@ class StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final effectiveValueColor = valueColor ?? AppColors.textPrimary;
     final effectiveIconColor = iconColor ?? AppColors.textSecondary;
 
@@ -177,7 +176,7 @@ class StatCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(AppSpacing.sm),
                 decoration: BoxDecoration(
-                  color: iconColor.withOpacity(0.1),
+                  color: iconColor.withValues(alpha: 0.1),
                   borderRadius: AppSpacing.radiusSM,
                 ),
                 child: Icon(

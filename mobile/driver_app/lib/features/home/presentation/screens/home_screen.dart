@@ -1,13 +1,13 @@
+import 'dart:async';
+
 import 'package:driver_app/core/services/location_service.dart';
 import 'package:driver_app/features/home/presentation/bloc/home_bloc.dart';
 import 'package:driver_app/features/home/presentation/screens/daily_summary_screen.dart';
-import 'package:driver_app/l10n/app_localizations.dart';
 import 'package:driver_app/theme/theme.dart';
 // Aliased import for the UI component
 import 'package:driver_app/widgets/activity_item.dart' as activity_widget;
 import 'package:driver_app/widgets/widgets.dart'
     hide ActivityItem, ActivityType;
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -50,7 +50,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _toggleOnlineStatus(bool isOnline) async {
     if (isOnline) {
       // Going online
-      final hasPermission = await widget.locationService.requestPermission();
+      final hasPermission = await widget.locationService.checkPermissions();
       if (!hasPermission) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -62,14 +62,17 @@ class _HomeScreenState extends State<HomeScreen> {
         }
         return;
       }
-      await widget.locationService.startTracking();
+      // TODO: Get actual driver ID from auth state
+      await widget.locationService.startTracking('current_driver');
     } else {
       // Going offline
       await widget.locationService.stopTracking();
     }
 
     // Update BLoC with new status
-    context.read<HomeBloc>().add(HomeOnlineStatusChanged(isOnline));
+    if (mounted) {
+      context.read<HomeBloc>().add(HomeOnlineStatusChanged(isOnline));
+    }
   }
 
   void _refreshData() {
@@ -78,8 +81,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-
     return Scaffold(
       body: SafeArea(
         child: RefreshIndicator(
@@ -184,8 +185,6 @@ class _HomeContentView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-
     return SingleChildScrollView(
       physics:
           const AlwaysScrollableScrollPhysics(), // Enable refresh indicator
@@ -360,8 +359,6 @@ class _TrackingSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-
     return CardContainer(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

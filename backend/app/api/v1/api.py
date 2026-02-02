@@ -14,6 +14,7 @@ from app.api.v1.endpoints import (
     sync,
     upload,
 )
+from app.routers import websocket
 
 api_router = APIRouter()
 api_router.include_router(login.router, tags=["login"])
@@ -30,3 +31,4 @@ api_router.include_router(analytics.router, prefix="/analytics", tags=["analytic
 api_router.include_router(warehouses.router, prefix="/warehouses", tags=["warehouses"])
 api_router.include_router(sync.router, prefix="/sync", tags=["sync"])
 api_router.include_router(upload.router, prefix="/upload", tags=["upload"])
+api_router.include_router(websocket.router, tags=["websocket"])

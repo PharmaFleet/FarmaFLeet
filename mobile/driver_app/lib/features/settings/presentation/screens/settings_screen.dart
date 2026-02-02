@@ -90,7 +90,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: colorScheme.surfaceContainerHighest.withOpacity(0.3),
+      backgroundColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
       appBar: AppBar(
         title: Text(l10n?.settings ?? 'Settings'),
         centerTitle: true,
@@ -215,28 +215,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Select Language'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            RadioListTile<String>(
-              title: const Text('English'),
-              value: 'en',
-              groupValue: _currentLocale,
-              onChanged: (value) {
-                _changeLocale(value!);
-                Navigator.pop(context);
-              },
-            ),
-            RadioListTile<String>(
-              title: const Text('العربية'),
-              value: 'ar',
-              groupValue: _currentLocale,
-              onChanged: (value) {
-                _changeLocale(value!);
-                Navigator.pop(context);
-              },
-            ),
-          ],
+        content: RadioGroup<String>(
+          groupValue: _currentLocale,
+          onChanged: (value) {
+            if (value != null) {
+              _changeLocale(value);
+              Navigator.pop(context);
+            }
+          },
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                title: const Text('English'),
+                leading: const Radio<String>(value: 'en'),
+                onTap: () {
+                  _changeLocale('en');
+                  Navigator.pop(context);
+                },
+              ),
+              ListTile(
+                title: const Text('العربية'),
+                leading: const Radio<String>(value: 'ar'),
+                onTap: () {
+                  _changeLocale('ar');
+                  Navigator.pop(context);
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -304,7 +311,7 @@ class _SettingsTile extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: (iconColor ?? colorScheme.primary).withOpacity(0.1),
+                color: (iconColor ?? colorScheme.primary).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(

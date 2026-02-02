@@ -1,8 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:logger/logger.dart';
 
-import '../../../core/models/location_model.dart';
 import '../../../core/services/location_service.dart';
 import 'location_event.dart';
 import 'location_state.dart';
@@ -253,19 +251,5 @@ class LocationBloc extends Bloc<LocationEvent, LocationState> {
     } catch (e) {
       _logger.e('Error refreshing status: $e');
     }
-  }
-
-  /// Convert a Geolocator Position to LocationUpdateModel
-  LocationUpdateModel _positionToModel(Position position, String driverId) {
-    return LocationUpdateModel(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      driverId: driverId,
-      latitude: position.latitude,
-      longitude: position.longitude,
-      accuracy: position.accuracy,
-      timestamp: DateTime.now(),
-      speed: position.speed > 0 ? position.speed : null,
-      heading: position.heading > 0 ? position.heading : null,
-    );
   }
 }

@@ -186,8 +186,6 @@ class OrderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     if (isLoading) {
       return _buildLoadingCard();
     }
@@ -352,9 +350,9 @@ class OrderCard extends StatelessWidget {
         vertical: 2,
       ),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: AppSpacing.radiusChip,
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -384,7 +382,7 @@ class OrderCard extends StatelessWidget {
         if (showCustomerAvatar) ...[
           CircleAvatar(
             radius: 20,
-            backgroundColor: AppColors.primary.withOpacity(0.1),
+            backgroundColor: AppColors.primary.withValues(alpha: 0.1),
             backgroundImage: customerAvatar != null
                 ? NetworkImage(customerAvatar!)
                 : null,
@@ -521,7 +519,7 @@ class OrderCard extends StatelessWidget {
         color: AppColors.infoContainer,
         borderRadius: AppSpacing.radiusSM,
         border: Border.all(
-          color: AppColors.info.withOpacity(0.2),
+          color: AppColors.info.withValues(alpha: 0.2),
         ),
       ),
       child: Row(

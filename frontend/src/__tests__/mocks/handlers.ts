@@ -1,4 +1,4 @@
-import { rest } from 'msw';
+import { http, HttpResponse, delay } from 'msw';
 import { Order, Driver, User, PaginatedResponse } from '@/types';
 
 // Mock data
@@ -64,14 +64,18 @@ const mockUser: User = {
   warehouse_id: 1,
 };
 
-// API handlers
+// API handlers - use wildcard to match both relative and absolute URLs
+// The axios client uses http://localhost:8000/api/v1 as base URL
+const API_BASE = '*/api/v1';
+
 export const handlers = [
   // Orders endpoints
-  rest.get('/api/orders', (req, res, ctx) => {
-    const page = Number(req.url.searchParams.get('page') || '1');
-    const size = Number(req.url.searchParams.get('size') || '10');
-    const status = req.url.searchParams.get('status');
-    const warehouseId = req.url.searchParams.get('warehouse_id');
+  http.get(`${API_BASE}/orders`, ({ request }) => {
+    const url = new URL(request.url);
+    const page = Number(url.searchParams.get('page') || '1');
+    const size = Number(url.searchParams.get('size') || '10');
+    const status = url.searchParams.get('status');
+    const warehouseId = url.searchParams.get('warehouse_id');
 
     let filteredOrders = mockOrders;
 
@@ -95,32 +99,23 @@ export const handlers = [
       pages: Math.ceil(filteredOrders.length / size),
     };
 
-    return res(
-      ctx.status(200),
-      ctx.json(response)
-    );
+    return HttpResponse.json(response);
   }),
 
-  rest.get('/api/orders/:id', (req, res, ctx) => {
-    const { id } = req.params;
+  http.get(`${API_BASE}/orders/:id`, ({ params }) => {
+    const { id } = params;
     const order = mockOrders.find(o => o.id === Number(id));
 
     if (!order) {
-      return res(
-        ctx.status(404),
-        ctx.json({ detail: 'Order not found' })
-      );
+      return HttpResponse.json({ detail: 'Order not found' }, { status: 404 });
     }
 
-    return res(
-      ctx.status(200),
-      ctx.json(order)
-    );
+    return HttpResponse.json(order);
   }),
 
-  rest.post('/api/orders', async (req, res, ctx) => {
-    const newOrder = await req.json();
-    
+  http.post(`${API_BASE}/orders`, async ({ request }) => {
+    const newOrder = await request.json() as any;
+
     const createdOrder: Order = {
       id: mockOrders.length + 1,
       ...newOrder,
@@ -131,74 +126,56 @@ export const handlers = [
 
     mockOrders.push(createdOrder);
 
-    return res(
-      ctx.status(201),
-      ctx.json(createdOrder)
-    );
+    return HttpResponse.json(createdOrder, { status: 201 });
   }),
 
-  rest.post('/api/orders/:id/assign', (req, res, ctx) => {
-    const { id } = req.params;
-    const { driver_id } = req.json() as { driver_id: number };
+  http.post(`${API_BASE}/orders/:id/assign`, async ({ request, params }) => {
+    const { id } = params;
+    const { driver_id } = await request.json() as { driver_id: number };
 
     const order = mockOrders.find(o => o.id === Number(id));
-    
+
     if (!order) {
-      return res(
-        ctx.status(404),
-        ctx.json({ detail: 'Order not found' })
-      );
+      return HttpResponse.json({ detail: 'Order not found' }, { status: 404 });
     }
 
     const driver = mockDrivers.find(d => d.id === driver_id);
-    
+
     if (!driver) {
-      return res(
-        ctx.status(404),
-        ctx.json({ detail: 'Driver not found' })
-      );
+      return HttpResponse.json({ detail: 'Driver not found' }, { status: 404 });
     }
 
     order.driver_id = driver_id;
     order.status = 'ASSIGNED';
     order.updated_at = new Date().toISOString();
 
-    return res(
-      ctx.status(200),
-      ctx.json({ 
-        success: true, 
-        message: 'Driver assigned successfully' 
-      })
-    );
+    return HttpResponse.json({
+      success: true,
+      message: 'Driver assigned successfully'
+    });
   }),
 
-  rest.post('/api/orders/:id/unassign', (req, res, ctx) => {
-    const { id } = req.params;
+  http.post(`${API_BASE}/orders/:id/unassign`, ({ params }) => {
+    const { id } = params;
     const order = mockOrders.find(o => o.id === Number(id));
-    
+
     if (!order) {
-      return res(
-        ctx.status(404),
-        ctx.json({ detail: 'Order not found' })
-      );
+      return HttpResponse.json({ detail: 'Order not found' }, { status: 404 });
     }
 
     order.driver_id = undefined;
     order.status = 'PENDING';
     order.updated_at = new Date().toISOString();
 
-    return res(
-      ctx.status(200),
-      ctx.json({ 
-        success: true, 
-        message: 'Driver unassigned successfully' 
-      })
-    );
+    return HttpResponse.json({
+      success: true,
+      message: 'Driver unassigned successfully'
+    });
   }),
 
-  rest.post('/api/orders/batch-assign', async (req, res, ctx) => {
-    const assignments = await req.json() as { order_id: number, driver_id: number }[];
-    
+  http.post(`${API_BASE}/orders/batch-assign`, async ({ request }) => {
+    const assignments = await request.json() as { order_id: number, driver_id: number }[];
+
     let assigned = 0;
     let failed = 0;
     const errors: any[] = [];
@@ -209,15 +186,15 @@ export const handlers = [
 
       if (!order) {
         failed++;
-        errors.push({ 
-          order_id: assignment.order_id, 
-          error: 'Order not found' 
+        errors.push({
+          order_id: assignment.order_id,
+          error: 'Order not found'
         });
       } else if (!driver) {
         failed++;
-        errors.push({ 
-          order_id: assignment.order_id, 
-          error: 'Driver not found' 
+        errors.push({
+          order_id: assignment.order_id,
+          error: 'Driver not found'
         });
       } else {
         order.driver_id = assignment.driver_id;
@@ -227,29 +204,34 @@ export const handlers = [
       }
     }
 
-    return res(
-      ctx.status(200),
-      ctx.json({
-        success: failed === 0,
-        assigned,
-        failed,
-        errors: errors.length > 0 ? errors : undefined,
-      })
-    );
+    return HttpResponse.json({
+      success: failed === 0,
+      assigned,
+      failed,
+      errors: errors.length > 0 ? errors : undefined,
+    });
   }),
 
   // Drivers endpoints
-  rest.get('/api/drivers', (req, res, ctx) => {
-    const page = Number(req.url.searchParams.get('page') || '1');
-    const size = Number(req.url.searchParams.get('size') || '10');
-    const isAvailable = req.url.searchParams.get('is_available');
+  http.get(`${API_BASE}/drivers`, ({ request }) => {
+    const url = new URL(request.url);
+    const page = Number(url.searchParams.get('page') || '1');
+    const size = Number(url.searchParams.get('size') || '10');
+    const isAvailable = url.searchParams.get('is_available');
+    const activeOnly = url.searchParams.get('active_only');
 
-    let filteredDrivers = mockDrivers;
+    let filteredDrivers = [...mockDrivers];
 
+    // Filter by is_available param
     if (isAvailable) {
-      filteredDrivers = filteredDrivers.filter(driver => 
+      filteredDrivers = filteredDrivers.filter(driver =>
         driver.is_available === (isAvailable === 'true')
       );
+    }
+
+    // Filter by active_only param (used by getAllOnline)
+    if (activeOnly === 'true') {
+      filteredDrivers = filteredDrivers.filter(driver => driver.is_available);
     }
 
     const startIndex = (page - 1) * size;
@@ -264,39 +246,36 @@ export const handlers = [
       pages: Math.ceil(filteredDrivers.length / size),
     };
 
-    return res(
-      ctx.status(200),
-      ctx.json(response)
-    );
+    return HttpResponse.json(response);
   }),
 
-  rest.get('/api/drivers/:id', (req, res, ctx) => {
-    const { id } = req.params;
+  // Online drivers endpoint (must be before /drivers/:id to avoid shadowing)
+  http.get(`${API_BASE}/drivers/online`, () => {
+    const onlineDrivers = mockDrivers.filter(driver => driver.is_available);
+    return HttpResponse.json(onlineDrivers);
+  }),
+
+  http.get(`${API_BASE}/drivers/:id`, ({ params }) => {
+    const { id } = params;
     const driver = mockDrivers.find(d => d.id === Number(id));
 
     if (!driver) {
-      return res(
-        ctx.status(404),
-        ctx.json({ detail: 'Driver not found' })
-      );
+      return HttpResponse.json({ detail: 'Driver not found' }, { status: 404 });
     }
 
-    return res(
-      ctx.status(200),
-      ctx.json(driver)
-    );
+    return HttpResponse.json(driver);
   }),
 
-  rest.post('/api/drivers', async (req, res, ctx) => {
-    const newDriver = await req.json();
-    
+  http.post(`${API_BASE}/drivers`, async ({ request }) => {
+    const newDriver = await request.json() as any;
+
     // Check if user already exists as driver
     const existingDriver = mockDrivers.find(d => d.user_id === newDriver.user_id);
-    
+
     if (existingDriver) {
-      return res(
-        ctx.status(409),
-        ctx.json({ detail: 'User already registered as driver' })
+      return HttpResponse.json(
+        { detail: 'User already registered as driver' },
+        { status: 409 }
       );
     }
 
@@ -307,23 +286,17 @@ export const handlers = [
 
     mockDrivers.push(createdDriver);
 
-    return res(
-      ctx.status(201),
-      ctx.json(createdDriver)
-    );
+    return HttpResponse.json(createdDriver, { status: 201 });
   }),
 
-  rest.put('/api/drivers/:id', async (req, res, ctx) => {
-    const { id } = req.params;
-    const updateData = await req.json();
-    
+  http.put(`${API_BASE}/drivers/:id`, async ({ request, params }) => {
+    const { id } = params;
+    const updateData = await request.json() as any;
+
     const driverIndex = mockDrivers.findIndex(d => d.id === Number(id));
-    
+
     if (driverIndex === -1) {
-      return res(
-        ctx.status(404),
-        ctx.json({ detail: 'Driver not found' })
-      );
+      return HttpResponse.json({ detail: 'Driver not found' }, { status: 404 });
     }
 
     mockDrivers[driverIndex] = {
@@ -331,85 +304,71 @@ export const handlers = [
       ...updateData,
     };
 
-    return res(
-      ctx.status(200),
-      ctx.json(mockDrivers[driverIndex])
-    );
+    return HttpResponse.json(mockDrivers[driverIndex]);
   }),
 
-  rest.patch('/api/drivers/:id/status', async (req, res, ctx) => {
-    const { id } = req.params;
-    const { is_available } = await req.json();
-    
+  http.patch(`${API_BASE}/drivers/:id/status`, async ({ request, params }) => {
+    const { id } = params;
+    const { is_available } = await request.json() as { is_available: boolean };
+
     const driver = mockDrivers.find(d => d.id === Number(id));
-    
+
     if (!driver) {
-      return res(
-        ctx.status(404),
-        ctx.json({ detail: 'Driver not found' })
-      );
+      return HttpResponse.json({ detail: 'Driver not found' }, { status: 404 });
     }
 
     driver.is_available = is_available;
 
-    return res(
-      ctx.status(200),
-      ctx.json(driver)
-    );
+    return HttpResponse.json(driver);
   }),
 
   // Auth endpoints
-  rest.post('/api/login/access-token', async (req, res, ctx) => {
-    const formData = await req.text();
+  http.post(`${API_BASE}/login/access-token`, async ({ request }) => {
+    const formData = await request.text();
     const params = new URLSearchParams(formData);
     const username = params.get('username');
     const password = params.get('password');
 
     // Mock authentication
     if (username === 'test@example.com' && password === 'password123') {
-      return res(
-        ctx.status(200),
-        ctx.json({
-          access_token: 'mock_access_token',
-          refresh_token: 'mock_refresh_token',
-          token_type: 'bearer',
-        })
-      );
+      return HttpResponse.json({
+        access_token: 'mock_access_token',
+        refresh_token: 'mock_refresh_token',
+        token_type: 'bearer',
+      });
     }
 
-    return res(
-      ctx.status(401),
-      ctx.json({ detail: 'Invalid credentials' })
-    );
+    return HttpResponse.json({ detail: 'Invalid credentials' }, { status: 401 });
   }),
 
-  rest.get('/api/users/me', (req, res, ctx) => {
-    // Check for valid authorization header
-    const authHeader = req.headers.get('authorization');
-    
-    if (!authHeader || !authHeader.includes('Bearer mock_access_token')) {
-      return res(
-        ctx.status(401),
-        ctx.json({ detail: 'Not authenticated' })
-      );
+  http.get(`${API_BASE}/users/me`, () => {
+    // For testing purposes, always return the mock user
+    // In integration tests, we assume authentication is handled
+    return HttpResponse.json(mockUser);
+  }),
+
+  http.post(`${API_BASE}/auth/logout`, () => {
+    return HttpResponse.json({ message: 'Successfully logged out' });
+  }),
+
+  // Token refresh endpoint
+  http.post(`${API_BASE}/auth/refresh`, async ({ request }) => {
+    const body = await request.json() as { refresh_token?: string };
+
+    if (body.refresh_token === 'mock_refresh_token') {
+      return HttpResponse.json({
+        access_token: 'mock_access_token_refreshed',
+        refresh_token: 'mock_refresh_token',
+        token_type: 'bearer',
+      });
     }
 
-    return res(
-      ctx.status(200),
-      ctx.json(mockUser)
-    );
-  }),
-
-  rest.post('/api/auth/logout', (req, res, ctx) => {
-    return res(
-      ctx.status(200),
-      ctx.json({ message: 'Successfully logged out' })
-    );
+    return HttpResponse.json({ detail: 'Invalid refresh token' }, { status: 401 });
   }),
 
   // Batch Cancel endpoint
-  rest.post('/api/v1/orders/batch-cancel', async (req, res, ctx) => {
-    const { order_ids, reason } = await req.json() as { order_ids: number[], reason?: string };
+  http.post(`${API_BASE}/orders/batch-cancel`, async ({ request }) => {
+    const { order_ids, reason } = await request.json() as { order_ids: number[], reason?: string };
 
     let cancelled = 0;
     const errors: any[] = [];
@@ -439,26 +398,20 @@ export const handlers = [
       }
     }
 
-    return res(
-      ctx.status(200),
-      ctx.json({
-        cancelled,
-        errors,
-      })
-    );
+    return HttpResponse.json({
+      cancelled,
+      errors,
+    });
   }),
 
   // Batch Delete endpoint (admin only)
-  rest.post('/api/v1/orders/batch-delete', async (req, res, ctx) => {
-    const { order_ids } = await req.json() as { order_ids: number[] };
+  http.post(`${API_BASE}/orders/batch-delete`, async ({ request }) => {
+    const { order_ids } = await request.json() as { order_ids: number[] };
 
     // Simulate admin check - in real app this would check JWT claims
-    const authHeader = req.headers.get('authorization');
+    const authHeader = request.headers.get('authorization');
     if (!authHeader) {
-      return res(
-        ctx.status(401),
-        ctx.json({ detail: 'Not authenticated' })
-      );
+      return HttpResponse.json({ detail: 'Not authenticated' }, { status: 401 });
     }
 
     let deleted = 0;
@@ -478,36 +431,27 @@ export const handlers = [
       }
     }
 
-    return res(
-      ctx.status(200),
-      ctx.json({
-        deleted,
-        errors,
-      })
-    );
+    return HttpResponse.json({
+      deleted,
+      errors,
+    });
   }),
 
   // Batch Delete - forbidden for non-admin
-  rest.post('/api/v1/orders/batch-delete-forbidden', async (req, res, ctx) => {
-    return res(
-      ctx.status(403),
-      ctx.json({ detail: 'Only administrators can permanently delete orders' })
+  http.post(`${API_BASE}/orders/batch-delete-forbidden`, () => {
+    return HttpResponse.json(
+      { detail: 'Only administrators can permanently delete orders' },
+      { status: 403 }
     );
   }),
 
   // Error handlers for testing error scenarios
-  rest.get('/api/orders/error', (req, res, ctx) => {
-    return res(
-      ctx.status(500),
-      ctx.json({ detail: 'Internal server error' })
-    );
+  http.get(`${API_BASE}/orders/error`, () => {
+    return HttpResponse.json({ detail: 'Internal server error' }, { status: 500 });
   }),
 
-  rest.get('/api/orders/timeout', (req, res, ctx) => {
-    return res(
-      ctx.delay(10000), // 10 second delay to test timeout
-      ctx.status(200),
-      ctx.json({ message: 'This should timeout' })
-    );
+  http.get(`${API_BASE}/orders/timeout`, async () => {
+    await delay(10000); // 10 second delay to test timeout
+    return HttpResponse.json({ message: 'This should timeout' });
   }),
 ];

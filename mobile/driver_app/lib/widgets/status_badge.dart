@@ -160,7 +160,6 @@ class StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final colors = _getColors();
     final effectiveBorderRadius = borderRadius ?? AppSpacing.radiusChip;
     final effectivePadding = padding ?? _getPadding();

@@ -147,10 +147,11 @@ async def collect_payment(
 async def clear_payment(
     payment_id: int,
     db: AsyncSession = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_user),  # Manager
+    current_user: User = Depends(deps.get_current_manager_or_above),
 ) -> Any:
     """
     Verify/clear a payment collection.
+    Manager or admin only.
     """
     payment = await db.get(PaymentCollection, payment_id)
     if not payment:

@@ -67,39 +67,44 @@ class _OrderRejectionDialogState extends State<OrderRejectionDialog> {
     return AlertDialog(
       title: const Text('Reject Order'),
       content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Please select a reason for rejection:',
-              style: TextStyle(color: Colors.grey),
-            ),
-            const SizedBox(height: 16),
-            ...List.generate(_reasons.length, (index) {
-              final reason = _reasons[index];
-              return RadioListTile<String>(
-                title: Text(reason),
-                value: reason,
-                groupValue: _selectedReason,
-                onChanged: (value) {
-                  setState(() => _selectedReason = value);
-                },
-                contentPadding: EdgeInsets.zero,
-              );
-            }),
-            if (_selectedReason == 'Other') ...[
-              const SizedBox(height: 8),
-              TextField(
-                controller: _reasonController,
-                decoration: const InputDecoration(
-                  labelText: 'Specify reason',
-                  border: OutlineInputBorder(),
-                ),
-                maxLines: 2,
+        child: RadioGroup<String>(
+          groupValue: _selectedReason,
+          onChanged: (value) {
+            setState(() => _selectedReason = value);
+          },
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Please select a reason for rejection:',
+                style: TextStyle(color: Colors.grey),
               ),
+              const SizedBox(height: 16),
+              ...List.generate(_reasons.length, (index) {
+                final reason = _reasons[index];
+                return ListTile(
+                  title: Text(reason),
+                  leading: Radio<String>(value: reason),
+                  onTap: () {
+                    setState(() => _selectedReason = reason);
+                  },
+                  contentPadding: EdgeInsets.zero,
+                );
+              }),
+              if (_selectedReason == 'Other') ...[
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _reasonController,
+                  decoration: const InputDecoration(
+                    labelText: 'Specify reason',
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLines: 2,
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
       actions: [

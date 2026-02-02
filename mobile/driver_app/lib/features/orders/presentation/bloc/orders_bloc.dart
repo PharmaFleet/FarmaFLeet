@@ -1,5 +1,9 @@
+import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../../domain/entities/order_entity.dart';
 import '../../domain/repositories/order_repository.dart';
@@ -8,7 +12,7 @@ import '../../domain/repositories/order_repository.dart';
 abstract class OrdersEvent extends Equatable {
   const OrdersEvent();
   @override
-  List<Object> get props => [];
+  List<Object?> get props => [];
 }
 
 class FetchOrders extends OrdersEvent {
@@ -19,6 +23,29 @@ class FetchOrders extends OrdersEvent {
 class RefreshOrders extends OrdersEvent {
   final String? statusFilter;
   const RefreshOrders({this.statusFilter});
+}
+
+class OrderStatusUpdateRequested extends OrdersEvent {
+  final int orderId;
+  final String status;
+  final String? notes;
+  final File? photo;
+  final Uint8List? signature;
+  final String? paymentMethod;
+  final double? amountCollected;
+
+  const OrderStatusUpdateRequested(
+    this.orderId,
+    this.status, {
+    this.notes,
+    this.photo,
+    this.signature,
+    this.paymentMethod,
+    this.amountCollected,
+  });
+
+  @override
+  List<Object?> get props => [orderId, status, notes, photo, signature, paymentMethod, amountCollected];
 }
 
 // States
@@ -46,6 +73,29 @@ class OrdersError extends OrdersState {
   List<Object> get props => [message];
 }
 
+class OrderStatusUpdateInProgress extends OrdersState {
+  final int orderId;
+  const OrderStatusUpdateInProgress(this.orderId);
+  @override
+  List<Object> get props => [orderId];
+}
+
+class OrderStatusUpdateSuccess extends OrdersState {
+  final int orderId;
+  final String newStatus;
+  const OrderStatusUpdateSuccess(this.orderId, this.newStatus);
+  @override
+  List<Object> get props => [orderId, newStatus];
+}
+
+class OrderStatusUpdateFailure extends OrdersState {
+  final int orderId;
+  final String message;
+  const OrderStatusUpdateFailure(this.orderId, this.message);
+  @override
+  List<Object> get props => [orderId, message];
+}
+
 // Bloc
 class OrdersBloc extends Bloc<OrdersEvent, OrdersState> {
   final OrderRepository repository;
@@ -53,6 +103,7 @@ class OrdersBloc extends Bloc<OrdersEvent, OrdersState> {
   OrdersBloc(this.repository) : super(OrdersInitial()) {
     on<FetchOrders>(_onFetchOrders);
     on<RefreshOrders>(_onRefreshOrders);
+    on<OrderStatusUpdateRequested>(_onOrderStatusUpdateRequested);
   }
 
   Future<void> _onFetchOrders(FetchOrders event, Emitter<OrdersState> emit) async {
@@ -73,6 +124,54 @@ class OrdersBloc extends Bloc<OrdersEvent, OrdersState> {
       emit(OrdersLoaded(orders));
     } catch (e) {
       emit(OrdersError(e.toString()));
+    }
+  }
+
+  Future<void> _onOrderStatusUpdateRequested(
+    OrderStatusUpdateRequested event,
+    Emitter<OrdersState> emit,
+  ) async {
+    emit(OrderStatusUpdateInProgress(event.orderId));
+
+    try {
+      // If this is a delivery completion with POD files, upload them first
+      String? photoUrl;
+      String? signatureUrl;
+
+      if (event.status.toLowerCase() == 'delivered') {
+        // Upload photo if provided
+        if (event.photo != null) {
+          photoUrl = await repository.uploadFile(event.photo!.path);
+        }
+
+        // Upload signature if provided
+        if (event.signature != null) {
+          final tempDir = await getTemporaryDirectory();
+          final signatureFile = File('${tempDir.path}/signature_${event.orderId}.png');
+          await signatureFile.writeAsBytes(event.signature!);
+          signatureUrl = await repository.uploadFile(signatureFile.path);
+        }
+
+        // Submit proof of delivery if we have files
+        if (photoUrl != null || signatureUrl != null) {
+          await repository.submitProofOfDelivery(
+            event.orderId,
+            photoUrl ?? '',
+            signatureUrl,
+          );
+        }
+      }
+
+      // Update the order status
+      await repository.updateOrderStatus(
+        event.orderId,
+        event.status,
+        notes: event.notes,
+      );
+
+      emit(OrderStatusUpdateSuccess(event.orderId, event.status));
+    } catch (e) {
+      emit(OrderStatusUpdateFailure(event.orderId, e.toString()));
     }
   }
 }

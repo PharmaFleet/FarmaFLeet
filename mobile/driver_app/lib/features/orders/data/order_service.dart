@@ -6,13 +6,13 @@ class OrderService {
 
   OrderService(this._dio);
 
-  Future<List<Order>> getMyOrders() async {
+  Future<List<OrderModel>> getMyOrders() async {
     final response = await _dio.get('/drivers/me/orders');
     final dynamic responseData = response.data;
     final List<dynamic> data = responseData is List
         ? responseData
         : (responseData['items'] ?? []);
-    return data.map((json) => Order.fromJson(json)).toList();
+    return data.map((json) => OrderModel.fromJson(json)).toList();
   }
 
   Future<void> updateOrderStatus(int orderId, String status) async {

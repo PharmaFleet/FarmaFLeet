@@ -9,16 +9,16 @@ class SyncService {
   final OrderService _orderService;
   final Logger _logger = Logger();
 
-  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
+  StreamSubscription<ConnectivityResult>? _connectivitySubscription;
   bool _isSyncing = false;
 
   SyncService(this._localDb, this._orderService);
 
   void startMonitoring() {
     _connectivitySubscription = Connectivity().onConnectivityChanged.listen((
-      results,
+      result,
     ) {
-      final hasConnection = results.any((r) => r != ConnectivityResult.none);
+      final hasConnection = result != ConnectivityResult.none;
       if (hasConnection && !_isSyncing) {
         syncPendingActions();
       }
@@ -30,15 +30,19 @@ class SyncService {
   }
 
   Future<bool> hasConnection() async {
-    final results = await Connectivity().checkConnectivity();
-    return results.any((r) => r != ConnectivityResult.none);
+    final result = await Connectivity().checkConnectivity();
+    return result != ConnectivityResult.none;
   }
 
   Future<void> syncPendingActions() async {
-    if (_isSyncing) return;
+    if (_isSyncing) {
+      return;
+    }
 
     final isOnline = await hasConnection();
-    if (!isOnline) return;
+    if (!isOnline) {
+      return;
+    }
 
     _isSyncing = true;
     _logger.i('Starting sync of pending actions...');

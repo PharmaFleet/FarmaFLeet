@@ -294,7 +294,7 @@ void main() {
       final decoration = container.decoration as BoxDecoration;
       expect(decoration.color, equals(AppColors.primaryContainer));
       expect(decoration.border, isNotNull);
-      expect(decoration.border!.top.color, equals(AppColors.primary.withOpacity(0.2)));
+      expect(decoration.border!.top.color, equals(AppColors.primary.withValues(alpha: 0.2)));
     });
   });
 }

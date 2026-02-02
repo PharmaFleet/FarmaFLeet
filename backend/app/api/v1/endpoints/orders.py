@@ -140,33 +140,6 @@ async def read_orders(
         "pages": pages,
     }
 
-    # Pagination logic
-    skip = (page - 1) * limit
-    pages = ceil(total / limit) if limit > 0 else 1
-
-    # Get items
-    query = (
-        query.options(
-            selectinload(Order.status_history),
-            selectinload(Order.proof_of_delivery),
-            selectinload(Order.warehouse),
-            selectinload(Order.driver).selectinload(Driver.user),
-        )
-        .order_by(desc(Order.created_at))
-        .offset(skip)
-        .limit(limit)
-    )
-    result = await db.execute(query)
-    orders = result.scalars().all()
-
-    return {
-        "items": orders,
-        "total": total,
-        "page": page,
-        "size": limit,
-        "pages": pages,
-    }
-
 
 @router.get("/{order_id}", response_model=OrderSchema)
 async def read_order(
@@ -443,17 +416,12 @@ async def batch_cancel_orders(
 async def batch_delete_orders(
     request: BatchDeleteRequest,
     db: AsyncSession = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_user),
+    current_user: User = Depends(deps.get_current_admin_user),
 ) -> Any:
     """
     Batch delete multiple orders (hard deletion).
     Admin only - removes orders and all related data.
     """
-    # Check admin role
-    if current_user.role not in ["admin", "super_admin"]:
-        raise HTTPException(
-            status_code=403, detail="Only administrators can permanently delete orders"
-        )
 
     deleted_count = 0
     errors = []
@@ -878,17 +846,12 @@ async def cancel_order(
 async def delete_order(
     order_id: int,
     db: AsyncSession = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_user),
+    current_user: User = Depends(deps.get_current_admin_user),
 ) -> Any:
     """
     Permanently delete an order (hard deletion).
     Admin only - removes order and all related data (history, POD).
     """
-    # Check admin role
-    if current_user.role not in ["admin", "super_admin"]:
-        raise HTTPException(
-            status_code=403, detail="Only administrators can permanently delete orders"
-        )
 
     order = await db.get(Order, order_id)
     if not order:
@@ -942,17 +905,13 @@ async def unarchive_order(
 @router.post("/auto-archive")
 async def auto_archive_orders(
     db: AsyncSession = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_user),
+    current_user: User = Depends(deps.get_current_admin_user),
 ) -> Any:
     """
     Auto-archive delivered orders older than 7 days.
     This endpoint is designed to be called by a daily cron job.
     Admin only.
     """
-    if current_user.role not in ["admin", "super_admin"]:
-        raise HTTPException(
-            status_code=403, detail="Only administrators can run auto-archive"
-        )
 
     cutoff_date = datetime.utcnow() - timedelta(days=7)
 

@@ -133,7 +133,7 @@ describe('driverService', () => {
       const result = await driverService.getAllOnline();
 
       // Assert
-      expect(api.get).toHaveBeenCalledWith('/drivers', { params: { is_available: true } });
+      expect(api.get).toHaveBeenCalledWith('/drivers', { params: { active_only: true, size: 100 } });
       expect(result).toEqual(mockDrivers);
     });
 

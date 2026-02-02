@@ -136,7 +136,7 @@ class LocationService {
       final locationSettings = LocationSettings(
         accuracy: LocationAccuracy.high,  // Changed from bestForNavigation for 30-40% battery savings
         distanceFilter: _distanceFilter.toInt(),
-        timeLimit: Duration(seconds: 10),  // Timeout for location acquisition
+        timeLimit: const Duration(seconds: 10),  // Timeout for location acquisition
       );
 
       // Subscribe to position stream

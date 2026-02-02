@@ -76,35 +76,45 @@ class _DeliveryCompletionScreenState extends State<DeliveryCompletionScreen> {
 
     setState(() => _isSubmitting = true);
 
-    try {
-      context.read<OrdersBloc>().add(
-        OrderStatusUpdateRequested(widget.orderId, 'delivered'),
-      );
+    // Parse the collected amount
+    final amountCollected = double.tryParse(_amountController.text);
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Delivery completed successfully!')),
-        );
-        context.go('/orders');
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isSubmitting = false);
-      }
+    // Add the event with POD data
+    context.read<OrdersBloc>().add(
+      OrderStatusUpdateRequested(
+        widget.orderId,
+        'DELIVERED',
+        notes: _notesController.text.isNotEmpty ? _notesController.text : null,
+        photo: _photo,
+        signature: _signature,
+        paymentMethod: _selectedPaymentMethod,
+        amountCollected: amountCollected,
+      ),
+    );
+  }
+
+  void _handleBlocState(BuildContext context, OrdersState state) {
+    if (state is OrderStatusUpdateSuccess && state.orderId == widget.orderId) {
+      setState(() => _isSubmitting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Delivery completed successfully!')),
+      );
+      context.go('/orders');
+    } else if (state is OrderStatusUpdateFailure && state.orderId == widget.orderId) {
+      setState(() => _isSubmitting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: ${state.message}')),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('Complete Order #${widget.orderId}')),
-      body: SingleChildScrollView(
+    return BlocListener<OrdersBloc, OrdersState>(
+      listener: _handleBlocState,
+      child: Scaffold(
+        appBar: AppBar(title: Text('Complete Order #${widget.orderId}')),
+        body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -143,7 +153,7 @@ class _DeliveryCompletionScreenState extends State<DeliveryCompletionScreen> {
                         border: OutlineInputBorder(),
                         prefixText: 'KWD ',
                       ),
-                      keyboardType: TextDecoration.none as TextInputType?,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       readOnly: _selectedPaymentMethod == 'prepaid',
                     ),
                   ],
@@ -268,6 +278,7 @@ class _DeliveryCompletionScreenState extends State<DeliveryCompletionScreen> {
             ),
           ],
         ),
+      ),
       ),
     );
   }

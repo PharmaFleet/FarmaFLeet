@@ -287,24 +287,24 @@ describe('orderService', () => {
         duplicates: 2,
         message: 'Import completed successfully'
       };
-      
+
       vi.mocked(api.post).mockResolvedValue({ data: mockResponse });
 
       // Act
       const result = await orderService.importExcel(file);
 
-      // Assert
+      // Assert - Content-Type is undefined to let axios set it with boundary
       expect(api.post).toHaveBeenCalledWith(
         '/orders/import',
         expect.any(FormData),
-        { headers: { 'Content-Type': 'multipart/form-data' } }
+        { headers: { 'Content-Type': undefined } }
       );
-      
+
       // Verify FormData contains the file
       const formDataCall = vi.mocked(api.post).mock.calls[0];
       const formData = formDataCall[1] as FormData;
       expect(formData.get('file')).toBe(file);
-      
+
       expect(result).toEqual(mockResponse);
     });
 

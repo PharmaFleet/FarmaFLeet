@@ -25,9 +25,7 @@ async def read_users(
     page: int = Query(1, ge=1),
     size: int = Query(10, ge=1),
     search: Optional[str] = None,
-    current_user: User = Depends(
-        deps.requires_role(["admin", "super_admin", "warehouse_manager"])
-    ),
+    current_user: User = Depends(deps.get_current_manager_or_above),
 ) -> Any:
     """
     Retrieve users with pagination and search.
@@ -140,13 +138,21 @@ async def read_user_by_id(
 ) -> Any:
     """
     Get a specific user by id.
+    Users can view their own profile. Managers+ can view any user.
     """
     user = await db.get(User, user_id)
-    if user == current_user:
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Users can always view their own profile
+    if user.id == current_user.id:
         return user
-    if not current_user.is_superuser:
+
+    # Check if current user has manager+ privileges to view other users
+    allowed_roles = [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_MANAGER]
+    if current_user.role not in allowed_roles and not current_user.is_superuser:
         raise HTTPException(
-            status_code=400, detail="The user doesn't have enough privileges"
+            status_code=403, detail="You don't have permission to view other users"
         )
     return user
 
@@ -182,3 +188,32 @@ async def update_user(
     await db.commit()
     await db.refresh(user)
     return user
+
+
+@router.delete("/{user_id}")
+async def delete_user(
+    user_id: int,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_admin_user),
+) -> Any:
+    """
+    Delete a user. Admin only.
+    Cannot delete yourself or other super_admins.
+    """
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Prevent self-deletion
+    if user.id == current_user.id:
+        raise HTTPException(status_code=400, detail="Cannot delete your own account")
+
+    # Prevent deletion of other super_admins (unless you're deleting a non-admin)
+    if user.role == UserRole.SUPER_ADMIN and user.id != current_user.id:
+        raise HTTPException(
+            status_code=403, detail="Cannot delete other super_admin users"
+        )
+
+    await db.delete(user)
+    await db.commit()
+    return {"msg": f"User {user_id} deleted successfully"}
