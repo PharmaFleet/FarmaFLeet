@@ -11,6 +11,8 @@ import '../../features/dashboard/presentation/bloc/dashboard_bloc.dart';
 import '../../features/orders/data/repositories/order_repository_impl.dart';
 import '../../features/orders/domain/repositories/order_repository.dart';
 import '../../features/orders/presentation/bloc/orders_bloc.dart';
+import '../../features/profile/data/repositories/profile_repository.dart';
+import '../../features/profile/presentation/bloc/profile_bloc.dart';
 import '../network/dio_client.dart';
 import '../services/notification_service.dart';
 import '../services/token_storage_service.dart';
@@ -23,6 +25,7 @@ Future<void> init() async {
   sl.registerFactory(() => AuthBloc(sl(), sl()));
   sl.registerFactory(() => DashboardBloc(sl()));
   sl.registerFactory(() => OrdersBloc(sl()));
+  sl.registerFactory(() => ProfileBloc(sl()));
 
   // Repositories
   sl.registerLazySingleton<AuthRepository>(
@@ -30,6 +33,7 @@ Future<void> init() async {
   );
   sl.registerLazySingleton<DashboardRepository>(() => DashboardRepositoryImpl(sl()));
   sl.registerLazySingleton<OrderRepository>(() => OrderRepositoryImpl(sl()));
+  sl.registerLazySingleton(() => ProfileRepository(sl()));
 
   // Core
   sl.registerLazySingleton(() => const FlutterSecureStorage(

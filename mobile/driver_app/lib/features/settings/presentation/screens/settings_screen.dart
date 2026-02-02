@@ -101,40 +101,60 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: Column(
           children: [
             // Profile Header
-            CardContainer(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 30,
-                    backgroundColor: colorScheme.primaryContainer,
-                    child: Text(
-                      'DR', // Initials
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: colorScheme.onPrimaryContainer,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.md),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            BlocBuilder<AuthBloc, AuthState>(
+              builder: (context, authState) {
+                String userName = 'Driver';
+                String userPhone = '';
+                String initials = 'DR';
+
+                if (authState is AuthAuthenticated) {
+                  userName = authState.user.fullName ?? 'Driver';
+                  userPhone = authState.user.phone ?? '';
+                  // Generate initials from name
+                  final nameParts = userName.split(' ');
+                  if (nameParts.length >= 2) {
+                    initials = '${nameParts[0][0]}${nameParts[1][0]}'.toUpperCase();
+                  } else if (nameParts.isNotEmpty && nameParts[0].isNotEmpty) {
+                    initials = nameParts[0][0].toUpperCase();
+                  }
+                }
+
+                return CardContainer(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
                     children: [
-                      Text(
-                        'Driver Name', // Placeholder
-                        style: AppTextStyles.titleMedium,
-                      ),
-                      Text(
-                        '+965 1234 5678', // Placeholder
-                        style: AppTextStyles.bodyMedium.copyWith(
-                          color: colorScheme.onSurfaceVariant,
+                      CircleAvatar(
+                        radius: 30,
+                        backgroundColor: colorScheme.primaryContainer,
+                        child: Text(
+                          initials,
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: colorScheme.onPrimaryContainer,
+                          ),
                         ),
+                      ),
+                      const SizedBox(width: AppSpacing.md),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            userName,
+                            style: AppTextStyles.titleMedium,
+                          ),
+                          Text(
+                            userPhone,
+                            style: AppTextStyles.bodyMedium.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
-              ),
+                );
+              },
             ),
             const SizedBox(height: AppSpacing.lg),
 

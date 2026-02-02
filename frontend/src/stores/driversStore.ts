@@ -19,6 +19,7 @@ export interface DriverWithLocation extends Driver {
   speed?: number;
   lastUpdated?: string;
   currentOrderId?: number;
+  hasLiveLocation?: boolean; // true if using real GPS, false if using warehouse fallback
 }
 
 // Map bounds for filtering drivers
@@ -136,45 +137,60 @@ export const useDriversStore = create<DriversState>()(
 
       fetchDrivers: async () => {
         const { bounds, warehouseId, statusFilter } = get();
-        
+
         set({ isLoading: true, error: null }, false, 'fetchDrivers/start');
-        
+
         try {
           // Build query params
           const params = new URLSearchParams();
-          
+
           if (bounds) {
             params.append('north', bounds.north.toString());
             params.append('south', bounds.south.toString());
             params.append('east', bounds.east.toString());
             params.append('west', bounds.west.toString());
           }
-          
+
           if (warehouseId) {
             params.append('warehouse_id', warehouseId.toString());
           }
-          
+
           if (statusFilter) {
             params.append('status', statusFilter);
           }
-          
+
           // Use the driver service with filters
           const { driverService } = await import('@/services/driverService');
-          const response = await driverService.getAll(
-            Object.fromEntries(params.entries())
+
+          // Fetch drivers AND locations in parallel
+          const [driversResponse, locationsResponse] = await Promise.all([
+            driverService.getAll(Object.fromEntries(params.entries())),
+            driverService.getLocations().catch(() => []), // Don't fail if locations unavailable
+          ]);
+
+          // Create location lookup map: driver_id -> location
+          const locationMap = new Map<number, { latitude: number; longitude: number; heading?: number; speed?: number; timestamp?: string }>(
+            (locationsResponse || []).map((loc: any) => [loc.driver_id, loc])
           );
-          
+
           // Transform drivers to include location data and status
-          const driversWithLocation: DriverWithLocation[] = (response.items || []).map(
-            (driver: Driver) => ({
-              ...driver,
-              status: determineDriverStatus(driver as DriverWithLocation),
-              latitude: driver.warehouse?.latitude,
-              longitude: driver.warehouse?.longitude,
-              lastUpdated: new Date().toISOString(),
-            })
+          // Prioritize live GPS location over warehouse fallback
+          const driversWithLocation: DriverWithLocation[] = (driversResponse.items || []).map(
+            (driver: Driver) => {
+              const liveLocation = locationMap.get(driver.id);
+              return {
+                ...driver,
+                status: determineDriverStatus(driver as DriverWithLocation),
+                latitude: liveLocation?.latitude ?? driver.warehouse?.latitude,
+                longitude: liveLocation?.longitude ?? driver.warehouse?.longitude,
+                heading: liveLocation?.heading,
+                speed: liveLocation?.speed,
+                lastUpdated: liveLocation?.timestamp || new Date().toISOString(),
+                hasLiveLocation: !!liveLocation,
+              };
+            }
           );
-          
+
           set(
             { drivers: driversWithLocation, isLoading: false },
             false,

@@ -24,21 +24,30 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   Timer? _refreshTimer;
+  bool _hasLocationPermission = false;
 
   @override
   void initState() {
     super.initState();
+    _requestLocationPermission();
     // Load initial data when screen is created
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<HomeBloc>().add(HomeLoadRequested());
     });
-    
+
     // Auto-refresh every 30 seconds
     _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       if (mounted) {
         _refreshData();
       }
     });
+  }
+
+  Future<void> _requestLocationPermission() async {
+    final hasPermission = await widget.locationService.checkPermissions();
+    if (mounted) {
+      setState(() => _hasLocationPermission = hasPermission);
+    }
   }
 
   @override
@@ -51,6 +60,9 @@ class _HomeScreenState extends State<HomeScreen> {
     if (isOnline) {
       // Going online
       final hasPermission = await widget.locationService.checkPermissions();
+      if (mounted) {
+        setState(() => _hasLocationPermission = hasPermission);
+      }
       if (!hasPermission) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -105,6 +117,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   state: state,
                   onOnlineStatusChanged: _toggleOnlineStatus,
                   onRefresh: _refreshData,
+                  hasLocationPermission: _hasLocationPermission,
                 );
               }
 
@@ -176,11 +189,13 @@ class _HomeContentView extends StatelessWidget {
   final HomeLoaded state;
   final Function(bool) onOnlineStatusChanged;
   final VoidCallback onRefresh;
+  final bool hasLocationPermission;
 
   const _HomeContentView({
     required this.state,
     required this.onOnlineStatusChanged,
     required this.onRefresh,
+    required this.hasLocationPermission,
   });
 
   @override
@@ -210,6 +225,7 @@ class _HomeContentView extends StatelessWidget {
             child: _TrackingSection(
               isOnline: state.isOnline,
               activeDeliveries: state.stats.activeDeliveries,
+              hasLocationPermission: hasLocationPermission,
             ),
           ),
           const SizedBox(height: AppSpacing.lg),
@@ -351,10 +367,12 @@ class _DailySummaryOverview extends StatelessWidget {
 class _TrackingSection extends StatelessWidget {
   final bool isOnline;
   final int activeDeliveries;
+  final bool hasLocationPermission;
 
   const _TrackingSection({
     required this.isOnline,
     required this.activeDeliveries,
+    required this.hasLocationPermission,
   });
 
   @override
@@ -384,7 +402,7 @@ class _TrackingSection extends StatelessWidget {
                   47.9774,
                 ), // Kuwait coordinates
                 height: double.infinity, // Take available space
-                showCurrentLocation: isOnline,
+                showCurrentLocation: hasLocationPermission,
                 scrollGesturesEnabled: true,
                 zoomGesturesEnabled: true,
               ),

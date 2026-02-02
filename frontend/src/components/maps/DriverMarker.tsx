@@ -36,14 +36,14 @@ const STATUS_COLORS: Record<DriverMapStatus, { background: string; border: strin
 
 /**
  * Custom comparison function for React.memo
- * Only re-render if position, status, or selection state changes
+ * Only re-render if position, status, selection state, or live location flag changes
  */
 function areEqual(prevProps: DriverMarkerProps, nextProps: DriverMarkerProps): boolean {
   const prevDriver = prevProps.driver;
   const nextDriver = nextProps.driver;
 
   // Check if position changed
-  if (prevDriver.latitude !== nextDriver.latitude || 
+  if (prevDriver.latitude !== nextDriver.latitude ||
       prevDriver.longitude !== nextDriver.longitude) {
     return false;
   }
@@ -60,6 +60,11 @@ function areEqual(prevProps: DriverMarkerProps, nextProps: DriverMarkerProps): b
 
   // Check if heading changed (for rotation)
   if (prevDriver.heading !== nextDriver.heading) {
+    return false;
+  }
+
+  // Check if live location flag changed
+  if (prevDriver.hasLiveLocation !== nextDriver.hasLiveLocation) {
     return false;
   }
 
@@ -91,7 +96,8 @@ export const DriverMarker = memo(function DriverMarker({
   const colors = STATUS_COLORS[driver.status] || STATUS_COLORS[DriverMapStatus.OFFLINE];
 
   // Calculate scale based on selection state
-  const scale = isSelected ? 1.3 : 1;
+  // Use slightly smaller scale for fallback (warehouse) locations
+  const scale = isSelected ? 1.3 : (driver.hasLiveLocation === false ? 0.85 : 1);
 
   // Memoize position to prevent unnecessary re-renders
   const position = useMemo(
@@ -111,11 +117,16 @@ export const DriverMarker = memo(function DriverMarker({
     onClick(driver);
   };
 
+  // Build title with location source info
+  const locationInfo = driver.hasLiveLocation ? 'GPS' : 'Warehouse';
+  const title = `${driver.user?.full_name || 'Driver'} - ${driver.status} (${locationInfo})`;
+
   return (
     <Marker
       position={position}
       onClick={handleClick}
-      title={`${driver.user?.full_name || 'Driver'} - ${driver.status}`}
+      title={title}
+      opacity={driver.hasLiveLocation === false ? 0.7 : 1}
     >
       <Pin
         background={colors.background}
