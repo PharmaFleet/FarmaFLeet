@@ -14,7 +14,11 @@ export function MiniMapView() {
 
   const { data: drivers, isLoading } = useQuery({
     queryKey: ['driver-locations-mini'],
-    queryFn: driverService.getLocations,
+    queryFn: async () => {
+      const data = await driverService.getLocations();
+      console.log('[MiniMapView] Driver locations fetched:', data);
+      return data;
+    },
     refetchInterval: 10000,
   });
 
