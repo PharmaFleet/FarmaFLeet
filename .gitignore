@@ -71,3 +71,4 @@ backend/progress.txt
 logs_result.json
 *log.txt
 NUL
+firebase-service-account.json
