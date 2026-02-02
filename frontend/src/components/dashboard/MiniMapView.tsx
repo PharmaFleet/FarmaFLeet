@@ -1,12 +1,36 @@
 import { useQuery } from '@tanstack/react-query';
 import { driverService } from '@/services/driverService';
 import { Loader2, MapPin, AlertCircle } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 
 const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
 
 // Kuwait City center
 const DEFAULT_CENTER = { lat: 29.3759, lng: 47.9774 };
+
+/**
+ * Create a motorcycle marker icon as a data URL
+ * Green for live GPS, amber for warehouse fallback
+ */
+function createMotorcycleIcon(hasLiveLocation: boolean): string {
+  const color = hasLiveLocation ? '#22c55e' : '#f59e0b'; // green-500 or amber-500
+  const size = 28;
+
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="11" fill="${color}" stroke="white" stroke-width="2"/>
+      <g transform="translate(4, 6)" fill="white">
+        <rect x="3" y="4" width="8" height="3" rx="1"/>
+        <circle cx="3" cy="9" r="2.5" fill="none" stroke="white" stroke-width="1.5"/>
+        <circle cx="13" cy="9" r="2.5" fill="none" stroke="white" stroke-width="1.5"/>
+        <path d="M2 3 L4 5" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+        <ellipse cx="9" cy="3.5" rx="2.5" ry="1" fill="white"/>
+      </g>
+    </svg>
+  `;
+
+  return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
+}
 
 // Helper to check valid coordinates (not 0,0 which is invalid)
 const isValidCoord = (lat: number | undefined, lng: number | undefined) =>
@@ -126,9 +150,6 @@ export function MiniMapView() {
 
   const { APIProvider, Map, Marker } = MapComponents;
 
-  // Log which markers are being rendered
-  console.log('[MiniMapView] Rendering markers for drivers:', drivers?.length || 0);
-
   return (
     <div className="h-full w-full relative">
       <APIProvider apiKey={GOOGLE_MAPS_KEY}>
@@ -142,14 +163,16 @@ export function MiniMapView() {
           {drivers?.map((driver: any) => {
              const lat = Number(driver.latitude);
              const lng = Number(driver.longitude);
-
-             console.log(`[MiniMapView] Rendering marker for driver ${driver.driver_id} at (${lat}, ${lng})`);
+             const icon = createMotorcycleIcon(driver.hasLiveLocation);
+             const locationInfo = driver.hasLiveLocation ? 'GPS' : 'Warehouse';
+             const title = `${driver.name || driver.vehicle_info || `Driver ${driver.driver_id}`} (${locationInfo})`;
 
              return (
                <Marker
                  key={driver.driver_id}
                  position={{ lat, lng }}
-                 title={driver.name || driver.vehicle_info || `Driver ${driver.driver_id}`}
+                 title={title}
+                 icon={icon}
                />
              );
            })}
