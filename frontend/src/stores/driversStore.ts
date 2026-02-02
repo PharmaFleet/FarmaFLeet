@@ -186,18 +186,32 @@ export const useDriversStore = create<DriversState>()(
           // Prioritize live GPS location over warehouse fallback
           const driversWithLocation: DriverWithLocation[] = (driversResponse.items || []).map(
             (driver: Driver) => {
-              const liveLocation = locationMap.get(driver.id);
+              // Ensure we look up using a number, as keys were cast to numbers
+              const liveLocation = locationMap.get(Number(driver.id));
+              const warehouseLat = driver.warehouse?.latitude;
+              const warehouseLng = driver.warehouse?.longitude;
+
               const driverWithLoc = {
                 ...driver,
                 status: determineDriverStatus(driver as DriverWithLocation),
-                latitude: liveLocation?.latitude ?? driver.warehouse?.latitude,
-                longitude: liveLocation?.longitude ?? driver.warehouse?.longitude,
+                // Use live location if available, otherwise fallback to warehouse
+                latitude: liveLocation?.latitude ?? warehouseLat,
+                longitude: liveLocation?.longitude ?? warehouseLng,
                 heading: liveLocation?.heading,
                 speed: liveLocation?.speed,
                 lastUpdated: liveLocation?.timestamp || new Date().toISOString(),
                 hasLiveLocation: !!liveLocation,
               };
-              console.log(`[DriversStore] Driver ${driver.id}: lat=${driverWithLoc.latitude}, lng=${driverWithLoc.longitude}, hasLive=${driverWithLoc.hasLiveLocation}`);
+
+              // Debug logging
+              if (liveLocation) {
+                console.log(`[DriversStore] Driver ${driver.id}: LIVE at (${driverWithLoc.latitude}, ${driverWithLoc.longitude})`);
+              } else if (warehouseLat != null && warehouseLng != null) {
+                console.log(`[DriversStore] Driver ${driver.id}: WAREHOUSE fallback at (${warehouseLat}, ${warehouseLng})`);
+              } else {
+                console.warn(`[DriversStore] Driver ${driver.id}: NO COORDINATES - warehouse_id=${driver.warehouse_id}, warehouse=${driver.warehouse?.name || 'none'}`);
+              }
+
               return driverWithLoc;
             }
           );

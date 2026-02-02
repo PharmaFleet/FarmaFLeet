@@ -1,4 +1,5 @@
 import enum
+from typing import Optional
 from sqlalchemy import String, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base_class import Base
@@ -22,9 +23,10 @@ class User(Base):
     role: Mapped[str] = mapped_column(
         String, default=UserRole.DISPATCHER, index=True
     )  # Storing as string for simplicity
-    fcm_token: Mapped[str] = mapped_column(String, nullable=True)
-    phone: Mapped[str] = mapped_column(String, nullable=True)
+    fcm_token: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    phone: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
     # Relationships
-    driver_profile = relationship("Driver", back_populates="user", uselist=False)
-    notifications = relationship("Notification", back_populates="user")
+    # Use lazy='raise' to prevent accidental lazy loading in async context
+    driver_profile = relationship("Driver", back_populates="user", uselist=False, lazy="raise")
+    notifications = relationship("Notification", back_populates="user", lazy="raise")

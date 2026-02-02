@@ -26,19 +26,40 @@ class _MapWidgetState extends State<MapWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return GoogleMap(
-      initialCameraPosition: CameraPosition(
-        target: widget.initialLocation ?? _defaultLocation,
-        zoom: 14.0,
-      ),
-      markers: widget.markers,
-      myLocationEnabled: true,
-      myLocationButtonEnabled: true,
-      zoomControlsEnabled: false,
-      padding: const EdgeInsets.only(top: 80.0), // Move My Location button down
-      onMapCreated: (GoogleMapController controller) {
-        _controller = controller;
-      },
+    return Stack(
+      children: [
+        GoogleMap(
+          initialCameraPosition: CameraPosition(
+            target: widget.initialLocation ?? _defaultLocation,
+            zoom: 14.0,
+          ),
+          markers: widget.markers,
+          myLocationEnabled: true,
+          myLocationButtonEnabled: false, // Disable default button
+          zoomControlsEnabled: false,
+          onMapCreated: (GoogleMapController controller) {
+            _controller = controller;
+          },
+        ),
+        Positioned(
+          bottom: 110, // Positioned at bottom right, above status toggle
+          right: 16,
+          child: FloatingActionButton(
+            backgroundColor: Colors.white,
+            child: const Icon(Icons.my_location, color: Colors.blue),
+            onPressed: () async {
+              if (_controller != null) {
+                // TODO: Get actual current location
+                // For now, just center on initial location or default
+                 _controller!.animateCamera(
+                  CameraUpdate.newLatLng(widget.initialLocation ?? _defaultLocation),
+                );
+              }
+            },
+          ),
+        ),
+      ],
     );
   }
 }
+

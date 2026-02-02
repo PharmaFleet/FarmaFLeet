@@ -18,13 +18,14 @@ from fastapi import (
 from geoalchemy2.elements import WKTElement
 from sqlalchemy import desc, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, joinedload
 
 from app.api import deps
 from app.models.driver import Driver
 from app.models.location import DriverLocation
 from app.models.order import Order, OrderStatus
 from app.models.user import User
+from app.models.warehouse import Warehouse
 from app.schemas.driver import (
     Driver as DriverSchema,
     DriverCreate,
@@ -32,6 +33,8 @@ from app.schemas.driver import (
     DriverWithUserCreate,
     PaginatedDriverResponse,
 )
+from app.schemas.user import User as UserSchema
+from app.schemas.warehouse import Warehouse as WarehouseSchema
 from app.schemas.location import (
     DriverLocation as DriverLocationSchema,
     DriverLocationCreate,
@@ -117,11 +120,75 @@ async def read_driver_me(
     """
     Get current driver profile.
     """
-    result = await db.execute(select(Driver).where(Driver.user_id == current_user.id))
-    driver = result.scalars().first()
-    if not driver:
-        raise HTTPException(status_code=404, detail="Driver profile not found")
-    return driver
+    try:
+        # 1. Get Driver
+        result = await db.execute(
+            select(Driver).where(Driver.user_id == current_user.id)
+        )
+        driver = result.scalars().first()
+        if not driver:
+            raise HTTPException(status_code=404, detail="Driver profile not found")
+
+        # 2. Fetch warehouse manually if assigned
+        warehouse = None
+        if driver.warehouse_id:
+            warehouse = await db.get(Warehouse, driver.warehouse_id)
+
+        # 3. Compute stats
+        total_deliveries_result = await db.execute(
+            select(func.count(Order.id)).where(
+                Order.driver_id == driver.id, Order.status == OrderStatus.DELIVERED
+            )
+        )
+        total_deliveries = total_deliveries_result.scalar_one()
+
+        # 4. Manual Schema Construction
+        # Instead of modifying the ORM objects (which triggers async errors),
+        # we construct the response schema explicitly.
+
+        # Convert driver model to dict/Pydantic model first to get base fields
+        # verify what attributes DriverSchema expects.
+        # It expects user and warehouse fields if we look at schemas/driver.py
+
+        # We use explicit construction to ensure safety
+        # Build UserSchema explicitly to avoid lazy loading driver_profile
+        user_schema = UserSchema(
+            id=current_user.id,
+            email=current_user.email,
+            full_name=current_user.full_name,
+            is_active=current_user.is_active,
+            is_superuser=current_user.is_superuser,
+            role=current_user.role,
+            fcm_token=current_user.fcm_token,
+            phone=current_user.phone,
+        )
+
+        # Build WarehouseSchema explicitly if warehouse exists
+        warehouse_schema = None
+        if warehouse:
+            warehouse_schema = WarehouseSchema(
+                id=warehouse.id,
+                code=warehouse.code,
+                name=warehouse.name,
+                latitude=warehouse.latitude,
+                longitude=warehouse.longitude,
+            )
+
+        return DriverSchema(
+            id=driver.id,
+            user_id=driver.user_id,
+            vehicle_info=driver.vehicle_info,
+            biometric_id=driver.biometric_id,
+            warehouse_id=driver.warehouse_id,
+            is_available=driver.is_available,
+            user=user_schema,
+            warehouse=warehouse_schema,
+            total_deliveries=total_deliveries,
+        )
+
+    except Exception as e:
+        logger.error(f"Error fetching driver profile: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error loading profile: {str(e)}")
 
 
 @router.get("/me/orders", response_model=List[OrderSchema])
@@ -167,9 +234,7 @@ async def update_driver_me_status(
     Update current driver's availability status.
     """
     result = await db.execute(
-        select(Driver)
-        .where(Driver.user_id == current_user.id)
-        .options(selectinload(Driver.user), selectinload(Driver.warehouse))
+        select(Driver).where(Driver.user_id == current_user.id)
     )
     driver = result.scalars().first()
     if not driver:
@@ -184,7 +249,44 @@ async def update_driver_me_status(
     print(
         f"Driver {driver.id} status updated to {is_available}, last_online_at: {driver.last_online_at}"
     )
-    return driver
+
+    # Fetch warehouse manually to avoid lazy loading
+    warehouse = None
+    if driver.warehouse_id:
+        warehouse = await db.get(Warehouse, driver.warehouse_id)
+
+    # Build schemas explicitly to avoid lazy loading driver_profile on User
+    user_schema = UserSchema(
+        id=current_user.id,
+        email=current_user.email,
+        full_name=current_user.full_name,
+        is_active=current_user.is_active,
+        is_superuser=current_user.is_superuser,
+        role=current_user.role,
+        fcm_token=current_user.fcm_token,
+        phone=current_user.phone,
+    )
+
+    warehouse_schema = None
+    if warehouse:
+        warehouse_schema = WarehouseSchema(
+            id=warehouse.id,
+            code=warehouse.code,
+            name=warehouse.name,
+            latitude=warehouse.latitude,
+            longitude=warehouse.longitude,
+        )
+
+    return DriverSchema(
+        id=driver.id,
+        user_id=driver.user_id,
+        vehicle_info=driver.vehicle_info,
+        biometric_id=driver.biometric_id,
+        warehouse_id=driver.warehouse_id,
+        is_available=driver.is_available,
+        user=user_schema,
+        warehouse=warehouse_schema,
+    )
 
 
 @router.post("/me/fcm-token")

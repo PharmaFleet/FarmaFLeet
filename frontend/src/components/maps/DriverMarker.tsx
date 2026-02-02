@@ -94,8 +94,8 @@ export const DriverMarker = memo(function DriverMarker({
   isSelected,
   onClick,
 }: DriverMarkerProps): JSX.Element | null {
-  // Skip rendering if no valid position
-  if (!driver.latitude || !driver.longitude) {
+  // Skip rendering if no valid position (check for null/undefined, not falsy - 0 is valid)
+  if (driver.latitude == null || driver.longitude == null) {
     console.log('[DriverMarker] Skipping driver without coords:', driver.id);
     return null;
   }
