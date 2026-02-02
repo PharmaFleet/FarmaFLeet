@@ -86,3 +86,39 @@ def requires_role(allowed_roles: List[str]):
         return current_user
 
     return role_checker
+
+
+async def get_user_warehouse_ids(
+    user: User, db: AsyncSession
+) -> List[int] | None:
+    """
+    Get list of warehouse IDs that the user has access to.
+
+    Returns:
+        - None if user is super_admin (has access to all warehouses)
+        - List of warehouse IDs if user is warehouse_manager or driver
+        - Empty list if user has no warehouse access
+    """
+    from app.models.driver import Driver
+    from app.models.user import UserRole
+
+    # Super admins have access to all warehouses
+    if user.role == UserRole.SUPER_ADMIN or user.is_superuser:
+        return None  # None means "all warehouses"
+
+    # For drivers, get their assigned warehouse
+    if user.role == UserRole.DRIVER:
+        stmt = select(Driver).where(Driver.user_id == user.id)
+        result = await db.execute(stmt)
+        driver = result.scalars().first()
+        if driver and driver.warehouse_id:
+            return [driver.warehouse_id]
+        return []  # Driver has no warehouse assigned
+
+    # For warehouse managers and dispatchers, get their assigned warehouse
+    # TODO: Add warehouse_id field to User model for non-driver roles
+    # For now, warehouse managers can see all warehouses
+    if user.role in [UserRole.WAREHOUSE_MANAGER, UserRole.DISPATCHER, UserRole.EXECUTIVE]:
+        return None  # Allow access to all warehouses for now
+
+    return []  # Default: no access

@@ -66,3 +66,8 @@ backend/pod_error.txt
 backend/progress.txt
 .vercel
 .env*.local
+
+# Logs and temp files
+logs_result.json
+*log.txt
+NUL

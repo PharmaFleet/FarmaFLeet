@@ -48,3 +48,31 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def get_password_hash(password: str) -> str:
     return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+
+def verify_token_subject(token: str, expected_subject: Optional[str] = None) -> Optional[str]:
+    """
+    Verify and decode a JWT token, optionally checking the subject matches.
+
+    Args:
+        token: The JWT token to verify
+        expected_subject: Optional subject to verify against
+
+    Returns:
+        The token subject if valid, None otherwise
+    """
+    try:
+        payload = jwt.decode(
+            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
+        )
+        subject: str = payload.get("sub")
+
+        if subject is None:
+            return None
+
+        if expected_subject is not None and subject != expected_subject:
+            return None
+
+        return subject
+    except jwt.JWTError:
+        return None

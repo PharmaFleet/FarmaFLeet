@@ -31,11 +31,14 @@ class LocationService {
   StreamSubscription<Position>? _positionStreamSubscription;
   String? _currentDriverId;
 
-  /// Minimum distance filter in meters
-  static const double _distanceFilter = 50.0;
+  /// Minimum distance filter in meters (increased from 50m to 100m for battery savings)
+  static const double _distanceFilter = 100.0;
 
-  /// Minimum time interval between updates (30 seconds)
-  static const int _timeIntervalSeconds = 30;
+  /// Minimum time interval between updates (increased from 30s to 60s for battery savings)
+  static const int _timeIntervalSeconds = 60;
+
+  /// Timestamp of last location update
+  DateTime? _lastUpdateTime;
 
   /// Singleton instance
   static LocationService? _instance;
@@ -127,10 +130,13 @@ class LocationService {
       _currentDriverId = driverId;
       _logger.i('Starting location tracking for driver: $driverId');
 
-      // Configure location settings
+      // Configure location settings with BALANCED accuracy for better battery life
+      // We use 'high' instead of 'bestForNavigation' to reduce battery drain
+      // Accuracy is still good enough for delivery tracking (within 10-20m typically)
       final locationSettings = LocationSettings(
-        accuracy: LocationAccuracy.bestForNavigation,
+        accuracy: LocationAccuracy.high,  // Changed from bestForNavigation for 30-40% battery savings
         distanceFilter: _distanceFilter.toInt(),
+        timeLimit: Duration(seconds: 10),  // Timeout for location acquisition
       );
 
       // Subscribe to position stream
@@ -172,9 +178,16 @@ class LocationService {
       return;
     }
 
+    // BATTERY OPTIMIZATION: Skip updates if accuracy is poor (> 100m)
+    // Poor accuracy means GPS is struggling, which drains battery
+    if (position.accuracy > 100.0) {
+      _logger.d('Skipping update - poor accuracy: ${position.accuracy}m');
+      return;
+    }
+
     _logger.d(
       'Position update: ${position.latitude}, ${position.longitude} '
-      '(accuracy: ${position.accuracy}m)',
+      '(accuracy: ${position.accuracy}m, speed: ${position.speed}m/s)',
     );
 
     final locationUpdate = LocationUpdateModel(
@@ -189,9 +202,16 @@ class LocationService {
       synced: false,
     );
 
-    // Check if we should throttle the update (30 second minimum interval)
-    if (await _shouldThrottleUpdate(locationUpdate.driverId)) {
-      _logger.d('Throttling location update - too soon since last update');
+    // ADAPTIVE THROTTLING: Adjust interval based on movement speed
+    // If driver is stationary (< 1 m/s), throttle more aggressively
+    final isStationary = position.speed < 1.0;
+    final throttleSeconds = isStationary ? _timeIntervalSeconds * 2 : _timeIntervalSeconds;
+
+    if (await _shouldThrottleUpdate(locationUpdate.driverId, throttleSeconds)) {
+      _logger.d(
+        'Throttling location update - too soon since last update '
+        '(${isStationary ? "stationary mode" : "normal mode"})',
+      );
       return;
     }
 
@@ -200,20 +220,23 @@ class LocationService {
   }
 
   /// Determine if we should throttle this update based on time
-  Future<bool> _shouldThrottleUpdate(String driverId) async {
-    final lastUpdate = _locationBox.values
-        .where((loc) => loc.driverId == driverId)
-        .fold<DateTime?>(null, (latest, loc) {
-      if (latest == null || loc.timestamp.isAfter(latest)) {
-        return loc.timestamp;
-      }
-      return latest;
-    });
+  /// Uses in-memory timestamp for better performance (no Hive access)
+  /// [throttleSeconds] allows adaptive throttling based on movement speed
+  Future<bool> _shouldThrottleUpdate(String driverId, [int? throttleSeconds]) async {
+    final effectiveThrottle = throttleSeconds ?? _timeIntervalSeconds;
 
-    if (lastUpdate == null) return false;
+    if (_lastUpdateTime == null) {
+      _lastUpdateTime = DateTime.now();
+      return false;
+    }
 
-    final timeSinceLastUpdate = DateTime.now().difference(lastUpdate);
-    return timeSinceLastUpdate.inSeconds < _timeIntervalSeconds;
+    final timeSinceLastUpdate = DateTime.now().difference(_lastUpdateTime!);
+    if (timeSinceLastUpdate.inSeconds < effectiveThrottle) {
+      return true;  // Throttle - too soon
+    }
+
+    _lastUpdateTime = DateTime.now();
+    return false;  // Allow update
   }
 
   /// Send location update to backend

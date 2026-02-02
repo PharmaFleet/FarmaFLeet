@@ -1,29 +1,24 @@
+"""
+Vercel serverless function handler for PharmaFleet backend.
+
+This file is the entry point for Vercel serverless deployments.
+It wraps the FastAPI app with Mangum to make it compatible with AWS Lambda/Vercel.
+"""
 import sys
 import os
+from mangum import Mangum
 
-# Add the 'backend' directory to sys.path so we can import 'app'
-# This file is in backend/api/index.py -> three levels up is root, but we need 'backend' to be importable as 'app' or 'backend.app'?
-# If we want to import 'app.main', we need the directory CONTAINING 'app' (which is 'backend') to be in path.
-
+# Add the backend directory to sys.path for imports
 current_dir = os.path.dirname(os.path.abspath(__file__))
-backend_dir = os.path.dirname(current_dir)  # backend/
-# parent_dir = os.path.dirname(backend_dir) # root
+backend_dir = os.path.dirname(current_dir)
+sys.path.insert(0, backend_dir)
 
-sys.path.append(backend_dir)
-
-print(f"DEBUG: sys.path: {sys.path}")
-
-try:
-    from app.core.config import settings
-
-    uri = str(settings.SQLALCHEMY_DATABASE_URI)
-    # Simple masking
-    print(
-        f"DEBUG: SQLALCHEMY_DATABASE_URI: {uri.split('@')[1] if '@' in uri else 'NO_CREDENTIALS_FOUND'}"
-    )
-except Exception as e:
-    print(f"DEBUG: Error loading settings: {e}")
-
+# Import the FastAPI app
 from app.main import app
-# Vercel natively supports FastAPI app
-# handler = Mangum(app)
+
+# Wrap FastAPI with Mangum for serverless compatibility
+# This creates a Lambda/Vercel-compatible handler
+handler = Mangum(app, lifespan="off")
+
+# Note: Vercel will call 'handler' as the entry point
+# For local development, use: uvicorn app.main:app --reload

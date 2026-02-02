@@ -6,9 +6,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     PROJECT_NAME: str = "PharmaFleet"
     API_V1_STR: str = "/api/v1"
-    SECRET_KEY: str = "CHANGEME"  # Should be set in env
+    SECRET_KEY: str = "CHANGEME"  # Must be set in env (validated below)
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8  # 8 days for drivers
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 120  # 2 hours (reduced from 8 days for security)
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30  # 30 days for refresh token
 
     # Database
@@ -88,6 +88,22 @@ class Settings(BaseSettings):
     @classmethod
     def strip_password(cls, v: str) -> str:
         return v.strip() if v else v
+
+    @field_validator("SECRET_KEY")
+    @classmethod
+    def validate_secret_key(cls, v: str) -> str:
+        """Prevent using default/insecure SECRET_KEY in production."""
+        if v == "CHANGEME":
+            raise ValueError(
+                "SECRET_KEY must be set to a secure random value. "
+                "Generate one with: python -c 'import secrets; print(secrets.token_urlsafe(32))'"
+            )
+        if len(v) < 32:
+            raise ValueError(
+                "SECRET_KEY must be at least 32 characters long for security. "
+                "Generate one with: python -c 'import secrets; print(secrets.token_urlsafe(32))'"
+            )
+        return v
 
 
 settings = Settings()

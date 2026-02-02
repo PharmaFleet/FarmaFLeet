@@ -37,50 +37,61 @@ class ConnectionManager:
 
     async def connect(self, websocket: WebSocket, token: str | None = None) -> bool:
         """
-        Accept WebSocket connection with optional token authentication.
+        Accept WebSocket connection with REQUIRED token authentication.
 
         Args:
             websocket: The WebSocket connection
-            token: Optional JWT token for authentication
+            token: JWT token for authentication (REQUIRED)
 
         Returns:
             bool: True if connection accepted, False otherwise
         """
         try:
-            await websocket.accept()
-            self.active_connections.append(websocket)
-            self.connection_info[websocket] = {
-                "connected_at": datetime.utcnow(),
-                "token": token,
-                "authenticated": False,
-            }
+            # SECURITY: Token is now REQUIRED, not optional
+            if not token:
+                logger.warning("WebSocket connection rejected: no token provided")
+                await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+                return False
 
-            # Validate token if provided
-            if token:
-                try:
-                    payload = jwt.decode(
-                        token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
-                    )
-                    user_id = payload.get("sub")
-                    if user_id:
-                        self.connection_info[websocket]["authenticated"] = True
-                        self.connection_info[websocket]["user_id"] = int(user_id)
-                        logger.info(
-                            f"Authenticated WebSocket connection for user {user_id}"
-                        )
-                    else:
-                        logger.warning("WebSocket token missing 'sub' claim")
-                except JWTError as e:
-                    logger.warning(f"Invalid WebSocket token: {e}")
-                    # Still allow connection but mark as unauthenticated
+            # Validate token BEFORE accepting connection
+            try:
+                payload = jwt.decode(
+                    token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
+                )
+                user_id = payload.get("sub")
 
-            logger.info(
-                f"New WebSocket connection. Total connections: {len(self.active_connections)}"
-            )
-            return True
+                if not user_id:
+                    logger.warning("WebSocket token missing 'sub' claim")
+                    await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+                    return False
+
+                # Token is valid, now accept the connection
+                await websocket.accept()
+                self.active_connections.append(websocket)
+                self.connection_info[websocket] = {
+                    "connected_at": datetime.utcnow(),
+                    "token": token,
+                    "authenticated": True,
+                    "user_id": int(user_id),
+                }
+
+                logger.info(
+                    f"Authenticated WebSocket connection for user {user_id}. "
+                    f"Total connections: {len(self.active_connections)}"
+                )
+                return True
+
+            except JWTError as e:
+                logger.warning(f"Invalid WebSocket token: {e}")
+                await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+                return False
 
         except Exception as e:
             logger.error(f"Failed to accept WebSocket connection: {e}")
+            try:
+                await websocket.close(code=status.WS_1011_INTERNAL_ERROR)
+            except:
+                pass
             return False
 
     def disconnect(self, websocket: WebSocket) -> None:
@@ -221,14 +232,16 @@ async def start_redis_listener() -> None:
 @router.websocket("/ws/drivers")
 async def driver_websocket(
     websocket: WebSocket,
-    token: str | None = Query(None, description="JWT token for authentication"),
+    token: str = Query(..., description="JWT token for authentication (REQUIRED)"),
 ) -> None:
     """
     WebSocket endpoint for real-time driver location updates.
 
-    - Accepts connections with optional token authentication via query parameter
+    SECURITY: Authentication is REQUIRED. Unauthenticated connections will be rejected.
+
+    - Requires valid JWT token via query parameter
     - Subscribes to Redis 'driver_locations' channel
-    - Broadcasts location updates to all connected clients
+    - Broadcasts location updates to all authenticated clients
     - Handles disconnections gracefully
 
     Connection URL example: /ws/drivers?token=<jwt_token>

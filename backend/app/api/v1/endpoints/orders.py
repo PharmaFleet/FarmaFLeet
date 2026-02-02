@@ -50,12 +50,30 @@ async def read_orders(
     """
     Retrieve orders with pagination.
     By default, archived orders are excluded. Set include_archived=True to see all orders.
+
+    SECURITY: Users can only see orders from warehouses they have access to.
+    Super admins can see all orders.
     """
     # Build query
     query = select(Order)
     count_query = select(func.count()).select_from(Order)
 
     filters = []
+
+    # SECURITY: Enforce warehouse-level access control
+    user_warehouse_ids = await deps.get_user_warehouse_ids(current_user, db)
+    if user_warehouse_ids is not None:  # None means super_admin (all access)
+        if len(user_warehouse_ids) == 0:
+            # User has no warehouse access - return empty result
+            return {
+                "items": [],
+                "total": 0,
+                "page": page,
+                "size": limit,
+                "pages": 0,
+            }
+        # Filter to only user's warehouses
+        filters.append(Order.warehouse_id.in_(user_warehouse_ids))
 
     # Archive filter - by default, hide archived orders
     if not include_archived:
@@ -64,7 +82,15 @@ async def read_orders(
     if status:
         filters.append(Order.status == status)
     if warehouse_id:
-        filters.append(Order.warehouse_id == warehouse_id)
+        # Additional warehouse filter (must be within user's allowed warehouses)
+        if user_warehouse_ids is None or warehouse_id in user_warehouse_ids:
+            filters.append(Order.warehouse_id == warehouse_id)
+        else:
+            # User requested a warehouse they don't have access to
+            raise HTTPException(
+                status_code=403,
+                detail="You don't have access to orders from this warehouse"
+            )
     if driver_id:
         filters.append(Order.driver_id == driver_id)
     if search:
@@ -150,6 +176,8 @@ async def read_order(
 ) -> Any:
     """
     Get order details.
+
+    SECURITY: Users can only access orders from warehouses they have access to.
     """
     query = (
         select(Order)
@@ -166,6 +194,16 @@ async def read_order(
 
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+
+    # SECURITY: Enforce warehouse-level access control
+    user_warehouse_ids = await deps.get_user_warehouse_ids(current_user, db)
+    if user_warehouse_ids is not None:  # None means super_admin (all access)
+        if order.warehouse_id not in user_warehouse_ids:
+            raise HTTPException(
+                status_code=403,
+                detail="You don't have access to orders from this warehouse"
+            )
+
     return order
 
 
