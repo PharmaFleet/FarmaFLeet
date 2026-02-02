@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import math
 from datetime import datetime, timedelta
@@ -19,6 +20,7 @@ from geoalchemy2.elements import WKTElement
 from sqlalchemy import desc, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload, joinedload
+import redis.asyncio as aioredis
 
 from app.api import deps
 from app.models.driver import Driver
@@ -43,8 +45,22 @@ from app.schemas.location import (
 from app.schemas.order import Order as OrderSchema
 from app.core.security import get_password_hash
 from app.services.notification import notification_service
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
+
+# Redis client for publishing location updates
+_redis_client: aioredis.Redis | None = None
+
+
+async def get_redis_publisher() -> aioredis.Redis:
+    """Get or create Redis client for publishing."""
+    global _redis_client
+    if _redis_client is None:
+        _redis_client = aioredis.from_url(
+            settings.REDIS_URL, encoding="utf-8", decode_responses=True
+        )
+    return _redis_client
 
 router = APIRouter()
 
@@ -405,6 +421,26 @@ async def update_location(
 
     await db.commit()
     await db.refresh(db_obj)
+
+    # Publish location update to Redis for real-time WebSocket broadcast
+    try:
+        redis_client = await get_redis_publisher()
+        message = json.dumps({
+            "type": "driver_location_update",
+            "data": {
+                "driver_id": driver.id,
+                "latitude": location_in.latitude,
+                "longitude": location_in.longitude,
+                "heading": location_in.heading,
+                "speed": location_in.speed,
+            }
+        })
+        await redis_client.publish("driver_locations", message)
+        logger.info(f"Published location update for driver {driver.id} to Redis")
+    except Exception as e:
+        # Log but don't fail the request if Redis publish fails
+        logger.error(f"Failed to publish location to Redis: {e}")
+
     return db_obj
 
 

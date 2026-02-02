@@ -26,7 +26,8 @@ class DriverLocationBase(BaseModel):
 class DriverLocationCreate(DriverLocationBase):
     """Schema for creating a new driver location update."""
 
-    pass
+    heading: float | None = None  # Direction in degrees (0-360)
+    speed: float | None = None  # Speed in km/h
 
 
 class DriverLocation(DriverLocationBase):
