@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { driverService } from '@/services/driverService';
@@ -6,13 +7,15 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, Phone, Mail, Truck, MapPin, Calendar, CircleUser } from 'lucide-react';
+import { ArrowLeft, Phone, Mail, Truck, MapPin, Calendar, CircleUser, Pencil } from 'lucide-react';
 import { format } from 'date-fns';
+import { EditDriverDialog } from '@/components/drivers/EditDriverDialog';
 
 export default function DriverDetailsPage() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const driverId = Number(id);
+    const [editDialogOpen, setEditDialogOpen] = useState(false);
 
     const { data: driver, isLoading: isLoadingDriver } = useQuery({
         queryKey: ['driver', driverId],
@@ -31,19 +34,28 @@ export default function DriverDetailsPage() {
 
     return (
         <div className="space-y-6 p-8 max-w-6xl mx-auto">
-            <div className="flex items-center gap-4">
-                <Button variant="ghost" size="icon" onClick={() => navigate('/drivers')}>
-                    <ArrowLeft className="h-5 w-5 text-slate-500" />
-                </Button>
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-3">
-                        {driver.user?.full_name}
-                        <Badge className={driver.is_available ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"}>
-                            {driver.is_available ? "Available" : "Offline"}
-                        </Badge>
-                    </h1>
-                    <p className="text-slate-500 text-sm mt-1">Driver ID: #{driver.id}</p>
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                    <Button variant="ghost" size="icon" onClick={() => navigate('/drivers')}>
+                        <ArrowLeft className="h-5 w-5 text-slate-500" />
+                    </Button>
+                    <div>
+                        <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-3">
+                            {driver.user?.full_name}
+                            <Badge className={driver.is_available ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"}>
+                                {driver.is_available ? "Available" : "Offline"}
+                            </Badge>
+                        </h1>
+                        <p className="text-slate-500 text-sm mt-1">Driver ID: #{driver.id}</p>
+                    </div>
                 </div>
+                <Button
+                    onClick={() => setEditDialogOpen(true)}
+                    className="bg-slate-900 hover:bg-slate-800 text-white gap-2"
+                >
+                    <Pencil className="h-4 w-4" />
+                    Edit Driver
+                </Button>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -132,6 +144,13 @@ export default function DriverDetailsPage() {
                     </CardContent>
                 </Card>
             </div>
+
+            {/* Edit Driver Dialog */}
+            <EditDriverDialog
+                driver={driver}
+                open={editDialogOpen}
+                onOpenChange={setEditDialogOpen}
+            />
         </div>
     );
 }

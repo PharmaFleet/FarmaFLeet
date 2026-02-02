@@ -4,26 +4,28 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { driverService } from '@/services/driverService';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
 } from '@/components/ui/table';
-import { MoreHorizontal, Plus, MapPin, Phone, Search, Truck } from 'lucide-react';
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuLabel, 
+import { MoreHorizontal, Plus, MapPin, Phone, Search, Truck, Pencil } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuTrigger,
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { AddDriverDialog } from '@/components/drivers/AddDriverDialog';
+import { EditDriverDialog } from '@/components/drivers/EditDriverDialog';
 import { cn } from '@/lib/utils';
+import { Driver } from '@/types';
 
 import { 
   Select, 
@@ -42,6 +44,13 @@ export default function DriversPage() {
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [warehouseFilter, setWarehouseFilter] = useState('ALL');
   const [addOpen, setAddOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
+
+  const handleEditDriver = (driver: Driver) => {
+    setSelectedDriver(driver);
+    setEditOpen(true);
+  };
 
   const { data: warehouses } = useQuery({
     queryKey: ['warehouses'],
@@ -63,6 +72,13 @@ export default function DriversPage() {
   return (
     <div className="space-y-8 p-8 max-w-[1600px] mx-auto">
       <AddDriverDialog open={addOpen} onOpenChange={setAddOpen} />
+      {selectedDriver && (
+        <EditDriverDialog
+          driver={selectedDriver}
+          open={editOpen}
+          onOpenChange={setEditOpen}
+        />
+      )}
       
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
@@ -193,6 +209,10 @@ export default function DriversPage() {
                                     <DropdownMenuContent align="end" className="w-48 shadow-xl">
                                         <DropdownMenuLabel>Driver Actions</DropdownMenuLabel>
                                         <DropdownMenuItem onClick={() => navigate(`/drivers/${driver.id}`)}>View Profile</DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => handleEditDriver(driver)}>
+                                            <Pencil className="mr-2 h-4 w-4" />
+                                            Edit Driver
+                                        </DropdownMenuItem>
                                         <DropdownMenuItem onClick={() => navigate(`/drivers/${driver.id}`)}>Delivery History</DropdownMenuItem>
                                         <DropdownMenuSeparator />
                                         <DropdownMenuItem onClick={() => navigate(`/map?driverId=${driver.id}`)}>

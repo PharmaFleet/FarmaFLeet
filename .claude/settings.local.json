@@ -32,7 +32,10 @@
       "Bash(git push)",
       "Bash(ls:*)",
       "Bash(set \"DATABASE_URL=postgresql://postgres.ubmgphjlpjovebkuthrf:Pharmafleet0101@aws-1-eu-central-1.pooler.supabase.com:6543/postgres\")",
-      "Bash(python -m alembic:*)"
+      "Bash(python -m alembic:*)",
+      "Bash(DATABASE_URL=\"postgresql+asyncpg://postgres.ubmgphjlpjovebkuthrf:Pharmafleet0101@aws-1-eu-central-1.pooler.supabase.com:6543/postgres\" python -m alembic upgrade head)",
+      "Bash(DATABASE_URL=\"postgresql+asyncpg://postgres.ubmgphjlpjovebkuthrf:Pharmafleet0101@aws-1-eu-central-1.pooler.supabase.com:6543/postgres\" python -m alembic stamp add_phone_field_to_user)",
+      "Bash(DATABASE_URL=\"postgresql+asyncpg://postgres.ubmgphjlpjovebkuthrf:Pharmafleet0101@aws-1-eu-central-1.pooler.supabase.com:6543/postgres?prepared_statement_cache_size=0\" python scripts/seed_accounts.py)"
     ]
   },
   "enabledPlugins": {

@@ -11,6 +11,30 @@ PharmaFleet is a delivery management system for pharmacy operations in Kuwait. T
 
 The system handles order import from Excel, manual driver assignment, real-time tracking, offline capabilities, and proof of delivery.
 
+## Production Deployment
+
+**URL**: https://pharmafleet-olive.vercel.app
+
+### Vercel Configuration
+- Frontend: Static build served at root (`/`)
+- Backend: Python serverless at `/api/*` via `backend/api/index.py`
+- Vercel has **native FastAPI support** - no Mangum wrapper needed
+- Database uses **Supabase with PgBouncer** - requires `statement_cache_size=0`
+
+### Production Database Access
+```bash
+# Pull production env vars
+vercel env pull .env.vercel --environment=production
+
+# Run migrations on production
+cd backend
+DATABASE_URL="<from-vercel-env>" alembic upgrade head
+```
+
+### Serverless Considerations
+- `backend/app/db/session.py` auto-detects `VERCEL` env var for serverless-optimized settings
+- Pool size is reduced to 1 for serverless, statement caching disabled for PgBouncer
+
 ## Development Commands
 
 ### Using Make (Recommended)
@@ -318,11 +342,16 @@ VITE_GOOGLE_MAPS_API_KEY=<google-maps-key>
 
 ## Deployment
 
-- **Production**: Deployed to Vercel (frontend + serverless backend)
-- **Staging**: Automatic deployment on `develop` branch
-- **Database**: External PostgreSQL (managed service recommended)
-- **Storage**: Supabase Storage for file uploads
+- **Production**: Deployed to Vercel (frontend + serverless backend) at https://pharmafleet-olive.vercel.app
+- **Database**: Supabase PostgreSQL with PgBouncer pooling
+- **Storage**: Supabase Storage for proof of delivery images
 - **Mobile**: APK distributed via Google Play Store or enterprise distribution
+
+### Vercel Deployment Notes
+- Push to `main` triggers automatic deployment
+- Backend entry point: `backend/api/index.py` (exposes FastAPI `app` directly)
+- Environment variables must be set in Vercel dashboard (DATABASE_URL, SECRET_KEY, REDIS_URL, SUPABASE_*)
+- After adding new model fields, run migrations on production database manually
 
 ## Common Workflows
 
@@ -363,3 +392,5 @@ VITE_GOOGLE_MAPS_API_KEY=<google-maps-key>
 - **Kuwait-specific**: UI designed for Kuwait geography, bilingual (English/Arabic)
 - **Offline critical**: Drivers work in areas with poor connectivity; offline mode is essential
 - **Security**: Never commit `.env` files, API keys, or service account credentials
+- **Batch operations**: Bulk assign, cancel, and delete are in `orders.py` - batch routes must come BEFORE `/{order_id}` routes to avoid shadowing
+- **Auto-archive**: Orders automatically archive when status becomes DELIVERED
