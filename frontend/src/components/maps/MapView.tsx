@@ -7,8 +7,8 @@ import { MapControls } from './MapControls';
 import { useDriversStore, DriverWithLocation, MapBounds, DriverMapStatus } from '@/stores/driversStore';
 import { useWebSocket } from '@/hooks/useWebSocket';
 
-// San Francisco coordinates as default center
-const DEFAULT_CENTER = { lat: 37.7749, lng: -122.4194 };
+// Kuwait coordinates as default center
+const DEFAULT_CENTER = { lat: 29.3759, lng: 47.9774 };
 const DEFAULT_ZOOM = 12;
 
 // Debounce delay for bounds changes

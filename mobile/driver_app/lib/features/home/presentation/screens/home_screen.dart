@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:driver_app/core/services/location_service.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:driver_app/features/home/presentation/bloc/home_bloc.dart';
 import 'package:driver_app/features/home/presentation/screens/daily_summary_screen.dart';
 import 'package:driver_app/theme/theme.dart';
@@ -47,7 +48,38 @@ class _HomeScreenState extends State<HomeScreen> {
     final hasPermission = await widget.locationService.checkPermissions();
     if (mounted) {
       setState(() => _hasLocationPermission = hasPermission);
+
+      // If permission denied, show a dialog explaining why it's needed
+      if (!hasPermission) {
+        _showLocationPermissionDialog();
+      }
     }
+  }
+
+  void _showLocationPermissionDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Location Permission Required'),
+        content: const Text(
+          'PharmaFleet needs access to your location to show your position on the map and enable delivery tracking.\n\nPlease grant location permission in Settings.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              // Open app settings so user can grant permission manually
+              await openAppSettings();
+            },
+            child: const Text('Open Settings'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
