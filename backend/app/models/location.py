@@ -1,10 +1,9 @@
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, DateTime, Integer
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import ForeignKey, DateTime, func
+from sqlalchemy.orm import Mapped, mapped_column, relationship, column_property
 from geoalchemy2 import Geometry
-from geoalchemy2.shape import to_shape
 
 from app.db.base_class import Base
 
@@ -22,30 +21,17 @@ class DriverLocation(Base):
         DateTime, default=datetime.utcnow, index=True
     )
 
+    # Computed columns using PostGIS SQL functions (works on Vercel serverless)
+    # ST_Y extracts latitude (Y coordinate), ST_X extracts longitude (X coordinate)
+    latitude = column_property(
+        func.coalesce(func.ST_Y(func.cast(location, Geometry)), 0.0)
+    )
+    longitude = column_property(
+        func.coalesce(func.ST_X(func.cast(location, Geometry)), 0.0)
+    )
+
     # Relationships
     driver: Mapped["Driver"] = relationship("Driver", back_populates="locations")
-
-    @property
-    def latitude(self) -> float:
-        """Extract latitude from PostGIS POINT geometry."""
-        if self.location is None:
-            return 0.0
-        try:
-            shape = to_shape(self.location)
-            return float(shape.y)
-        except (AttributeError, ValueError, TypeError):
-            return 0.0
-
-    @property
-    def longitude(self) -> float:
-        """Extract longitude from PostGIS POINT geometry."""
-        if self.location is None:
-            return 0.0
-        try:
-            shape = to_shape(self.location)
-            return float(shape.x)
-        except (AttributeError, ValueError, TypeError):
-            return 0.0
 
     def to_dict(self) -> dict[str, float | int | datetime | None]:
         """Convert location to dictionary for API responses."""
