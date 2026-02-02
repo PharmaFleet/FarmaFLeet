@@ -165,13 +165,10 @@ class _MiniMapViewState extends State<MiniMapView> {
       return _buildErrorState();
     }
 
-    return CardContainer(
-      padding: EdgeInsets.zero,
-      borderRadius: widget.borderRadius ?? AppSpacing.radiusCard,
-      child: SizedBox(
-        height: widget.height ?? 200,
-        width: widget.width ?? double.infinity,
-        child: ClipRRect(
+    // When height is infinite, let the container expand
+    final useExpanded = widget.height == double.infinity;
+
+    final mapChild = ClipRRect(
           borderRadius: widget.borderRadius ?? AppSpacing.radiusCard,
           child: GoogleMap(
             initialCameraPosition: CameraPosition(
@@ -199,8 +196,22 @@ class _MiniMapViewState extends State<MiniMapView> {
             // Push the location button down to avoid overlap with card header
             padding: const EdgeInsets.only(top: 48),
           ),
-        ),
-      ),
+    );
+
+    // Wrap in CardContainer with appropriate sizing
+    return CardContainer(
+      padding: EdgeInsets.zero,
+      borderRadius: widget.borderRadius ?? AppSpacing.radiusCard,
+      child: useExpanded
+          ? SizedBox(
+              width: widget.width ?? double.infinity,
+              child: mapChild,
+            )
+          : SizedBox(
+              height: widget.height ?? 200,
+              width: widget.width ?? double.infinity,
+              child: mapChild,
+            ),
     );
   }
 
