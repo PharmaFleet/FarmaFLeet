@@ -67,6 +67,7 @@ export function useWebSocket({
   const connect = useCallback(() => {
     // Don't connect if no token is available
     if (!token) {
+      console.warn('[WebSocket] No authentication token available');
       setError(new Error('No authentication token available'));
       return;
     }
@@ -76,11 +77,14 @@ export function useWebSocket({
     const wsBaseUrl = baseUrl.replace(/^http/, 'ws');
     const wsUrl = `${wsBaseUrl}${url}?token=${encodeURIComponent(token)}`;
 
+    console.log('[WebSocket] Connecting to:', wsUrl.replace(/token=[^&]+/, 'token=***'));
+
     try {
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
       ws.onopen = () => {
+        console.log('[WebSocket] Connected successfully');
         reconnectAttemptsRef.current = 0;
         setIsConnected(true);
         setError(null);
@@ -90,19 +94,21 @@ export function useWebSocket({
       ws.onmessage = (event) => {
         try {
           const message: WebSocketMessage = JSON.parse(event.data);
+          console.log('[WebSocket] Message received:', message.type, message);
           onMessage(message);
         } catch (err) {
-          console.error('Failed to parse WebSocket message:', err);
+          console.error('[WebSocket] Failed to parse message:', err, event.data);
         }
       };
 
       ws.onerror = (event) => {
-        console.error('WebSocket error:', event);
+        console.error('[WebSocket] Connection error:', event);
         setError(new Error('WebSocket connection error'));
         onError?.(event);
       };
 
-      ws.onclose = () => {
+      ws.onclose = (event) => {
+        console.log('[WebSocket] Connection closed:', event.code, event.reason);
         setIsConnected(false);
         wsRef.current = null;
 
@@ -110,10 +116,11 @@ export function useWebSocket({
         if (reconnectAttemptsRef.current < maxReconnectAttempts) {
           reconnectAttemptsRef.current++;
           reconnectTimeoutRef.current = setTimeout(() => {
-            console.log(`WebSocket reconnecting... Attempt ${reconnectAttemptsRef.current}`);
+            console.log(`[WebSocket] Reconnecting... Attempt ${reconnectAttemptsRef.current}`);
             connect();
           }, reconnectInterval);
         } else {
+          console.error('[WebSocket] Max reconnect attempts reached');
           setError(new Error('Max WebSocket reconnect attempts reached'));
         }
       };
