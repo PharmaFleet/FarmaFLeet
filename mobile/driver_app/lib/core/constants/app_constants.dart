@@ -2,8 +2,8 @@ class AppConstants {
   const AppConstants._();
 
   // Network & API
-  // 10.0.2.2 is valid for Android Emulator. Use localhost or IP for iOS/Web.
-  static const String baseUrl = 'http://10.0.2.2:8000/api/v1'; 
+  // Production URL
+  static const String baseUrl = 'https://pharmafleet-olive.vercel.app/api/v1'; 
   
   // Storage Keys
   static const String tokenKey = 'auth_token';

@@ -1,6 +1,6 @@
 class ApiConstants {
-  // Use 10.0.2.2 for Android Emulator, localhost for iOS Simulator or Web
-  static const String baseUrl = 'https://pharmafleet-pharmafleet.vercel.app/api/v1';
+  // Production URL
+  static const String baseUrl = 'https://pharmafleet-olive.vercel.app/api/v1';
 
   // Auth
   static const String login = '/auth/login';
