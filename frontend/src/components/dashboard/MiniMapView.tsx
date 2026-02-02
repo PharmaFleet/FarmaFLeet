@@ -8,23 +8,62 @@ const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
 // Kuwait City center
 const DEFAULT_CENTER = { lat: 29.3759, lng: 47.9774 };
 
+// Helper to check valid coordinates (not 0,0 which is invalid)
+const isValidCoord = (lat: number | undefined, lng: number | undefined) =>
+  lat != null && lng != null && !(lat === 0 && lng === 0);
+
 export function MiniMapView() {
   const [mapError, setMapError] = useState<string | null>(null);
   const [MapComponents, setMapComponents] = useState<any>(null);
 
-  const { data: drivers, isLoading, error } = useQuery({
-    queryKey: ['driver-locations-mini'],
+  // Fetch both drivers (with warehouse) AND live locations, then merge
+  const { data: driversWithLocation, isLoading, error } = useQuery({
+    queryKey: ['drivers-with-location-mini'],
     queryFn: async () => {
-      const data = await driverService.getLocations();
-      console.log('[MiniMapView] Driver locations fetched:', data);
-      console.log('[MiniMapView] Number of drivers:', data?.length || 0);
-      if (data && data.length > 0) {
-        console.log('[MiniMapView] First driver data:', JSON.stringify(data[0], null, 2));
-      }
-      return data;
+      // Fetch drivers and locations in parallel
+      const [driversResponse, locationsResponse] = await Promise.all([
+        driverService.getAll({ size: 50 }), // Get up to 50 drivers
+        driverService.getLocations().catch(() => []),
+      ]);
+
+      console.log('[MiniMapView] Drivers fetched:', driversResponse.items?.length || 0);
+      console.log('[MiniMapView] Live locations fetched:', locationsResponse?.length || 0);
+
+      // Create location lookup map
+      const locationMap = new Map(
+        (locationsResponse || []).map((loc: any) => [Number(loc.driver_id), loc])
+      );
+
+      // Merge drivers with their locations (live GPS or warehouse fallback)
+      const merged = (driversResponse.items || [])
+        .map((driver: any) => {
+          const liveLocation = locationMap.get(Number(driver.id));
+          const warehouseLat = driver.warehouse?.latitude;
+          const warehouseLng = driver.warehouse?.longitude;
+
+          const hasValidLive = liveLocation && isValidCoord(liveLocation.latitude, liveLocation.longitude);
+          const hasValidWarehouse = isValidCoord(warehouseLat, warehouseLng);
+
+          return {
+            driver_id: driver.id,
+            latitude: hasValidLive ? liveLocation.latitude : (hasValidWarehouse ? warehouseLat : null),
+            longitude: hasValidLive ? liveLocation.longitude : (hasValidWarehouse ? warehouseLng : null),
+            vehicle_info: driver.vehicle_info,
+            name: driver.user?.full_name,
+            is_available: driver.is_available,
+            hasLiveLocation: hasValidLive,
+          };
+        })
+        .filter((d: any) => d.latitude != null && d.longitude != null);
+
+      console.log('[MiniMapView] Drivers with valid coords:', merged.length);
+      return merged;
     },
     refetchInterval: 10000,
   });
+
+  // Alias for backward compatibility
+  const drivers = driversWithLocation;
 
   // Log error if any
   useEffect(() => {
@@ -58,19 +97,19 @@ export function MiniMapView() {
           <span className="text-xs">Map requires valid Google Maps API key</span>
         </div>
         <div className="text-sm font-medium text-slate-700 mb-2">
-          Online Drivers ({drivers?.length || 0})
+          Drivers ({drivers?.length || 0})
         </div>
         {drivers?.slice(0, 5).map((driver: any) => (
-          <div key={driver.driver_id || driver.id} className="flex items-center gap-2 p-2 bg-white rounded mb-1 shadow-sm">
-            <MapPin className="h-4 w-4 text-emerald-500" />
-            <span className="text-sm text-slate-700">{driver.vehicle_info || `Driver ${driver.driver_id || driver.id}`}</span>
+          <div key={driver.driver_id} className="flex items-center gap-2 p-2 bg-white rounded mb-1 shadow-sm">
+            <MapPin className={`h-4 w-4 ${driver.hasLiveLocation ? 'text-emerald-500' : 'text-amber-500'}`} />
+            <span className="text-sm text-slate-700">{driver.name || driver.vehicle_info || `Driver ${driver.driver_id}`}</span>
             <span className="text-xs text-slate-400 ml-auto">
-              🟢 Online
+              {driver.hasLiveLocation ? '🟢 GPS' : '🟡 Warehouse'}
             </span>
           </div>
         ))}
         {(!drivers || drivers.length === 0) && (
-          <div className="text-sm text-slate-400 text-center py-4">No drivers online</div>
+          <div className="text-sm text-slate-400 text-center py-4">No drivers with location</div>
         )}
       </div>
     );
@@ -100,12 +139,6 @@ export function MiniMapView() {
           className="w-full h-full"
         >
           {drivers?.map((driver: any) => {
-             // Ensure valid coordinates
-             if (!driver.latitude || !driver.longitude) {
-               console.log('[MiniMapView] Skipping driver without coords:', driver.driver_id);
-               return null;
-             }
-
              const lat = Number(driver.latitude);
              const lng = Number(driver.longitude);
 
@@ -115,7 +148,7 @@ export function MiniMapView() {
                <Marker
                  key={driver.driver_id}
                  position={{ lat, lng }}
-                 title={driver.vehicle_info || `Driver ${driver.driver_id}`}
+                 title={driver.name || driver.vehicle_info || `Driver ${driver.driver_id}`}
                />
              );
            })}
