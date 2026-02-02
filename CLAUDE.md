@@ -159,11 +159,12 @@ backend/app/
 
 **Key architectural decisions:**
 - **Async everywhere**: Uses async/await with asyncpg and AsyncSession
-- **JWT authentication**: Access tokens expire in 8 days for drivers, 1 day for managers
-- **Role-based access**: Four roles (super_admin, warehouse_manager, dispatcher, executive)
+- **JWT authentication**: Access tokens expire in 2 hours (improved from 8 days for security)
+- **Role-based access**: Five roles (super_admin, warehouse_manager, dispatcher, executive, driver)
 - **Supabase Storage**: Used for proof of delivery images (signatures, photos)
-- **WebSocket**: Real-time driver location updates every 30 seconds
+- **WebSocket**: Real-time driver location updates (authenticated, 60-second adaptive intervals)
 - **Offline sync**: `/sync` endpoint handles queued actions from offline drivers
+- **Warehouse isolation**: Users can only access orders from their assigned warehouses
 
 ### Frontend Structure
 

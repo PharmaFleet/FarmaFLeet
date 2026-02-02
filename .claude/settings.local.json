@@ -4,7 +4,27 @@
       "Bash(find:*)",
       "Bash(wc -l \"E:\\\\Py\\\\Delivery-System-III\\\\backend\\\\tests\"/**/*.py)",
       "Bash(python -m py_compile:*)",
-      "Bash(flutter analyze:*)"
+      "Bash(flutter analyze:*)",
+      "Bash(python:*)",
+      "Bash(ls -la \"E:\\\\Py\\\\Delivery-System-III\\\\backend\\\\tests\"\" 2>/dev/null || dir \"E:PyDelivery-System-IIIbackendtests \")",
+      "Bash(dir /b \"E:\\\\Py\\\\Delivery-System-III\\\\backend\\\\tests\")",
+      "Bash(dir /b \"E:\\\\Py\\\\Delivery-System-III\\\\frontend\\\\src\")",
+      "Bash(findstr:*)",
+      "Bash(Select-Object -First 5 -ExpandProperty FullName)",
+      "Bash(python -m pytest:*)",
+      "Bash(set \"SECRET_KEY=pharmafleet_dev_secret_key_2024_test_long_enough_now\")",
+      "Bash(alembic revision:*)",
+      "Bash(python -c:*)",
+      "Bash(python -B -m pytest tests/test_bulk_order_operations.py::TestBatchCancelOrders::test_batch_cancel_endpoint_exists -v --cache-clear)",
+      "Bash(dir /s /b \"E:\\\\Py\\\\Delivery-System-III\\\\backend\\\\*.pyc\")",
+      "Bash(python -B -m pytest tests/test_bulk_order_operations.py::TestBatchCancelOrders::test_batch_cancel_endpoint_exists -v)",
+      "Bash(python -B -m pytest tests/test_bulk_order_operations.py::TestBatchCancelOrders::test_batch_cancel_endpoint_exists -v -s)",
+      "Bash(python -B -m pytest tests/test_bulk_order_operations.py -v)",
+      "Bash(npm run test:*)",
+      "Bash(python -B -m pytest tests/integration/test_bulk_operations_integration.py -v)"
     ]
+  },
+  "enabledPlugins": {
+    "superpowers@claude-plugins-official": true
   }
 }

@@ -171,10 +171,10 @@ export default function DriversPage() {
                                 {driver.warehouse?.name || (driver.warehouse_id ? `Warehouse #${driver.warehouse_id}` : 'Unassigned')}
                             </TableCell>
                             <TableCell>
-                                {driver.user?.email ? (
-                                     <a href={`mailto:${driver.user.email}`} className="flex items-center gap-2 text-slate-500 hover:text-emerald-600 transition-colors">
+                                {driver.user?.phone ? (
+                                     <a href={`tel:${driver.user.phone}`} className="flex items-center gap-2 text-slate-500 hover:text-emerald-600 transition-colors">
                                          <Phone className="h-3 w-3" />
-                                         <span className="text-xs font-medium">{driver.user.email}</span>
+                                         <span className="text-xs font-medium">{driver.user.phone}</span>
                                      </a>
                                 ) : (
                                     <div className="flex items-center gap-2 text-slate-300">

@@ -407,6 +407,94 @@ export const handlers = [
     );
   }),
 
+  // Batch Cancel endpoint
+  rest.post('/api/v1/orders/batch-cancel', async (req, res, ctx) => {
+    const { order_ids, reason } = await req.json() as { order_ids: number[], reason?: string };
+
+    let cancelled = 0;
+    const errors: any[] = [];
+
+    for (const orderId of order_ids) {
+      const order = mockOrders.find(o => o.id === orderId);
+
+      if (!order) {
+        errors.push({
+          order_id: orderId,
+          error: 'Order not found'
+        });
+      } else if (order.status === 'DELIVERED') {
+        errors.push({
+          order_id: orderId,
+          error: 'Cannot cancel a delivered order'
+        });
+      } else if (order.status === 'CANCELLED') {
+        errors.push({
+          order_id: orderId,
+          error: 'Order is already cancelled'
+        });
+      } else {
+        order.status = 'CANCELLED';
+        order.updated_at = new Date().toISOString();
+        cancelled++;
+      }
+    }
+
+    return res(
+      ctx.status(200),
+      ctx.json({
+        cancelled,
+        errors,
+      })
+    );
+  }),
+
+  // Batch Delete endpoint (admin only)
+  rest.post('/api/v1/orders/batch-delete', async (req, res, ctx) => {
+    const { order_ids } = await req.json() as { order_ids: number[] };
+
+    // Simulate admin check - in real app this would check JWT claims
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader) {
+      return res(
+        ctx.status(401),
+        ctx.json({ detail: 'Not authenticated' })
+      );
+    }
+
+    let deleted = 0;
+    const errors: any[] = [];
+
+    for (const orderId of order_ids) {
+      const orderIndex = mockOrders.findIndex(o => o.id === orderId);
+
+      if (orderIndex === -1) {
+        errors.push({
+          order_id: orderId,
+          error: 'Order not found'
+        });
+      } else {
+        mockOrders.splice(orderIndex, 1);
+        deleted++;
+      }
+    }
+
+    return res(
+      ctx.status(200),
+      ctx.json({
+        deleted,
+        errors,
+      })
+    );
+  }),
+
+  // Batch Delete - forbidden for non-admin
+  rest.post('/api/v1/orders/batch-delete-forbidden', async (req, res, ctx) => {
+    return res(
+      ctx.status(403),
+      ctx.json({ detail: 'Only administrators can permanently delete orders' })
+    );
+  }),
+
   // Error handlers for testing error scenarios
   rest.get('/api/orders/error', (req, res, ctx) => {
     return res(

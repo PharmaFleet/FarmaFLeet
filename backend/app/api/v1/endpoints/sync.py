@@ -89,6 +89,7 @@ async def sync_proof_of_delivery(
     db.add(pod)
 
     order.status = OrderStatus.DELIVERED
+    order.is_archived = True  # Auto-archive on delivery
     db.add(order)
 
     await db.commit()

@@ -10,6 +10,7 @@ class UserBase(BaseModel):
     full_name: Optional[str] = None
     role: Optional[str] = None
     fcm_token: Optional[str] = None
+    phone: Optional[str] = None
 
 
 # Properties to receive via API on creation

@@ -24,6 +24,8 @@ import { Badge } from '@/components/ui/badge';
 import { AssignDriverDialog } from '@/components/orders/AssignDriverDialog';
 import { CreateOrderDialog } from '@/components/orders/CreateOrderDialog';
 import { BatchAssignDriverDialog } from '@/components/orders/BatchAssignDriverDialog';
+import { BatchCancelDialog } from '@/components/orders/BatchCancelDialog';
+import { BatchDeleteDialog } from '@/components/orders/BatchDeleteDialog';
 import { MoreHorizontal, Plus, Download, Truck, Search, AlertOctagon, Users, XCircle, Trash2 } from 'lucide-react';
 import { OrderStatus } from '@/types';
 import { useToast } from '@/components/ui/use-toast';
@@ -48,6 +50,8 @@ export default function OrdersPage() {
   // Multi-select state
   const [selectedOrders, setSelectedOrders] = useState<Set<number>>(new Set());
   const [batchAssignOpen, setBatchAssignOpen] = useState(false);
+  const [batchCancelOpen, setBatchCancelOpen] = useState(false);
+  const [batchDeleteOpen, setBatchDeleteOpen] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
 
   const { data, isLoading } = useQuery({
@@ -207,6 +211,20 @@ export default function OrdersPage() {
         onSuccess={() => setSelectedOrders(new Set())}
       />
 
+      <BatchCancelDialog
+        orderIds={Array.from(selectedOrders)}
+        open={batchCancelOpen}
+        onOpenChange={setBatchCancelOpen}
+        onSuccess={() => setSelectedOrders(new Set())}
+      />
+
+      <BatchDeleteDialog
+        orderIds={Array.from(selectedOrders)}
+        open={batchDeleteOpen}
+        onOpenChange={setBatchDeleteOpen}
+        onSuccess={() => setSelectedOrders(new Set())}
+      />
+
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
         <div>
            <h2 className="text-4xl font-extrabold tracking-tight text-slate-900">Orders</h2>
@@ -247,8 +265,28 @@ export default function OrdersPage() {
             <Button variant="outline" size="sm" onClick={() => setSelectedOrders(new Set())}>
               Clear Selection
             </Button>
-            <Button 
-              size="sm" 
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-amber-300 text-amber-700 hover:bg-amber-50 hover:border-amber-400"
+              onClick={() => setBatchCancelOpen(true)}
+            >
+              <XCircle className="mr-2 h-4 w-4" />
+              Cancel
+            </Button>
+            {isAdmin && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-rose-300 text-rose-700 hover:bg-rose-50 hover:border-rose-400"
+                onClick={() => setBatchDeleteOpen(true)}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </Button>
+            )}
+            <Button
+              size="sm"
               className="bg-emerald-600 hover:bg-emerald-700"
               onClick={() => setBatchAssignOpen(true)}
             >

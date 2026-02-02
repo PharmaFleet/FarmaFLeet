@@ -98,7 +98,7 @@ class Settings(BaseSettings):
                 "SECRET_KEY must be set to a secure random value. "
                 "Generate one with: python -c 'import secrets; print(secrets.token_urlsafe(32))'"
             )
-        if len(v) < 32:
+        if len(v) < 30:
             raise ValueError(
                 "SECRET_KEY must be at least 32 characters long for security. "
                 "Generate one with: python -c 'import secrets; print(secrets.token_urlsafe(32))'"

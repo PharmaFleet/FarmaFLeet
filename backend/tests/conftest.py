@@ -3,6 +3,7 @@ Fixtures and configuration for backend integration tests.
 Uses SQLite in-memory database for fast integration testing.
 """
 
+import os
 import pytest
 import asyncio
 from typing import AsyncGenerator, Generator
@@ -16,6 +17,11 @@ from sqlalchemy.ext.compiler import compiles
 from geoalchemy2 import Geometry
 from sqlalchemy.dialects.postgresql import JSONB
 import geoalchemy2.admin.dialects.sqlite as sqlite_dialect
+
+# Set test environment variables BEFORE importing app
+os.environ.setdefault("SECRET_KEY", "test_secret_key_that_is_long_enough_for_security_requirements_1234567890")
+os.environ.setdefault("DB_URL", "sqlite+aiosqlite:///:memory:")
+os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 
 from app.main import app
 from app.core.security import create_access_token

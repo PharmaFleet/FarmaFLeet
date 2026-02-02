@@ -23,6 +23,7 @@ class User(Base):
         String, default=UserRole.DISPATCHER, index=True
     )  # Storing as string for simplicity
     fcm_token: Mapped[str] = mapped_column(String, nullable=True)
+    phone: Mapped[str] = mapped_column(String, nullable=True)
 
     # Relationships
     driver_profile = relationship("Driver", back_populates="user", uselist=False)

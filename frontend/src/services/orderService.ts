@@ -31,6 +31,16 @@ export const orderService = {
       const response = await api.post('/orders/batch-assign', assignments);
       return response.data;
   },
+
+  batchCancel: async (orderIds: number[], reason?: string) => {
+      const response = await api.post('/orders/batch-cancel', { order_ids: orderIds, reason });
+      return response.data;
+  },
+
+  batchDelete: async (orderIds: number[]) => {
+      const response = await api.post('/orders/batch-delete', { order_ids: orderIds });
+      return response.data;
+  },
   
   importExcel: async (file: File) => {
       const formData = new FormData();

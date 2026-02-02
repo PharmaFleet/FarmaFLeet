@@ -384,6 +384,160 @@ async def import_orders(
         raise HTTPException(status_code=400, detail=f"Import failed: {str(e)}")
 
 
+# ==========================================
+# BATCH OPERATIONS - Must be before /{order_id} routes
+# ==========================================
+
+
+class BatchCancelRequest(BaseModel):
+    order_ids: List[int]
+    reason: Optional[str] = None
+
+
+class BatchDeleteRequest(BaseModel):
+    order_ids: List[int]
+
+
+@router.post("/batch-cancel")
+async def batch_cancel_orders(
+    request: BatchCancelRequest,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+) -> Any:
+    """
+    Batch cancel multiple orders.
+    Cannot cancel orders that are already DELIVERED.
+    """
+    cancelled_count = 0
+    errors = []
+
+    for order_id in request.order_ids:
+        order = await db.get(Order, order_id)
+        if not order:
+            errors.append({"order_id": order_id, "error": "Order not found"})
+            continue
+
+        if order.status == OrderStatus.DELIVERED:
+            errors.append({"order_id": order_id, "error": "Cannot cancel a delivered order"})
+            continue
+
+        if order.status == OrderStatus.CANCELLED:
+            errors.append({"order_id": order_id, "error": "Order is already cancelled"})
+            continue
+
+        order.status = OrderStatus.CANCELLED
+        history = OrderStatusHistory(
+            order_id=order.id,
+            status=OrderStatus.CANCELLED,
+            notes=f"Batch cancelled: {request.reason}" if request.reason else "Batch cancelled",
+        )
+        db.add(history)
+        db.add(order)
+        cancelled_count += 1
+
+    await db.commit()
+    return {"cancelled": cancelled_count, "errors": errors}
+
+
+@router.post("/batch-delete")
+async def batch_delete_orders(
+    request: BatchDeleteRequest,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+) -> Any:
+    """
+    Batch delete multiple orders (hard deletion).
+    Admin only - removes orders and all related data.
+    """
+    # Check admin role
+    if current_user.role not in ["admin", "super_admin"]:
+        raise HTTPException(
+            status_code=403, detail="Only administrators can permanently delete orders"
+        )
+
+    deleted_count = 0
+    errors = []
+
+    for order_id in request.order_ids:
+        order = await db.get(Order, order_id)
+        if not order:
+            errors.append({"order_id": order_id, "error": "Order not found"})
+            continue
+
+        await db.delete(order)
+        deleted_count += 1
+
+    await db.commit()
+    return {"deleted": deleted_count, "errors": errors}
+
+
+@router.post("/batch-assign")
+async def batch_assign_orders(
+    assignments: List[Dict[str, int]] = Body(...),
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+) -> Any:
+    """
+    Batch assign orders.
+    """
+    count = 0
+    driver_notifications = {}  # driver_id -> {token: str, count: int}
+
+    for assign in assignments:
+        order_id = assign.get("order_id")
+        driver_id = assign.get("driver_id")
+        if not order_id or not driver_id:
+            continue
+
+        order = await db.get(Order, order_id)
+        # Load driver with user for token
+        drv_stmt = (
+            select(Driver)
+            .where(Driver.id == driver_id)
+            .options(selectinload(Driver.user))
+        )
+        drv_res = await db.execute(drv_stmt)
+        driver = drv_res.scalars().first()
+
+        if order and driver:
+            order.driver_id = driver.id
+            order.status = OrderStatus.ASSIGNED
+            history = OrderStatusHistory(
+                order_id=order.id,
+                status=OrderStatus.ASSIGNED,
+                notes=f"Batch assigned to driver {driver.user_id}",
+            )
+            db.add(history)
+            db.add(order)
+            count += 1
+
+            # Store for notification
+            if driver.user.fcm_token:
+                if driver_id not in driver_notifications:
+                    driver_notifications[driver_id] = {
+                        "token": driver.user.fcm_token,
+                        "user_id": driver.user_id,
+                        "count": 0,
+                    }
+                driver_notifications[driver_id]["count"] += 1
+
+    await db.commit()
+
+    # Send notifications
+    for drv_id, data in driver_notifications.items():
+        if data["count"] > 0:
+            await notification_service.notify_driver_new_orders(
+                db, data["user_id"], data["count"], data["token"]
+            )
+
+    return {"assigned": count}
+
+
+# ==========================================
+# ORDER-SPECIFIC ROUTES (with /{order_id})
+# ==========================================
+
+
 @router.post("/{order_id}/assign")
 async def assign_order(
     order_id: int,
@@ -453,6 +607,9 @@ async def update_order_status(
         raise HTTPException(status_code=404, detail="Order not found")
 
     order.status = status
+    # Auto-archive when delivered
+    if status == OrderStatus.DELIVERED:
+        order.is_archived = True
 
     history = OrderStatusHistory(order_id=order.id, status=status, notes=notes)
     db.add(history)
@@ -532,6 +689,7 @@ async def upload_proof_of_delivery(
         db.add(pod)
 
     order.status = OrderStatus.DELIVERED
+    order.is_archived = True  # Auto-archive on delivery
     history = OrderStatusHistory(
         order_id=order.id,
         status=OrderStatus.DELIVERED,
@@ -630,68 +788,6 @@ async def export_orders(
         headers=headers,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
-
-
-@router.post("/batch-assign")
-async def batch_assign_orders(
-    assignments: List[Dict[str, int]] = Body(...),
-    db: AsyncSession = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_active_user),
-) -> Any:
-    """
-    Batch assign orders.
-    """
-    count = 0
-    driver_notifications = {}  # driver_id -> {token: str, count: int}
-
-    for assign in assignments:
-        order_id = assign.get("order_id")
-        driver_id = assign.get("driver_id")
-        if not order_id or not driver_id:
-            continue
-
-        order = await db.get(Order, order_id)
-        # Load driver with user for token
-        drv_stmt = (
-            select(Driver)
-            .where(Driver.id == driver_id)
-            .options(selectinload(Driver.user))
-        )
-        drv_res = await db.execute(drv_stmt)
-        driver = drv_res.scalars().first()
-
-        if order and driver:
-            order.driver_id = driver.id
-            order.status = OrderStatus.ASSIGNED
-            history = OrderStatusHistory(
-                order_id=order.id,
-                status=OrderStatus.ASSIGNED,
-                notes=f"Batch assigned to driver {driver.user_id}",
-            )
-            db.add(history)
-            db.add(order)
-            count += 1
-
-            # Store for notification
-            if driver.user.fcm_token:
-                if driver_id not in driver_notifications:
-                    driver_notifications[driver_id] = {
-                        "token": driver.user.fcm_token,
-                        "user_id": driver.user_id,
-                        "count": 0,
-                    }
-                driver_notifications[driver_id]["count"] += 1
-
-    await db.commit()
-
-    # Send notifications
-    for drv_id, data in driver_notifications.items():
-        if data["count"] > 0:
-            await notification_service.notify_driver_new_orders(
-                db, data["user_id"], data["count"], data["token"]
-            )
-
-    return {"assigned": count}
 
 
 @router.post("/{order_id}/reassign")
