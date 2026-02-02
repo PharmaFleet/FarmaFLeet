@@ -113,6 +113,19 @@ class _HomeScreenState extends State<HomeScreen> {
       await widget.locationService.stopTracking();
     }
 
+    // Update driver status on the backend
+    final statusUpdated = await widget.locationService.updateDriverStatus(isOnline);
+    if (!statusUpdated && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Failed to update status. Please try again.'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+      return;
+    }
+
     // Update BLoC with new status
     if (mounted) {
       context.read<HomeBloc>().add(HomeOnlineStatusChanged(isOnline));

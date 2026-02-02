@@ -192,6 +192,8 @@ class _MiniMapViewState extends State<MiniMapView> {
               _mapController = controller;
               widget.onMapReady?.call(controller);
             },
+            // Push the location button down to avoid overlap with card header
+            padding: const EdgeInsets.only(top: 48),
           ),
         ),
       ),

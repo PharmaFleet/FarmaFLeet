@@ -84,6 +84,28 @@ class ApiClient {
     }
   }
 
+  /// Update driver availability status on the backend
+  /// Returns true if successful, false otherwise
+  Future<bool> updateDriverStatus(bool isAvailable) async {
+    try {
+      final response = await _dio.patch(
+        '/api/v1/drivers/me/status',
+        data: {'is_available': isAvailable},
+      );
+
+      if (response.statusCode == 200) {
+        _logger.i('Driver status updated to: $isAvailable');
+        return true;
+      }
+
+      _logger.w('Unexpected status code: ${response.statusCode}');
+      return false;
+    } on DioException catch (e) {
+      _logger.e('Failed to update driver status: ${e.message}', error: e);
+      return false;
+    }
+  }
+
   /// Get the Dio instance for direct access if needed
   Dio get dio => _dio;
 

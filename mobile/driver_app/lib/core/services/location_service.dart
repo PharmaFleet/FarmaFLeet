@@ -391,6 +391,23 @@ class LocationService {
     return _locationBox.values.where((loc) => !loc.synced).length;
   }
 
+  /// Update driver availability status on the backend
+  /// Returns true if successful, false otherwise
+  Future<bool> updateDriverStatus(bool isAvailable) async {
+    try {
+      final success = await _apiClient.updateDriverStatus(isAvailable);
+      if (success) {
+        _logger.i('Driver status updated to: $isAvailable');
+      } else {
+        _logger.w('Failed to update driver status');
+      }
+      return success;
+    } catch (e) {
+      _logger.e('Error updating driver status: $e');
+      return false;
+    }
+  }
+
   /// Dispose of resources
   void dispose() {
     stopTracking();
