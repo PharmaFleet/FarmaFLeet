@@ -1,5 +1,5 @@
 import React, { memo, useMemo } from 'react';
-import { Marker, Pin } from '@vis.gl/react-google-maps';
+import { Marker } from '@vis.gl/react-google-maps';
 import { DriverWithLocation, DriverMapStatus } from '@/stores/driversStore';
 
 interface DriverMarkerProps {
@@ -11,28 +11,34 @@ interface DriverMarkerProps {
 /**
  * Status color mapping for driver markers
  */
-const STATUS_COLORS: Record<DriverMapStatus, { background: string; border: string; glyph: string }> = {
-  [DriverMapStatus.ONLINE]: {
-    background: '#22c55e', // green-500
-    border: '#16a34a', // green-600
-    glyph: '#ffffff',
-  },
-  [DriverMapStatus.OFFLINE]: {
-    background: '#6b7280', // gray-500
-    border: '#4b5563', // gray-600
-    glyph: '#ffffff',
-  },
-  [DriverMapStatus.BUSY]: {
-    background: '#ef4444', // red-500
-    border: '#dc2626', // red-600
-    glyph: '#ffffff',
-  },
-  [DriverMapStatus.ON_BREAK]: {
-    background: '#eab308', // yellow-500
-    border: '#ca8a04', // yellow-600
-    glyph: '#ffffff',
-  },
+const STATUS_COLORS: Record<DriverMapStatus, string> = {
+  [DriverMapStatus.ONLINE]: '#22c55e', // green-500
+  [DriverMapStatus.OFFLINE]: '#6b7280', // gray-500
+  [DriverMapStatus.BUSY]: '#ef4444', // red-500
+  [DriverMapStatus.ON_BREAK]: '#eab308', // yellow-500
 };
+
+/**
+ * Create a simple colored circle marker as a data URL
+ */
+function createMarkerIcon(color: string, isSelected: boolean, hasLiveLocation: boolean | undefined): string {
+  const size = isSelected ? 32 : (hasLiveLocation === false ? 24 : 28);
+  const strokeWidth = isSelected ? 3 : 2;
+  const opacity = hasLiveLocation === false ? 0.7 : 1;
+
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+      <circle cx="${size/2}" cy="${size/2}" r="${size/2 - strokeWidth}"
+        fill="${color}"
+        stroke="white"
+        stroke-width="${strokeWidth}"
+        opacity="${opacity}"
+      />
+    </svg>
+  `;
+
+  return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
+}
 
 /**
  * Custom comparison function for React.memo
@@ -73,10 +79,10 @@ function areEqual(prevProps: DriverMarkerProps, nextProps: DriverMarkerProps): b
 
 /**
  * Driver Marker Component
- * 
+ *
  * Displays a driver as a pin on the map with status-based coloring.
  * Memoized for performance with custom comparison function.
- * 
+ *
  * Features:
  * - Status color mapping (online=green, offline=gray, busy=red, on_break=yellow)
  * - Pin scaling based on selection state
@@ -90,14 +96,11 @@ export const DriverMarker = memo(function DriverMarker({
 }: DriverMarkerProps): JSX.Element | null {
   // Skip rendering if no valid position
   if (!driver.latitude || !driver.longitude) {
+    console.log('[DriverMarker] Skipping driver without coords:', driver.id);
     return null;
   }
 
-  const colors = STATUS_COLORS[driver.status] || STATUS_COLORS[DriverMapStatus.OFFLINE];
-
-  // Calculate scale based on selection state
-  // Use slightly smaller scale for fallback (warehouse) locations
-  const scale = isSelected ? 1.3 : (driver.hasLiveLocation === false ? 0.85 : 1);
+  const color = STATUS_COLORS[driver.status] || STATUS_COLORS[DriverMapStatus.OFFLINE];
 
   // Memoize position to prevent unnecessary re-renders
   const position = useMemo(
@@ -105,13 +108,11 @@ export const DriverMarker = memo(function DriverMarker({
     [driver.latitude, driver.longitude]
   );
 
-  // Custom glyph showing driver initial or icon
-  const glyph = useMemo(() => {
-    const initial = driver.user?.full_name?.charAt(0).toUpperCase() || 
-                    driver.user?.email?.charAt(0).toUpperCase() || 
-                    'D';
-    return initial;
-  }, [driver.user?.full_name, driver.user?.email]);
+  // Memoize icon to prevent recreation
+  const icon = useMemo(
+    () => createMarkerIcon(color, isSelected, driver.hasLiveLocation),
+    [color, isSelected, driver.hasLiveLocation]
+  );
 
   const handleClick = () => {
     onClick(driver);
@@ -121,21 +122,15 @@ export const DriverMarker = memo(function DriverMarker({
   const locationInfo = driver.hasLiveLocation ? 'GPS' : 'Warehouse';
   const title = `${driver.user?.full_name || 'Driver'} - ${driver.status} (${locationInfo})`;
 
+  console.log(`[DriverMarker] Rendering marker for driver ${driver.id} at (${position.lat}, ${position.lng})`);
+
   return (
     <Marker
       position={position}
       onClick={handleClick}
       title={title}
-      opacity={driver.hasLiveLocation === false ? 0.7 : 1}
-    >
-      <Pin
-        background={colors.background}
-        borderColor={colors.border}
-        glyphColor={colors.glyph}
-        scale={scale}
-        glyph={glyph}
-      />
-    </Marker>
+      icon={icon}
+    />
   );
 }, areEqual);
 

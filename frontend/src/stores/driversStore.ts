@@ -165,12 +165,21 @@ export const useDriversStore = create<DriversState>()(
           // Fetch drivers AND locations in parallel
           const [driversResponse, locationsResponse] = await Promise.all([
             driverService.getAll(Object.fromEntries(params.entries())),
-            driverService.getLocations().catch(() => []), // Don't fail if locations unavailable
+            driverService.getLocations().catch((err) => {
+              console.error('[DriversStore] Failed to fetch locations:', err);
+              return [];
+            }),
           ]);
+
+          console.log('[DriversStore] Drivers fetched:', driversResponse.items?.length || 0);
+          console.log('[DriversStore] Locations fetched:', locationsResponse?.length || 0);
+          if (locationsResponse && locationsResponse.length > 0) {
+            console.log('[DriversStore] First location:', JSON.stringify(locationsResponse[0], null, 2));
+          }
 
           // Create location lookup map: driver_id -> location
           const locationMap = new Map<number, { latitude: number; longitude: number; heading?: number; speed?: number; timestamp?: string }>(
-            (locationsResponse || []).map((loc: any) => [loc.driver_id, loc])
+            (locationsResponse || []).map((loc: any) => [Number(loc.driver_id), loc])
           );
 
           // Transform drivers to include location data and status
@@ -178,7 +187,7 @@ export const useDriversStore = create<DriversState>()(
           const driversWithLocation: DriverWithLocation[] = (driversResponse.items || []).map(
             (driver: Driver) => {
               const liveLocation = locationMap.get(driver.id);
-              return {
+              const driverWithLoc = {
                 ...driver,
                 status: determineDriverStatus(driver as DriverWithLocation),
                 latitude: liveLocation?.latitude ?? driver.warehouse?.latitude,
@@ -188,6 +197,8 @@ export const useDriversStore = create<DriversState>()(
                 lastUpdated: liveLocation?.timestamp || new Date().toISOString(),
                 hasLiveLocation: !!liveLocation,
               };
+              console.log(`[DriversStore] Driver ${driver.id}: lat=${driverWithLoc.latitude}, lng=${driverWithLoc.longitude}, hasLive=${driverWithLoc.hasLiveLocation}`);
+              return driverWithLoc;
             }
           );
 
