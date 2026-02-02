@@ -441,15 +441,37 @@ class _TrackingSection extends StatelessWidget {
           Expanded(
             child: ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: MiniMapView(
-                initialPosition: const LatLng(
-                  29.3759,
-                  47.9774,
-                ), // Kuwait coordinates
-                height: double.infinity, // Take available space
-                showCurrentLocation: hasLocationPermission,
-                scrollGesturesEnabled: true,
-                zoomGesturesEnabled: true,
+              child: Stack(
+                children: [
+                  MiniMapView(
+                    initialPosition: const LatLng(
+                      29.3759,
+                      47.9774,
+                    ), // Kuwait coordinates
+                    height: double.infinity, // Take available space
+                    showCurrentLocation: hasLocationPermission,
+                    showMyLocationButton: false, // Disable default button
+                    scrollGesturesEnabled: true,
+                    zoomGesturesEnabled: true,
+                  ),
+                  // Custom my location button positioned at bottom-right
+                  if (hasLocationPermission)
+                    Positioned(
+                      right: 12,
+                      bottom: 12,
+                      child: FloatingActionButton.small(
+                        heroTag: 'myLocation',
+                        backgroundColor: Colors.white,
+                        onPressed: () {
+                          // TODO: Animate to current location
+                        },
+                        child: Icon(
+                          Icons.my_location,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
           ),

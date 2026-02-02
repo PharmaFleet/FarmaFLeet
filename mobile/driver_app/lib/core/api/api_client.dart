@@ -67,7 +67,7 @@ class ApiClient {
   Future<bool> updateLocation(LocationUpdateModel location) async {
     try {
       final response = await _dio.post(
-        '/api/v1/driver/location',
+        '/api/v1/drivers/location',
         data: location.toJson(),
       );
 

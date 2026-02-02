@@ -61,8 +61,11 @@ class MiniMapView extends StatefulWidget {
   /// Zoom level for the initial view
   final double initialZoom;
 
-  /// Whether to show the current location
+  /// Whether to show the current location blue dot
   final bool showCurrentLocation;
+
+  /// Whether to show the my location button (separate from blue dot)
+  final bool showMyLocationButton;
 
   /// Whether to show zoom controls
   final bool showZoomControls;
@@ -125,6 +128,7 @@ class MiniMapView extends StatefulWidget {
     this.width,
     this.initialZoom = 15.0,
     this.showCurrentLocation = false,
+    this.showMyLocationButton = true,
     this.showZoomControls = false,
     this.showCompass = false,
     this.showMapToolbar = false,
@@ -179,7 +183,7 @@ class _MiniMapViewState extends State<MiniMapView> {
             circles: widget.circles ?? {},
             mapType: widget.mapType,
             myLocationEnabled: widget.showCurrentLocation,
-            myLocationButtonEnabled: widget.showCurrentLocation,
+            myLocationButtonEnabled: widget.showCurrentLocation && widget.showMyLocationButton,
             zoomControlsEnabled: widget.showZoomControls,
             compassEnabled: widget.showCompass,
             mapToolbarEnabled: widget.showMapToolbar,
