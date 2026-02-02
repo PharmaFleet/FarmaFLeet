@@ -39,6 +39,8 @@ class DriverInDBBase(DriverBase):
 class Driver(DriverInDBBase):
     user: Optional[UserSchema] = None
     warehouse: Optional[WarehouseSchema] = None
+    total_deliveries: Optional[int] = 0
+    rating: Optional[float] = None
 
 
 class DriverDetail(Driver):

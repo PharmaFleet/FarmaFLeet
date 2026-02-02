@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.cors import CORSMiddleware
@@ -7,10 +8,10 @@ from app.api.v1.api import api_router
 from app.core.config import settings
 from app.core.logging import setup_logging
 from app.api.middleware import RequestLoggingMiddleware, RateLimitMiddleware
+from app.routers.websocket import start_redis_listener
 
 # Setup logging
 setup_logging()
-
 
 tags_metadata = [
     {"name": "login", "description": "Operations with authentication logic."},
@@ -18,10 +19,20 @@ tags_metadata = [
     {"name": "utils", "description": "Utility endpoints."},
 ]
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: Start Redis listener
+    await start_redis_listener()
+    yield
+    # Shutdown events if needed
+
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
     openapi_tags=tags_metadata,
+    lifespan=lifespan,
 )
 
 app.add_middleware(RequestLoggingMiddleware)

@@ -394,3 +394,104 @@ VITE_GOOGLE_MAPS_API_KEY=<google-maps-key>
 - **Security**: Never commit `.env` files, API keys, or service account credentials
 - **Batch operations**: Bulk assign, cancel, and delete are in `orders.py` - batch routes must come BEFORE `/{order_id}` routes to avoid shadowing
 - **Auto-archive**: Orders automatically archive when status becomes DELIVERED
+
+## Common Gotchas
+
+### Backend: SQLAlchemy Relationship Loading
+When fetching models with relationships, you must use eager loading or relationships will be `None`:
+
+```python
+# Wrong - relationships not loaded
+driver = await db.get(Driver, driver_id)
+driver.user  # None!
+
+# Correct - use selectinload for async relationships
+from sqlalchemy.orm import selectinload
+
+result = await db.execute(
+    select(Driver)
+    .where(Driver.id == driver_id)
+    .options(selectinload(Driver.user), selectinload(Driver.warehouse))
+)
+driver = result.scalars().first()
+```
+
+### Backend: Pydantic Serialization with ORM Objects
+When returning ORM objects through Pydantic schemas with `from_attributes=True`, bidirectional relationships can trigger lazy loading which fails in async context. Use explicit schema construction:
+
+```python
+# Wrong - passing ORM object triggers lazy loading of user.driver_profile
+return DriverSchema(
+    id=driver.id,
+    user=current_user,  # ORM object - Pydantic may access all attributes
+)
+
+# Correct - construct schema explicitly with only needed fields
+user_schema = UserSchema(
+    id=current_user.id,
+    email=current_user.email,
+    full_name=current_user.full_name,
+    # ... only include fields defined in schema
+)
+return DriverSchema(id=driver.id, user=user_schema)
+```
+
+Models use `lazy='raise'` on relationships to fail-fast if lazy loading is attempted.
+
+### Frontend: Adding shadcn/ui Components
+shadcn/ui components require their Radix UI primitives:
+
+```bash
+# Install the Radix primitive first
+npm install @radix-ui/react-switch
+# Then create component in frontend/src/components/ui/switch.tsx
+```
+
+Available components that may need installation: `switch`, `dialog`, `dropdown-menu`, `select`, `tabs`, `toast`
+
+### Frontend: File Upload with FormData
+For multipart uploads, unset the Content-Type header to let Axios set the boundary:
+
+```typescript
+const response = await api.post('/orders/import', formData, {
+  headers: { 'Content-Type': undefined }
+});
+```
+
+### Backend: FastAPI Route Ordering
+Parameterized routes like `/{order_id}` will shadow static routes if placed first:
+
+```python
+# Correct order - specific routes first
+@router.post("/batch-cancel")  # Must come before /{order_id}
+@router.post("/batch-assign")
+@router.post("/{order_id}/assign")  # Parameterized routes last
+```
+
+### Mobile: Hot Reload vs Full Rebuild
+After changing widget structure or adding new parameters, `flutter hot reload` may not apply changes properly:
+
+```bash
+# For UI-only changes
+r  # Hot reload (in flutter run terminal)
+
+# For structural changes (new widgets, changed constructors)
+flutter clean && flutter run
+```
+
+### Mobile: Location API Endpoint
+The mobile app uses `/api/v1/drivers/location` (singular) for POSTing location updates, while the frontend fetches all locations from `/api/v1/drivers/locations` (plural).
+
+### Frontend: Google Maps Marker Components
+The `@vis.gl/react-google-maps` library's `Marker` component doesn't support `Pin` as a child (that requires `AdvancedMarker` with a Map ID). Use simple Markers with SVG data URLs for icons instead:
+
+```typescript
+const icon = 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`<svg>...</svg>`);
+<Marker position={pos} icon={icon} />
+```
+
+### Default Map Coordinates
+All map components should default to Kuwait City center, not San Francisco:
+```
+lat: 29.3759, lng: 47.9774  // Kuwait City
+```

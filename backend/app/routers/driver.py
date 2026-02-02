@@ -30,7 +30,6 @@ from app.models.order import Order, OrderStatus
 from app.models.user import User
 from app.schemas.location import (
     DriverLocation as DriverLocationSchema,
-    DriverLocationCreate,
 )
 from app.services.notification import notification_service
 
@@ -50,6 +49,10 @@ class LocationUpdate(BaseModel):
     latitude: float = Field(..., description="Latitude in degrees (-90 to 90)")
     longitude: float = Field(..., description="Longitude in degrees (-180 to 180)")
     accuracy: float | None = Field(None, ge=0, description="Accuracy radius in meters")
+    heading: float | None = Field(
+        None, ge=0, le=360, description="Heading in degrees (0-360)"
+    )
+    speed: float | None = Field(None, ge=0, description="Speed in meters/second")
     timestamp: datetime | None = Field(
         None, description="Timestamp of location reading (defaults to server time)"
     )
@@ -145,17 +148,27 @@ async def update_location(
 
     # Publish location update to Redis channel for WebSocket broadcast
     try:
-        location_message = {
+        # Construct message matching frontend expectations:
+        # { type: 'driver_location_update', data: { ... } }
+        location_data = {
             "driver_id": driver.id,
             "driver_name": current_user.full_name,
             "vehicle_info": driver.vehicle_info,
             "latitude": location_in.latitude,
             "longitude": location_in.longitude,
             "accuracy": location_in.accuracy,
+            "heading": location_in.heading,
+            "speed": location_in.speed,
             "timestamp": db_obj.timestamp.isoformat(),
+            "status": "online"
+            if driver.is_available
+            else "busy",  # Map to frontend status enum
             "is_available": driver.is_available,
         }
-        await redis_client.publish("driver_locations", json.dumps(location_message))
+
+        message = {"type": "driver_location_update", "data": location_data}
+
+        await redis_client.publish("driver_locations", json.dumps(message))
         logger.debug(f"Published location update for driver {driver.id} to Redis")
     except redis.ConnectionError:
         logger.warning(
@@ -275,14 +288,19 @@ async def update_driver_status(
 
     # Broadcast status change via Redis
     try:
-        status_message = {
-            "event": "driver_status_changed",
+        # Construct message matching frontend expectations:
+        # { type: 'driver_status_change', data: { ... } }
+        status_data = {
             "driver_id": driver.id,
             "driver_name": current_user.full_name,
+            "status": "online" if is_available else "offline",
             "is_available": is_available,
             "timestamp": datetime.utcnow().isoformat(),
         }
-        await redis_client.publish("driver_locations", json.dumps(status_message))
+
+        message = {"type": "driver_status_change", "data": status_data}
+
+        await redis_client.publish("driver_locations", json.dumps(message))
     except Exception as e:
         logger.warning(f"Could not broadcast status change: {e}")
 
