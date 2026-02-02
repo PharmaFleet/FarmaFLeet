@@ -18,8 +18,8 @@ class MapWidget extends StatefulWidget {
 class _MapWidgetState extends State<MapWidget> {
   GoogleMapController? _controller;
 
-  // Default to a central location (e.g. city center) if no location provided
-  static const LatLng _defaultLocation = LatLng(37.7749, -122.4194); // SF
+  // Default to Kuwait City center if no location provided
+  static const LatLng _defaultLocation = LatLng(29.3759, 47.9774); // Kuwait
 
   /// Returns the map controller if available
   GoogleMapController? get controller => _controller;
@@ -35,6 +35,7 @@ class _MapWidgetState extends State<MapWidget> {
       myLocationEnabled: true,
       myLocationButtonEnabled: true,
       zoomControlsEnabled: false,
+      padding: const EdgeInsets.only(top: 80.0), // Move My Location button down
       onMapCreated: (GoogleMapController controller) {
         _controller = controller;
       },
