@@ -14,8 +14,8 @@ const DEFAULT_ZOOM = 12;
 // Debounce delay for bounds changes
 const BOUNDS_DEBOUNCE_MS = 500;
 
-// Polling interval for fallback (10 seconds)
-const POLLING_INTERVAL_MS = 10000;
+// Polling interval - primary method for Vercel (serverless doesn't support WebSockets)
+const POLLING_INTERVAL_MS = 5000;
 
 /**
  * Map View Inner Component
@@ -41,7 +41,8 @@ function MapViewInner(): JSX.Element {
     getFilteredDrivers,
   } = useDriversStore();
 
-  const [usePolling, setUsePolling] = useState(false);
+  // Start with polling enabled since Vercel serverless doesn't support WebSockets
+  const [usePolling, setUsePolling] = useState(true);
   const boundsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -141,40 +142,35 @@ function MapViewInner(): JSX.Element {
     setUsePolling(true);
   }, []);
 
-  // Initialize WebSocket connection
-  const { isConnected: wsConnected } = useWebSocket({
-    url: '/ws/drivers',
-    onMessage: handleWebSocketMessage,
-    onError: handleWebSocketError,
-    reconnectInterval: 5000,
-    maxReconnectAttempts: 3,
-  });
+  // WebSocket disabled - Vercel serverless doesn't support WebSockets
+  // Using polling instead (see useEffect below)
+  // const { isConnected: wsConnected } = useWebSocket({
+  //   url: '/ws/drivers',
+  //   onMessage: handleWebSocketMessage,
+  //   onError: handleWebSocketError,
+  //   reconnectInterval: 5000,
+  //   maxReconnectAttempts: 3,
+  // });
+  const wsConnected = false;
 
-  // Fallback polling when WebSocket is not connected
+  // Always use polling since Vercel serverless doesn't support WebSockets
   useEffect(() => {
-    // If WebSocket is connected, clear any existing polling
-    if (wsConnected && pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
-      pollingIntervalRef.current = null;
-      setUsePolling(false);
-      return;
-    }
-
-    // Start polling if WebSocket is not connected and polling is enabled
-    if (usePolling && !pollingIntervalRef.current) {
+    // Start polling immediately
+    if (!pollingIntervalRef.current) {
+      console.log('[MapView] Starting location polling every', POLLING_INTERVAL_MS, 'ms');
       pollingIntervalRef.current = setInterval(() => {
         fetchDrivers();
       }, POLLING_INTERVAL_MS);
     }
 
-    // Cleanup on unmount or when dependencies change
+    // Cleanup on unmount
     return () => {
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current);
         pollingIntervalRef.current = null;
       }
     };
-  }, [wsConnected, usePolling, fetchDrivers]);
+  }, [fetchDrivers]);
 
   // Initial fetch on mount
   useEffect(() => {
@@ -276,13 +272,9 @@ function MapViewInner(): JSX.Element {
       {/* Connection Status Indicator */}
       <div className="absolute bottom-4 left-4 z-10">
         <div className="flex items-center gap-2 text-xs bg-white/90 px-3 py-1.5 rounded-full shadow-sm">
-          <span
-            className={`w-2 h-2 rounded-full ${
-              wsConnected ? 'bg-green-500' : usePolling ? 'bg-yellow-500' : 'bg-red-500'
-            }`}
-          />
+          <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
           <span className="text-muted-foreground">
-            {wsConnected ? 'Live Updates' : usePolling ? 'Polling Mode' : 'Disconnected'}
+            Auto-Refresh ({POLLING_INTERVAL_MS / 1000}s)
           </span>
         </div>
       </div>
