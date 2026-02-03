@@ -26,16 +26,19 @@ import { CreateOrderDialog } from '@/components/orders/CreateOrderDialog';
 import { BatchAssignDriverDialog } from '@/components/orders/BatchAssignDriverDialog';
 import { BatchCancelDialog } from '@/components/orders/BatchCancelDialog';
 import { BatchDeleteDialog } from '@/components/orders/BatchDeleteDialog';
-import { MoreHorizontal, Plus, Download, Truck, Search, AlertOctagon, Users, XCircle, Trash2 } from 'lucide-react';
+import { MoreHorizontal, Plus, Download, Truck, Search, AlertOctagon, Users, XCircle, Trash2, ChevronDown } from 'lucide-react';
 import { OrderStatus } from '@/types';
 import { useToast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useNavigate } from 'react-router-dom';
 
+const PAGE_SIZE_OPTIONS = [10, 50, 100, 1000] as const;
+
 export default function OrdersPage() {
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<number>(10);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'ALL'>('ALL');
   const { toast } = useToast();
@@ -55,10 +58,10 @@ export default function OrdersPage() {
   const [showArchived, setShowArchived] = useState(false);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['orders', page, search, statusFilter, showArchived],
-    queryFn: () => orderService.getAll({ 
-        page, 
-        limit: 10,
+    queryKey: ['orders', page, pageSize, search, statusFilter, showArchived],
+    queryFn: () => orderService.getAll({
+        page,
+        limit: pageSize,
         search: search || undefined,
         status: statusFilter === 'ALL' ? undefined : statusFilter,
         include_archived: showArchived
@@ -73,24 +76,24 @@ export default function OrdersPage() {
     onMutate: async (id: number) => {
       // Cancel any outgoing refetches
       await queryClient.cancelQueries({ queryKey: ['orders'] });
-      
+
       // Snapshot the previous value
-      const previousOrders = queryClient.getQueryData(['orders', page, search, statusFilter, showArchived]);
-      
+      const previousOrders = queryClient.getQueryData(['orders', page, pageSize, search, statusFilter, showArchived]);
+
       // Optimistically update to the new value
       queryClient.setQueryData(
-        ['orders', page, search, statusFilter, showArchived],
+        ['orders', page, pageSize, search, statusFilter, showArchived],
         (old: { items: Array<{ id: number; status: string }>; total: number; pages: number } | undefined) => {
           if (!old) return old;
           return {
             ...old,
-            items: old.items.map(order => 
+            items: old.items.map(order =>
               order.id === id ? { ...order, status: OrderStatus.CANCELLED } : order
             ),
           };
         }
       );
-      
+
       // Return context with the snapshot
       return { previousOrders };
     },
@@ -101,7 +104,7 @@ export default function OrdersPage() {
       // Roll back on error
       if (context?.previousOrders) {
         queryClient.setQueryData(
-          ['orders', page, search, statusFilter, showArchived],
+          ['orders', page, pageSize, search, statusFilter, showArchived],
           context.previousOrders
         );
       }
@@ -488,7 +491,32 @@ export default function OrdersPage() {
         <p className="text-xs text-slate-400">
             Showing {data?.items?.length || 0} of {data?.total || 0} orders
         </p>
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-6">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-500">Rows per page:</span>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-8 w-20 justify-between">
+                    {pageSize}
+                    <ChevronDown className="h-3 w-3 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-20">
+                  {PAGE_SIZE_OPTIONS.map((size) => (
+                    <DropdownMenuItem
+                      key={size}
+                      onClick={() => {
+                        setPageSize(size);
+                        setPage(1);
+                      }}
+                      className={cn(pageSize === size && "bg-slate-100 font-medium")}
+                    >
+                      {size}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
             <span className="text-xs font-medium text-slate-500">
                 Page {page} / {data?.pages || 1}
             </span>
