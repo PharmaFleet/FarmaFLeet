@@ -64,7 +64,20 @@
       "Bash(docker-compose up:*)",
       "Bash(dir:*)",
       "Bash(Get-ChildItem -Path \"mobile/driver_app/lib\" -Filter \"*map*.dart\" -Recurse)",
-      "Bash(Select-Object -ExpandProperty FullName)"
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "WebSearch",
+      "Bash(claude mcp:*)",
+      "Bash(npm run lint)",
+      "Bash(npx tsc:*)",
+      "Bash(source:*)",
+      "Bash(venv\\\\Scripts\\\\activate)",
+      "Bash(pip show:*)",
+      "Bash(E:/Py/Delivery-System-III/backend/venv/Scripts/python.exe -m alembic upgrade head)",
+      "Bash(E:/Py/Delivery-System-III/backend/venv/Scripts/python.exe:*)",
+      "Bash(grep:*)",
+      "Bash(python3:*)",
+      "Bash(cd:*)",
+      "Bash(vercel:*)"
     ]
   },
   "enabledPlugins": {

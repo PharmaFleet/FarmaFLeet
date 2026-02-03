@@ -792,35 +792,45 @@ async def upload_proof_of_delivery(
     result = await db.execute(query)
     order = result.scalars().first()
 
-    # Trigger notifications
-    if order.driver and order.driver.user and order.driver.user.fcm_token:
-        await notification_service.notify_driver_order_delivered(
-            db, order.driver.user_id, order.id, order.driver.user.fcm_token
-        )
-
-        # Payment collection notification
-        if (
-            order.payment_method
-            and order.payment_method.upper() in ["CASH", "COD"]
-            and order.total_amount > 0
-        ):
-            payment = PaymentCollection(
-                order_id=order.id,
-                driver_id=order.driver_id,
-                amount=order.total_amount,
-                method=order.payment_method,
-                created_at=datetime.utcnow(),
-                collected_at=datetime.utcnow(),
+    # Trigger notifications (wrapped in try-except to not fail the whole request)
+    try:
+        if order and order.driver and order.driver.user and order.driver.user.fcm_token:
+            await notification_service.notify_driver_order_delivered(
+                db, order.driver.user_id, order.id, order.driver.user.fcm_token
             )
-            db.add(payment)
 
-            await notification_service.notify_driver_payment_collected(
-                db,
-                order.driver.user_id,
-                order.id,
-                order.total_amount,
-                order.driver.user.fcm_token,
-            )
+            # Payment collection - check if payment already exists
+            if (
+                order.payment_method
+                and order.payment_method.upper() in ["CASH", "COD"]
+                and order.total_amount > 0
+            ):
+                # Check if payment already exists
+                existing_payment = await db.execute(
+                    select(PaymentCollection).where(PaymentCollection.order_id == order.id)
+                )
+                if not existing_payment.scalars().first():
+                    from app.models.financial import PaymentMethod
+                    method_enum = PaymentMethod(order.payment_method.upper())
+                    payment = PaymentCollection(
+                        order_id=order.id,
+                        driver_id=order.driver_id,
+                        amount=order.total_amount,
+                        method=method_enum,
+                        collected_at=datetime.utcnow(),
+                    )
+                    db.add(payment)
+
+                    await notification_service.notify_driver_payment_collected(
+                        db,
+                        order.driver.user_id,
+                        order.id,
+                        order.total_amount,
+                        order.driver.user.fcm_token,
+                    )
+    except Exception as e:
+        print(f"Error in POD notifications: {e}")
+        # Continue - POD was submitted successfully, don't fail on notification errors
 
     await db.commit()
     return {"msg": "Proof of delivery uploaded successfully", "photo_url": photo_url}
@@ -889,35 +899,45 @@ async def submit_proof_of_delivery_url(
     result = await db.execute(query)
     order = result.scalars().first()
 
-    # Trigger notifications
-    if order.driver and order.driver.user and order.driver.user.fcm_token:
-        await notification_service.notify_driver_order_delivered(
-            db, order.driver.user_id, order.id, order.driver.user.fcm_token
-        )
-
-        # Payment collection notification
-        if (
-            order.payment_method
-            and order.payment_method.upper() in ["CASH", "COD"]
-            and order.total_amount > 0
-        ):
-            payment = PaymentCollection(
-                order_id=order.id,
-                driver_id=order.driver_id,
-                amount=order.total_amount,
-                method=order.payment_method,
-                created_at=datetime.utcnow(),
-                collected_at=datetime.utcnow(),
+    # Trigger notifications (wrapped in try-except to not fail the whole request)
+    try:
+        if order and order.driver and order.driver.user and order.driver.user.fcm_token:
+            await notification_service.notify_driver_order_delivered(
+                db, order.driver.user_id, order.id, order.driver.user.fcm_token
             )
-            db.add(payment)
 
-            await notification_service.notify_driver_payment_collected(
-                db,
-                order.driver.user_id,
-                order.id,
-                order.total_amount,
-                order.driver.user.fcm_token,
-            )
+            # Payment collection - check if payment already exists
+            if (
+                order.payment_method
+                and order.payment_method.upper() in ["CASH", "COD"]
+                and order.total_amount > 0
+            ):
+                # Check if payment already exists
+                existing_payment = await db.execute(
+                    select(PaymentCollection).where(PaymentCollection.order_id == order.id)
+                )
+                if not existing_payment.scalars().first():
+                    from app.models.financial import PaymentMethod
+                    method_enum = PaymentMethod(order.payment_method.upper())
+                    payment = PaymentCollection(
+                        order_id=order.id,
+                        driver_id=order.driver_id,
+                        amount=order.total_amount,
+                        method=method_enum,
+                        collected_at=datetime.utcnow(),
+                    )
+                    db.add(payment)
+
+                    await notification_service.notify_driver_payment_collected(
+                        db,
+                        order.driver.user_id,
+                        order.id,
+                        order.total_amount,
+                        order.driver.user.fcm_token,
+                    )
+    except Exception as e:
+        print(f"Error in POD notifications: {e}")
+        # Continue - POD was submitted successfully, don't fail on notification errors
 
     await db.commit()
     return {"msg": "Proof of delivery submitted successfully", "photo_url": pod_data.photo_url}
