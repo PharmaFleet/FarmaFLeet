@@ -1,12 +1,16 @@
 import { useQuery } from '@tanstack/react-query';
-import { Package, Truck, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { Package, Truck, CheckCircle, XCircle, Clock, Navigation, Ban, CreditCard } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
-const activityIcons = {
+const activityIcons: Record<string, { icon: any; color: string; bg: string }> = {
   assigned: { icon: Truck, color: 'text-blue-500', bg: 'bg-blue-50' },
   picked_up: { icon: Package, color: 'text-amber-500', bg: 'bg-amber-50' },
+  out_for_delivery: { icon: Navigation, color: 'text-purple-500', bg: 'bg-purple-50' },
+  order_delivered: { icon: CheckCircle, color: 'text-emerald-500', bg: 'bg-emerald-50' },
   delivered: { icon: CheckCircle, color: 'text-emerald-500', bg: 'bg-emerald-50' },
+  cancelled: { icon: Ban, color: 'text-slate-500', bg: 'bg-slate-50' },
   rejected: { icon: XCircle, color: 'text-red-500', bg: 'bg-red-50' },
+  payment_collected: { icon: CreditCard, color: 'text-green-600', bg: 'bg-green-50' },
 };
 
 export function RecentActivity() {
@@ -38,12 +42,9 @@ export function RecentActivity() {
   return (
     <div className="h-[300px] overflow-y-auto space-y-3 pr-2">
       {notifications.map((notification: any) => {
-        // Determine icon based on notification type/data
-        let type: keyof typeof activityIcons = 'assigned';
-        if (notification.data?.type === 'order_delivered') type = 'delivered';
-        else if (notification.data?.type === 'payment_collected') type = 'picked_up'; // Using picked_up icon for payment for now
-        
-        const config = activityIcons[type] || activityIcons.assigned;
+        // Get icon config based on activity type
+        const activityType = notification.data?.type || 'assigned';
+        const config = activityIcons[activityType] || activityIcons.assigned;
         const Icon = config.icon;
         
         return (

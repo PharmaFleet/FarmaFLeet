@@ -2,10 +2,11 @@ from typing import Any
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, case, desc, literal
+from sqlalchemy.orm import selectinload
 
 from app.api import deps
 from app.models.driver import Driver
-from app.models.order import Order, OrderStatus
+from app.models.order import Order, OrderStatus, OrderStatusHistory
 from app.models.warehouse import Warehouse
 from app.models.user import User
 from app.models.financial import PaymentCollection
@@ -17,70 +18,98 @@ router = APIRouter()
 async def get_recent_activities(
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
-    limit: int = 10,
+    limit: int = 20,
 ) -> Any:
     """
-    Get recent system activities (Delivered orders, Payments).
+    Get recent system activities (Assignments, Deliveries, Status Changes, Payments).
     """
-    # 1. Recent Delivered Orders
-    orders_query = (
-        select(
-            Order.id,
-            literal("order_delivered").label("type"),
-            Order.updated_at.label("created_at"),
-            Order.id.label("ref_id"),
+    from datetime import datetime
+
+    activities = []
+
+    # 1. Recent Order Status Changes (from OrderStatusHistory)
+    status_history_query = (
+        select(OrderStatusHistory)
+        .options(
+            selectinload(OrderStatusHistory.order).selectinload(Order.driver).selectinload(Driver.user)
         )
-        .where(Order.status == OrderStatus.DELIVERED)
-        .order_by(desc(Order.updated_at))
+        .order_by(desc(OrderStatusHistory.changed_at))
         .limit(limit)
     )
+    res_history = await db.execute(status_history_query)
+    for history in res_history.scalars():
+        order = history.order
+        driver_name = "Unassigned"
+        if order and order.driver and order.driver.user:
+            driver_name = order.driver.user.full_name or order.driver.user.email
+
+        # Determine activity type and message based on status
+        if history.status == OrderStatus.ASSIGNED:
+            activities.append({
+                "id": f"hist_{history.id}",
+                "title": "Order Assigned",
+                "body": f"Order #{order.id if order else 'N/A'} assigned to {driver_name}",
+                "created_at": history.changed_at,
+                "data": {"type": "assigned", "order_id": order.id if order else None},
+            })
+        elif history.status == OrderStatus.DELIVERED:
+            activities.append({
+                "id": f"hist_{history.id}",
+                "title": "Order Delivered",
+                "body": f"Order #{order.id if order else 'N/A'} delivered by {driver_name}",
+                "created_at": history.changed_at,
+                "data": {"type": "order_delivered", "order_id": order.id if order else None},
+            })
+        elif history.status == OrderStatus.PICKED_UP:
+            activities.append({
+                "id": f"hist_{history.id}",
+                "title": "Order Picked Up",
+                "body": f"Order #{order.id if order else 'N/A'} picked up by {driver_name}",
+                "created_at": history.changed_at,
+                "data": {"type": "picked_up", "order_id": order.id if order else None},
+            })
+        elif history.status == OrderStatus.OUT_FOR_DELIVERY:
+            activities.append({
+                "id": f"hist_{history.id}",
+                "title": "Out for Delivery",
+                "body": f"Order #{order.id if order else 'N/A'} is out for delivery",
+                "created_at": history.changed_at,
+                "data": {"type": "out_for_delivery", "order_id": order.id if order else None},
+            })
+        elif history.status == OrderStatus.CANCELLED:
+            activities.append({
+                "id": f"hist_{history.id}",
+                "title": "Order Cancelled",
+                "body": f"Order #{order.id if order else 'N/A'} was cancelled",
+                "created_at": history.changed_at,
+                "data": {"type": "cancelled", "order_id": order.id if order else None},
+            })
+        elif history.status == OrderStatus.REJECTED:
+            activities.append({
+                "id": f"hist_{history.id}",
+                "title": "Order Rejected",
+                "body": f"Order #{order.id if order else 'N/A'} was rejected",
+                "created_at": history.changed_at,
+                "data": {"type": "rejected", "order_id": order.id if order else None},
+            })
 
     # 2. Recent Payments
     payments_query = (
-        select(
-            PaymentCollection.id,
-            literal("payment_collected").label("type"),
-            PaymentCollection.collected_at.label("created_at"),
-            PaymentCollection.order_id.label("ref_id"),
-        )
+        select(PaymentCollection)
         .order_by(desc(PaymentCollection.collected_at))
         .limit(limit)
     )
-
-    # Combine? Union is tricky with different tables.
-    # Let's simple fetch top N of each and merge in python.
-
-    # Fetch orders
-    res_o = await db.execute(orders_query)
-    activities = []
-    for row in res_o:
-        activities.append(
-            {
-                "id": f"ord_{row.id}",
-                "title": f"Order #{row.id} Delivered",
-                "body": f"Order #{row.id} was successfully delivered.",
-                "created_at": row.created_at,
-                "data": {"type": "order_delivered", "id": row.id},
-            }
-        )
-
-    # Fetch payments
     res_p = await db.execute(payments_query)
-    for row in res_p:
-        activities.append(
-            {
-                "id": f"pay_{row.id}",
-                "title": "Payment Collected",
-                "body": f"Payment collected for Order #{row.ref_id}",
-                "created_at": row.created_at,
-                "data": {"type": "payment_collected", "id": row.id},
-            }
-        )
+    for payment in res_p.scalars():
+        activities.append({
+            "id": f"pay_{payment.id}",
+            "title": "Payment Collected",
+            "body": f"KWD {payment.amount:.3f} collected for Order #{payment.order_id}",
+            "created_at": payment.collected_at,
+            "data": {"type": "payment_collected", "order_id": payment.order_id},
+        })
 
-    # Sort and slice
-    # Handle None dates safely by defaulting to min datetime
-    from datetime import datetime
-
+    # Sort by date and return top N
     def safe_date(d):
         return d if d else datetime.min
 
@@ -88,8 +117,6 @@ async def get_recent_activities(
         activities.sort(key=lambda x: safe_date(x["created_at"]), reverse=True)
     except Exception as e:
         print(f"Error sorting activities: {e}")
-        # Return unsorted as fallback
-        pass
 
     return activities[:limit]
 
