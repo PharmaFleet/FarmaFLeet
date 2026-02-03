@@ -84,7 +84,7 @@ class OrderRepositoryImpl implements OrderRepository {
   Future<void> submitProofOfDelivery(int id, String photoUrl, String? signatureUrl) async {
     try {
       await dio.post(
-        '/orders/$id/proof-of-delivery',
+        '/orders/$id/proof-of-delivery-url',
         data: {
           'photo_url': photoUrl,
           'signature_url': signatureUrl,

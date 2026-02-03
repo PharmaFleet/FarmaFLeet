@@ -826,6 +826,103 @@ async def upload_proof_of_delivery(
     return {"msg": "Proof of delivery uploaded successfully", "photo_url": photo_url}
 
 
+class PODUrlRequest(BaseModel):
+    photo_url: str
+    signature_url: Optional[str] = None
+
+
+@router.post("/{order_id}/proof-of-delivery-url")
+async def submit_proof_of_delivery_url(
+    order_id: int,
+    pod_data: PODUrlRequest,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+) -> Any:
+    """
+    Submit proof of delivery using pre-uploaded URLs (for mobile app).
+    Mobile app uploads photo via /upload first, then submits URL here.
+    """
+    # Check order exists and user has access
+    query = (
+        select(Order)
+        .where(Order.id == order_id)
+        .options(
+            selectinload(Order.driver).selectinload(Driver.user),
+            selectinload(Order.proof_of_delivery),
+        )
+    )
+    result = await db.execute(query)
+    order = result.scalars().first()
+
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    if order.proof_of_delivery:
+        order.proof_of_delivery.signature_url = pod_data.signature_url
+        order.proof_of_delivery.photo_url = pod_data.photo_url
+        order.proof_of_delivery.timestamp = datetime.utcnow()
+    else:
+        pod = ProofOfDelivery(
+            order_id=order.id,
+            signature_url=pod_data.signature_url,
+            photo_url=pod_data.photo_url,
+        )
+        db.add(pod)
+
+    order.status = OrderStatus.DELIVERED
+    order.is_archived = True  # Auto-archive on delivery
+    history = OrderStatusHistory(
+        order_id=order.id,
+        status=OrderStatus.DELIVERED,
+        notes="Proof of delivery submitted via mobile app",
+    )
+    db.add(history)
+
+    await db.commit()
+
+    # Re-fetch order for notification
+    query = (
+        select(Order)
+        .where(Order.id == order.id)
+        .options(selectinload(Order.driver).selectinload(Driver.user))
+    )
+    result = await db.execute(query)
+    order = result.scalars().first()
+
+    # Trigger notifications
+    if order.driver and order.driver.user and order.driver.user.fcm_token:
+        await notification_service.notify_driver_order_delivered(
+            db, order.driver.user_id, order.id, order.driver.user.fcm_token
+        )
+
+        # Payment collection notification
+        if (
+            order.payment_method
+            and order.payment_method.upper() in ["CASH", "COD"]
+            and order.total_amount > 0
+        ):
+            payment = PaymentCollection(
+                order_id=order.id,
+                driver_id=order.driver_id,
+                amount=order.total_amount,
+                method=order.payment_method,
+                created_at=datetime.utcnow(),
+                collected_at=datetime.utcnow(),
+            )
+            db.add(payment)
+
+            await notification_service.notify_driver_payment_collected(
+                db,
+                order.driver.user_id,
+                order.id,
+                order.total_amount,
+                order.driver.user.fcm_token,
+            )
+
+    await db.commit()
+    return {"msg": "Proof of delivery submitted successfully", "photo_url": pod_data.photo_url}
+
+
 @router.post("/export")
 async def export_orders(
     status: Optional[str] = None,
