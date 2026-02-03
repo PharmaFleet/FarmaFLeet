@@ -27,8 +27,16 @@ The system handles order import from Excel, manual driver assignment, real-time 
 vercel env pull .env.vercel --environment=production
 
 # Run migrations on production
+# Note: pydantic_settings loads .env file, so must set env vars BEFORE importing config
 cd backend
-DATABASE_URL="<from-vercel-env>" alembic upgrade head
+python -c "
+import os
+os.environ['DATABASE_URL'] = '<DATABASE_URL from .env.vercel>'
+os.environ['SECRET_KEY'] = '<SECRET_KEY from .env.vercel>'
+from alembic.config import Config
+from alembic import command
+command.upgrade(Config('alembic.ini'), 'head')
+"
 ```
 
 ### Serverless Considerations
@@ -208,13 +216,15 @@ backend/app/
 
 **Key architectural decisions:**
 - **Async everywhere**: Uses async/await with asyncpg and AsyncSession
-- **JWT authentication**: Access tokens expire in 2 hours (improved from 8 days for security)
+- **JWT authentication**: Access tokens expire in 24 hours (extended for mobile app reliability)
 - **Role-based access**: Five roles (super_admin, warehouse_manager, dispatcher, executive, driver)
 - **User fields**: email, full_name, phone, role, fcm_token (for push notifications)
 - **Supabase Storage**: Used for proof of delivery images (signatures, photos)
 - **WebSocket**: Real-time driver location updates (authenticated, 60-second adaptive intervals)
 - **Offline sync**: `/sync` endpoint handles queued actions from offline drivers
 - **Warehouse isolation**: Users can only access orders from their assigned warehouses
+- **Warehouse codes**: Warehouses use codes from Excel imports (DW001-DW010, BV001-BV004, CCB01). Always display `warehouse.code`, not `warehouse_id`
+- **Driver statistics**: GET `/drivers/{id}/stats` returns orders_assigned, orders_delivered, last_order_assigned_at, online_duration_minutes
 
 ### Frontend Structure
 
@@ -495,3 +505,11 @@ All map components should default to Kuwait City center, not San Francisco:
 ```
 lat: 29.3759, lng: 47.9774  // Kuwait City
 ```
+
+### Driver Vehicle Types
+Drivers have a `vehicle_type` field ('car' or 'motorcycle') that determines map marker icons. The type is parsed from the Excel "Vehichle" column during seeding:
+- 🚗 emoji → 'car' (default)
+- 🏍️ emoji → 'motorcycle'
+
+### Bulk Operations Performance
+Batch endpoints (`/batch-delete`, `/batch-assign`, `/batch-cancel`) use optimized bulk queries instead of individual operations. When modifying these, use `delete(Model).where(Model.id.in_(ids))` pattern instead of looping with `db.delete()`.
