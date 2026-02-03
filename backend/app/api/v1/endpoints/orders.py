@@ -75,9 +75,10 @@ async def read_orders(
         # Filter to only user's warehouses
         filters.append(Order.warehouse_id.in_(user_warehouse_ids))
 
-    # Archive filter - by default, hide archived orders
-    if not include_archived:
-        filters.append(Order.is_archived.is_(False))
+    # Archive filter - toggle between archived and non-archived orders
+    # When include_archived=True, show ONLY archived orders
+    # When include_archived=False (default), show ONLY non-archived orders
+    filters.append(Order.is_archived.is_(include_archived))
 
     if status:
         filters.append(Order.status == status)
