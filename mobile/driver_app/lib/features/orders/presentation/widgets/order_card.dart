@@ -81,7 +81,9 @@ class OrderCard extends StatelessWidget {
                 child: Text(
                   "Tap to view details >",
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: AppColors.textSecondaryLight,
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? AppColors.textSecondaryDark
+                        : AppColors.textSecondaryLight,
                   ),
                 ),
               )

@@ -89,17 +89,23 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
   }
 
   Widget _buildStatusSection(BuildContext context, OrderEntity order) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
-        color: AppColors.surfaceLight,
+        color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
         borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(color: AppColors.borderLight),
+        border: Border.all(color: isDark ? AppColors.borderDark : AppColors.borderLight),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("Status", style: Theme.of(context).textTheme.titleMedium),
+          Text(
+            "Status",
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+            ),
+          ),
           SizedBox(height: 8.h),
           Row(
             children: [
@@ -123,32 +129,40 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
 
   Widget _buildCustomerSection(BuildContext context, OrderEntity order) {
     final customer = order.customerInfo;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
-        color: AppColors.surfaceLight,
+        color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
         borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(color: AppColors.borderLight),
+        border: Border.all(color: isDark ? AppColors.borderDark : AppColors.borderLight),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("Customer Info", style: Theme.of(context).textTheme.titleMedium),
+          Text(
+            "Customer Info",
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+            ),
+          ),
           SizedBox(height: 12.h),
           InfoRow(label: "Name", value: customer['name'] ?? 'No Customer', isBold: true),
           InfoRow(label: "Phone", value: customer['phone'] ?? 'N/A'),
           SizedBox(height: 8.h),
-          const Divider(),
+          Divider(color: isDark ? AppColors.borderDark : AppColors.borderLight),
           SizedBox(height: 8.h),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.location_on, color: AppColors.textSecondaryLight, size: 20),
+              Icon(Icons.location_on, color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight, size: 20),
               SizedBox(width: 8.w),
               Expanded(
                 child: Text(
                   customer['address'] ?? 'No Address Provided',
-                  style: Theme.of(context).textTheme.bodyMedium,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight,
+                  ),
                 ),
               ),
             ],
@@ -159,20 +173,26 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
   }
 
   Widget _buildOrderItemsSection(BuildContext context, OrderEntity order) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
-        color: AppColors.surfaceLight,
+        color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
         borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(color: AppColors.borderLight),
+        border: Border.all(color: isDark ? AppColors.borderDark : AppColors.borderLight),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("Payment & Total", style: Theme.of(context).textTheme.titleMedium),
+          Text(
+            "Payment & Total",
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+            ),
+          ),
            SizedBox(height: 12.h),
            InfoRow(label: "Payment Method", value: order.paymentMethod),
-           const Divider(),
+           Divider(color: isDark ? AppColors.borderDark : AppColors.borderLight),
            InfoRow(
              label: "Total Amount",
              value: "KWD ${order.totalAmount.toStringAsFixed(3)}",
