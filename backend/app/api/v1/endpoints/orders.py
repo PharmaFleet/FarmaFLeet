@@ -124,6 +124,7 @@ async def read_orders(
             selectinload(Order.proof_of_delivery),
             selectinload(Order.warehouse),
             selectinload(Order.driver).selectinload(Driver.user),
+            selectinload(Order.driver).selectinload(Driver.warehouse),
         )
         .order_by(desc(Order.created_at))
         .offset(skip)
@@ -160,6 +161,7 @@ async def read_order(
             selectinload(Order.proof_of_delivery),
             selectinload(Order.warehouse),
             selectinload(Order.driver).selectinload(Driver.user),
+            selectinload(Order.driver).selectinload(Driver.warehouse),
         )
     )
     result = await db.execute(query)
