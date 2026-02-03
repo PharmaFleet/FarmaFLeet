@@ -442,7 +442,7 @@ export default function OrdersPage() {
                                 </Badge>
                             </TableCell>
                             <TableCell className="text-slate-600">
-                                <span className="text-sm">WH-{order.warehouse_id}</span>
+                                <span className="text-sm">{order.warehouse?.code || `WH-${order.warehouse_id}`}</span>
                             </TableCell>
                             <TableCell>
                                 <div className="flex items-center gap-2">

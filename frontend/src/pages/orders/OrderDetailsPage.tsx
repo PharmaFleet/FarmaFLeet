@@ -109,7 +109,7 @@ export default function OrderDetailsPage() {
                          </div>
                          <div>
                             <label className="text-xs text-slate-500 uppercase font-semibold">Warehouse</label>
-                            <p className="text-slate-900">WH-{order.warehouse_id}</p>
+                            <p className="text-slate-900">{order.warehouse?.code || `WH-${order.warehouse_id}`}</p>
                          </div>
                          <div className="pt-4 border-t border-slate-100">
                              <div className="flex justify-between items-center bg-slate-50 p-3 rounded-lg">

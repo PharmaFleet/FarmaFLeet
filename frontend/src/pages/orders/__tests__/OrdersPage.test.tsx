@@ -249,10 +249,10 @@ describe('OrdersPage Component', () => {
         </TestWrapper>
       );
 
-      // Assert - The component displays "WH-{warehouse_id}" format
-      // Both orders have warehouse_id=1, so there are 2 elements
+      // Assert - The component displays warehouse code from warehouse object
+      // Both orders have warehouse.code='MW', so there are 2 elements
       await waitFor(() => {
-        expect(screen.getAllByText('WH-1').length).toBeGreaterThan(0);
+        expect(screen.getAllByText('MW').length).toBeGreaterThan(0);
       });
     });
   });

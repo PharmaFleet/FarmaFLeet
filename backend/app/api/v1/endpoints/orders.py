@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Body
 from pydantic import BaseModel
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, desc
+from sqlalchemy import select, func, desc, delete
 from sqlalchemy.orm import selectinload
 from math import ceil
 
@@ -434,22 +434,45 @@ async def batch_delete_orders(
     """
     Batch delete multiple orders (hard deletion).
     Admin only - removes orders and all related data.
+    Uses optimized bulk delete for performance.
     """
+    if not request.order_ids:
+        return {"deleted": 0, "errors": []}
 
-    deleted_count = 0
-    errors = []
+    # First, find which order IDs actually exist
+    existing_result = await db.execute(
+        select(Order.id).where(Order.id.in_(request.order_ids))
+    )
+    existing_ids = set(row[0] for row in existing_result.fetchall())
 
-    for order_id in request.order_ids:
-        order = await db.get(Order, order_id)
-        if not order:
-            errors.append({"order_id": order_id, "error": "Order not found"})
-            continue
+    # Track orders not found
+    errors = [
+        {"order_id": oid, "error": "Order not found"}
+        for oid in request.order_ids
+        if oid not in existing_ids
+    ]
 
-        await db.delete(order)
-        deleted_count += 1
+    if existing_ids:
+        # Delete related records first (cascade may not handle all)
+        # Delete proof of delivery
+        await db.execute(
+            delete(ProofOfDelivery).where(ProofOfDelivery.order_id.in_(existing_ids))
+        )
+        # Delete order status history
+        await db.execute(
+            delete(OrderStatusHistory).where(OrderStatusHistory.order_id.in_(existing_ids))
+        )
+        # Delete payment collections
+        await db.execute(
+            delete(PaymentCollection).where(PaymentCollection.order_id.in_(existing_ids))
+        )
+        # Finally delete the orders themselves
+        await db.execute(
+            delete(Order).where(Order.id.in_(existing_ids))
+        )
 
     await db.commit()
-    return {"deleted": deleted_count, "errors": errors}
+    return {"deleted": len(existing_ids), "errors": errors}
 
 
 @router.post("/batch-assign")

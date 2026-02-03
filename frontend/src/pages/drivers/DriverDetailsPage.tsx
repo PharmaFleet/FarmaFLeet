@@ -89,7 +89,7 @@ export default function DriverDetailsPage() {
                                 <MapPin className="h-4 w-4 text-slate-400" />
                                 <div>
                                     <p className="text-xs text-slate-500 uppercase font-semibold">Warehouse</p>
-                                    <p className="text-sm font-medium text-slate-900">WH-{driver.warehouse_id}</p>
+                                    <p className="text-sm font-medium text-slate-900">{driver.warehouse?.code || `WH-${driver.warehouse_id}`}</p>
                                 </div>
                         </div>
                     </CardContent>
