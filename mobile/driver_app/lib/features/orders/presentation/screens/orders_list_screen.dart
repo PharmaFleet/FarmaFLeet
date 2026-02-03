@@ -133,7 +133,7 @@ class _OrderListBuilder extends StatelessWidget {
                 final order = filteredOrders[index];
                 return OrderCard(
                   orderId: order.id,
-                  customerName: order.customerInfo['full_name'] ?? 'Unknown Customer',
+                  customerName: order.customerInfo['name'] ?? 'No Customer',
                   status: order.status,
                   amount: order.totalAmount,
                   address: order.customerInfo['address'] ?? 'No Address',

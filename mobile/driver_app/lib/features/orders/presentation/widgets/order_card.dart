@@ -70,7 +70,7 @@ class OrderCard extends StatelessWidget {
               InfoRow(label: "Address", value: address),
               InfoRow(
                 label: "Amount",
-                value: "\$${amount.toStringAsFixed(2)}",
+                value: "KWD ${amount.toStringAsFixed(3)}",
                 valueColor: AppColors.primary,
                 isBold: true,
               ),

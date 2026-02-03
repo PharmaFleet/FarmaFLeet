@@ -152,8 +152,11 @@ async def read_order(
     """
     Get order details.
 
-    SECURITY: Users can only access orders from warehouses they have access to.
+    SECURITY: Users can only access orders from warehouses they have access to,
+    OR orders that are assigned to them (for drivers).
     """
+    from app.models.user import UserRole
+
     query = (
         select(Order)
         .where(Order.id == order_id)
@@ -171,13 +174,27 @@ async def read_order(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    # SECURITY: Enforce warehouse-level access control
+    # SECURITY: Enforce access control
+    # Super admins have full access (handled by get_user_warehouse_ids returning None)
     user_warehouse_ids = await deps.get_user_warehouse_ids(current_user, db)
+
     if user_warehouse_ids is not None:  # None means super_admin (all access)
-        if order.warehouse_id not in user_warehouse_ids:
+        has_warehouse_access = order.warehouse_id in user_warehouse_ids
+
+        # Drivers can also access orders assigned to them
+        is_assigned_driver = False
+        if current_user.role == UserRole.DRIVER and order.driver_id:
+            driver_result = await db.execute(
+                select(Driver).where(Driver.user_id == current_user.id)
+            )
+            driver = driver_result.scalars().first()
+            if driver and order.driver_id == driver.id:
+                is_assigned_driver = True
+
+        if not has_warehouse_access and not is_assigned_driver:
             raise HTTPException(
                 status_code=403,
-                detail="You don't have access to orders from this warehouse"
+                detail="You don't have access to this order"
             )
 
     return order
@@ -530,12 +547,37 @@ async def batch_assign_orders(
 
     await db.commit()
 
-    # Send notifications
+    # Send notifications to drivers
     for drv_id, data in driver_notifications.items():
         if data["count"] > 0:
             await notification_service.notify_driver_new_orders(
                 db, data["user_id"], data["count"], data["token"]
             )
+
+    # Notify admin users about batch assignment
+    if count > 0:
+        from app.models.user import User as UserModel, UserRole
+        from app.models.notification import Notification
+        from datetime import datetime
+
+        admin_roles = [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_MANAGER, UserRole.DISPATCHER]
+        stmt = select(UserModel).where(UserModel.role.in_(admin_roles), UserModel.is_active.is_(True))
+        result = await db.execute(stmt)
+        admin_users = result.scalars().all()
+
+        title = "Batch Assignment"
+        body = f"{count} orders assigned by {current_user.full_name or current_user.email}"
+
+        for user in admin_users:
+            notif = Notification(
+                user_id=user.id,
+                title=title,
+                body=body,
+                data={"type": "order", "count": str(count)},
+                created_at=datetime.utcnow(),
+            )
+            db.add(notif)
+        await db.commit()
 
     return {"assigned": count}
 
@@ -619,6 +661,16 @@ async def assign_order(
             order_number=order.sales_order_number,
             token=previous_driver_user.fcm_token,
         )
+
+    # Notify admin users about the assignment
+    await notification_service.notify_admins_order_assigned(
+        db=db,
+        order_id=order.id,
+        order_number=order.sales_order_number or f"#{order.id}",
+        driver_name=driver.user.full_name or driver.user.email,
+        assigned_by_name=current_user.full_name or current_user.email,
+    )
+    await db.commit()  # Commit the admin notifications
 
     return result.scalars().first()
 

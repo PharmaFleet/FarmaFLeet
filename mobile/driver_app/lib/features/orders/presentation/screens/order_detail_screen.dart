@@ -82,7 +82,7 @@ class OrderDetailScreen extends StatelessWidget {
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
-            _infoRow(Icons.person, 'Name', customerName ?? 'N/A'),
+            _infoRow(Icons.person, 'Name', customerName ?? 'No Customer'),
             if (customerPhone != null) ...[
               const SizedBox(height: 8),
               InkWell(

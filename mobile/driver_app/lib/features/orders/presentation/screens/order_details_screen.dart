@@ -135,7 +135,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
         children: [
           Text("Customer Info", style: Theme.of(context).textTheme.titleMedium),
           SizedBox(height: 12.h),
-          InfoRow(label: "Name", value: customer['full_name'] ?? 'N/A', isBold: true),
+          InfoRow(label: "Name", value: customer['name'] ?? 'No Customer', isBold: true),
           InfoRow(label: "Phone", value: customer['phone'] ?? 'N/A'),
           SizedBox(height: 8.h),
           const Divider(),
@@ -175,7 +175,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
            const Divider(),
            InfoRow(
              label: "Total Amount",
-             value: "\$${order.totalAmount.toStringAsFixed(2)}",
+             value: "KWD ${order.totalAmount.toStringAsFixed(3)}",
              isBold: true,
              valueColor: AppColors.primary,
            )

@@ -270,5 +270,45 @@ class NotificationService:
                 },
             )
 
+    async def notify_admins_order_assigned(
+        self,
+        db: AsyncSession,
+        order_id: int,
+        order_number: str,
+        driver_name: str,
+        assigned_by_name: str,
+    ):
+        """
+        Notify all admin/manager users about an order assignment.
+        This creates notifications visible in the admin dashboard.
+        """
+        from app.models.user import User, UserRole
+        from sqlalchemy import select
+
+        title = "Order Assigned"
+        body = f"Order {order_number} assigned to {driver_name} by {assigned_by_name}"
+
+        # Get all admin and manager users
+        admin_roles = [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_MANAGER, UserRole.DISPATCHER]
+        stmt = select(User).where(User.role.in_(admin_roles), User.is_active.is_(True))
+        result = await db.execute(stmt)
+        admin_users = result.scalars().all()
+
+        for user in admin_users:
+            notif = Notification(
+                user_id=user.id,
+                title=title,
+                body=body,
+                data={
+                    "type": "order",
+                    "order_id": str(order_id),
+                    "order_number": order_number,
+                    "driver_name": driver_name,
+                    "assigned_by": assigned_by_name,
+                },
+                created_at=datetime.utcnow(),
+            )
+            db.add(notif)
+
 
 notification_service = NotificationService()
