@@ -249,7 +249,10 @@ async def import_orders(
         wh_result = await db.execute(wh_stmt)
         all_warehouses = wh_result.scalars().all()
         warehouse_map = {wh.code: wh.id for wh in all_warehouses}
-        default_warehouse = all_warehouses[0] if all_warehouses else None
+
+        # Find main warehouse (WH01) as fallback for unknown codes
+        main_warehouse = next((wh for wh in all_warehouses if wh.code == "WH01"), None)
+        default_warehouse = main_warehouse or (all_warehouses[0] if all_warehouses else None)
 
         for i, row in enumerate(data):
             try:
