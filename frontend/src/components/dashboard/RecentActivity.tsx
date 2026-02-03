@@ -61,7 +61,7 @@ export function RecentActivity() {
               </p>
             </div>
             <span className="text-xs text-muted-foreground whitespace-nowrap">
-              {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
+              {formatDistanceToNow(new Date(notification.created_at.endsWith('Z') ? notification.created_at : notification.created_at + 'Z'), { addSuffix: true })}
             </span>
           </div>
         );
