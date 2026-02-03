@@ -1,10 +1,14 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 import enum
 from sqlalchemy import String, ForeignKey, DateTime, Text, Float, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import JSONB
 from app.db.base_class import Base
+
+
+def utc_now():
+    return datetime.now(timezone.utc)
 
 
 class OrderStatus(str, enum.Enum):
@@ -32,9 +36,9 @@ class Order(Base):
         ForeignKey("driver.id"), nullable=True, index=True
     )
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now
     )
 
     # Archiving - orders older than 7 days with DELIVERED status are auto-archived
@@ -56,7 +60,7 @@ class OrderStatusHistory(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     order_id: Mapped[int] = mapped_column(ForeignKey("order.id"))
     status: Mapped[str] = mapped_column(String)
-    timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     order = relationship("Order", back_populates="status_history")
@@ -67,6 +71,6 @@ class ProofOfDelivery(Base):
     order_id: Mapped[int] = mapped_column(ForeignKey("order.id"), unique=True)
     signature_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     photo_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
     order = relationship("Order", back_populates="proof_of_delivery")

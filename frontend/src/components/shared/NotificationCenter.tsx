@@ -134,7 +134,7 @@ export default function NotificationCenter() {
                                                 {notification.title}
                                             </span>
                                             <span className="text-[10px] text-muted-foreground font-medium whitespace-nowrap">
-                                                {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
+                                                {formatDistanceToNow(new Date(notification.created_at.endsWith('Z') ? notification.created_at : notification.created_at + 'Z'), { addSuffix: true })}
                                             </span>
                                         </div>
                                         <p className="text-[11px] text-muted-foreground leading-normal line-clamp-2 text-pretty">

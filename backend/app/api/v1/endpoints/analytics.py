@@ -23,7 +23,16 @@ async def get_recent_activities(
     """
     Get recent system activities (Assignments, Deliveries, Status Changes, Payments).
     """
-    from datetime import datetime
+    from datetime import datetime, timezone
+
+    def to_utc_iso(dt: datetime | None) -> str | None:
+        """Convert datetime to UTC ISO string with Z suffix."""
+        if dt is None:
+            return None
+        # If naive, assume UTC
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.isoformat().replace("+00:00", "Z")
 
     activities = []
 
@@ -49,7 +58,7 @@ async def get_recent_activities(
                 "id": f"hist_{history.id}",
                 "title": "Order Assigned",
                 "body": f"Order #{order.id if order else 'N/A'} assigned to {driver_name}",
-                "created_at": history.timestamp,
+                "created_at": to_utc_iso(history.timestamp),
                 "data": {"type": "assigned", "order_id": order.id if order else None},
             })
         elif history.status == OrderStatus.DELIVERED:
@@ -57,7 +66,7 @@ async def get_recent_activities(
                 "id": f"hist_{history.id}",
                 "title": "Order Delivered",
                 "body": f"Order #{order.id if order else 'N/A'} delivered by {driver_name}",
-                "created_at": history.timestamp,
+                "created_at": to_utc_iso(history.timestamp),
                 "data": {"type": "order_delivered", "order_id": order.id if order else None},
             })
         elif history.status == OrderStatus.PICKED_UP:
@@ -65,7 +74,7 @@ async def get_recent_activities(
                 "id": f"hist_{history.id}",
                 "title": "Order Picked Up",
                 "body": f"Order #{order.id if order else 'N/A'} picked up by {driver_name}",
-                "created_at": history.timestamp,
+                "created_at": to_utc_iso(history.timestamp),
                 "data": {"type": "picked_up", "order_id": order.id if order else None},
             })
         elif history.status == OrderStatus.OUT_FOR_DELIVERY:
@@ -73,7 +82,7 @@ async def get_recent_activities(
                 "id": f"hist_{history.id}",
                 "title": "Out for Delivery",
                 "body": f"Order #{order.id if order else 'N/A'} is out for delivery",
-                "created_at": history.timestamp,
+                "created_at": to_utc_iso(history.timestamp),
                 "data": {"type": "out_for_delivery", "order_id": order.id if order else None},
             })
         elif history.status == OrderStatus.CANCELLED:
@@ -81,7 +90,7 @@ async def get_recent_activities(
                 "id": f"hist_{history.id}",
                 "title": "Order Cancelled",
                 "body": f"Order #{order.id if order else 'N/A'} was cancelled",
-                "created_at": history.timestamp,
+                "created_at": to_utc_iso(history.timestamp),
                 "data": {"type": "cancelled", "order_id": order.id if order else None},
             })
         elif history.status == OrderStatus.REJECTED:
@@ -89,7 +98,7 @@ async def get_recent_activities(
                 "id": f"hist_{history.id}",
                 "title": "Order Rejected",
                 "body": f"Order #{order.id if order else 'N/A'} was rejected",
-                "created_at": history.timestamp,
+                "created_at": to_utc_iso(history.timestamp),
                 "data": {"type": "rejected", "order_id": order.id if order else None},
             })
 
@@ -105,16 +114,13 @@ async def get_recent_activities(
             "id": f"pay_{payment.id}",
             "title": "Payment Collected",
             "body": f"KWD {payment.amount:.3f} collected for Order #{payment.order_id}",
-            "created_at": payment.collected_at,
+            "created_at": to_utc_iso(payment.collected_at),
             "data": {"type": "payment_collected", "order_id": payment.order_id},
         })
 
-    # Sort by date and return top N
-    def safe_date(d):
-        return d if d else datetime.min
-
+    # Sort by date and return top N (ISO strings sort correctly alphabetically)
     try:
-        activities.sort(key=lambda x: safe_date(x["created_at"]), reverse=True)
+        activities.sort(key=lambda x: x["created_at"] or "", reverse=True)
     except Exception as e:
         print(f"Error sorting activities: {e}")
 
