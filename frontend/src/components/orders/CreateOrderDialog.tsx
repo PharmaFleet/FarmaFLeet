@@ -196,17 +196,17 @@ export function CreateOrderDialog({ open, onOpenChange }: CreateOrderDialogProps
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[540px] border-none shadow-2xl rounded-3xl p-0 overflow-hidden bg-white">
-        <DialogHeader className="p-8 bg-slate-50/50 border-b border-slate-100">
-          <DialogTitle className="text-2xl font-black text-slate-900">Create New Order</DialogTitle>
-          <DialogDescription className="text-slate-500 font-medium">
+      <DialogContent className="sm:max-w-[540px] border-none shadow-2xl rounded-3xl p-0 overflow-hidden bg-card">
+        <DialogHeader className="p-8 bg-muted/50 border-b border-border">
+          <DialogTitle className="text-2xl font-black text-foreground">Create New Order</DialogTitle>
+          <DialogDescription className="text-muted-foreground font-medium">
             Register a manual delivery order. All fields are required for routing.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="p-8 space-y-6">
             <div className="space-y-2">
-                <Label htmlFor="so_num" className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                <Label htmlFor="so_num" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                   Sales Order # <span className="text-red-500">*</span>
                 </Label>
                 <Input
@@ -215,7 +215,7 @@ export function CreateOrderDialog({ open, onOpenChange }: CreateOrderDialogProps
                     value={formData.sales_order_number}
                     onChange={(e) => handleChange('sales_order_number', e.target.value)}
                     onBlur={() => handleBlur('sales_order_number')}
-                    className={`bg-slate-50 border-slate-200 focus:bg-white h-11 rounded-xl ${
+                    className={`bg-muted border-border focus:bg-background h-11 rounded-xl ${
                       validationErrors.sales_order_number && touched.sales_order_number
                         ? 'border-red-500 focus:border-red-500'
                         : ''
@@ -235,7 +235,7 @@ export function CreateOrderDialog({ open, onOpenChange }: CreateOrderDialogProps
 
             <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-2">
-                    <Label htmlFor="cust_name" className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    <Label htmlFor="cust_name" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                       Customer Name <span className="text-red-500">*</span>
                     </Label>
                     <Input
@@ -244,7 +244,7 @@ export function CreateOrderDialog({ open, onOpenChange }: CreateOrderDialogProps
                         value={formData.customer_name}
                         onChange={(e) => handleChange('customer_name', e.target.value)}
                         onBlur={() => handleBlur('customer_name')}
-                        className={`bg-slate-50 border-slate-200 focus:bg-white h-11 rounded-xl ${
+                        className={`bg-muted border-border focus:bg-background h-11 rounded-xl ${
                           validationErrors.customer_name && touched.customer_name
                             ? 'border-red-500 focus:border-red-500'
                             : ''
@@ -256,7 +256,7 @@ export function CreateOrderDialog({ open, onOpenChange }: CreateOrderDialogProps
                     )}
                 </div>
                 <div className="space-y-2">
-                    <Label htmlFor="cust_phone" className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    <Label htmlFor="cust_phone" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                       Phone <span className="text-red-500">*</span>
                     </Label>
                     <Input
@@ -265,7 +265,7 @@ export function CreateOrderDialog({ open, onOpenChange }: CreateOrderDialogProps
                         value={formData.customer_phone}
                         onChange={(e) => handleChange('customer_phone', e.target.value)}
                         onBlur={() => handleBlur('customer_phone')}
-                        className={`bg-slate-50 border-slate-200 focus:bg-white h-11 rounded-xl ${
+                        className={`bg-muted border-border focus:bg-background h-11 rounded-xl ${
                           validationErrors.customer_phone && touched.customer_phone
                             ? 'border-red-500 focus:border-red-500'
                             : ''
@@ -279,7 +279,7 @@ export function CreateOrderDialog({ open, onOpenChange }: CreateOrderDialogProps
             </div>
             
             <div className="space-y-2">
-                <Label htmlFor="address" className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                <Label htmlFor="address" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                   Delivery Address <span className="text-red-500">*</span>
                 </Label>
                 <Input
@@ -288,7 +288,7 @@ export function CreateOrderDialog({ open, onOpenChange }: CreateOrderDialogProps
                     value={formData.customer_address}
                     onChange={(e) => handleChange('customer_address', e.target.value)}
                     onBlur={() => handleBlur('customer_address')}
-                    className={`bg-slate-50 border-slate-200 focus:bg-white h-11 rounded-xl ${
+                    className={`bg-muted border-border focus:bg-background h-11 rounded-xl ${
                       validationErrors.customer_address && touched.customer_address
                         ? 'border-red-500 focus:border-red-500'
                         : ''
@@ -302,7 +302,7 @@ export function CreateOrderDialog({ open, onOpenChange }: CreateOrderDialogProps
 
             <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-2">
-                    <Label htmlFor="amount" className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    <Label htmlFor="amount" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                       Amount (KWD) <span className="text-red-500">*</span>
                     </Label>
                     <Input
@@ -313,7 +313,7 @@ export function CreateOrderDialog({ open, onOpenChange }: CreateOrderDialogProps
                         value={formData.total_amount}
                         onChange={(e) => handleChange('total_amount', e.target.value)}
                         onBlur={() => handleBlur('total_amount')}
-                        className={`bg-slate-50 border-slate-200 focus:bg-white h-11 rounded-xl ${
+                        className={`bg-muted border-border focus:bg-background h-11 rounded-xl ${
                           validationErrors.total_amount && touched.total_amount
                             ? 'border-red-500 focus:border-red-500'
                             : ''
@@ -325,7 +325,7 @@ export function CreateOrderDialog({ open, onOpenChange }: CreateOrderDialogProps
                     )}
                 </div>
                 <div className="space-y-2">
-                    <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">Payment</Label>
+                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Payment</Label>
                     <Select 
                         value={formData.payment_method} 
                         onValueChange={(val) => handleChange('payment_method', val)}
@@ -333,7 +333,7 @@ export function CreateOrderDialog({ open, onOpenChange }: CreateOrderDialogProps
                         <SelectTrigger className="bg-slate-50 border-slate-200 h-11 rounded-xl">
                             <SelectValue placeholder="Method" />
                         </SelectTrigger>
-                        <SelectContent className="rounded-xl border-slate-200 shadow-xl">
+                        <SelectContent className="rounded-xl border-border shadow-xl">
                             <SelectItem value="CASH">Cash on Delivery</SelectItem>
                             <SelectItem value="KNET">KNET (Online)</SelectItem>
                             <SelectItem value="CREDIT_CARD">Credit Card</SelectItem>

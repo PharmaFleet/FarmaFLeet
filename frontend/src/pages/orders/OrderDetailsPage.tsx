@@ -35,20 +35,20 @@ export default function OrderDetailsPage() {
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                     <Button variant="ghost" size="icon" onClick={() => navigate('/orders')}>
-                        <ArrowLeft className="h-5 w-5 text-slate-500" />
+                        <ArrowLeft className="h-5 w-5 text-muted-foreground" />
                     </Button>
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-3">
+                        <h1 className="text-2xl font-bold text-foreground flex items-center gap-3">
                             Order {order.sales_order_number}
                             <Badge className={cn(
                                 "text-sm px-2.5 py-0.5 rounded-full border-0",
                                 order.status === 'DELIVERED' ? "bg-emerald-100 text-emerald-800" : 
                                 order.status === 'CANCELLED' ? "bg-rose-100 text-rose-800" : 
                                 order.status === 'ASSIGNED' ? "bg-blue-100 text-blue-800" :
-                                "bg-slate-100 text-slate-700"
+                                "bg-muted text-muted-foreground"
                             )}>{order.status}</Badge>
                         </h1>
-                        <p className="text-slate-500 text-sm mt-1">
+                        <p className="text-muted-foreground text-sm mt-1">
                             Created on {order.created_at ? format(new Date(order.created_at), 'PPP p') : 'Unknown date'}
                         </p>
                     </div>
@@ -70,23 +70,23 @@ export default function OrderDetailsPage() {
                     <CardContent className="space-y-4">
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="text-xs text-slate-500 uppercase font-semibold">Name</label>
-                                <p className="text-slate-900 font-medium">{order.customer_info?.name || 'Guest'}</p>
+                                <label className="text-xs text-muted-foreground uppercase font-semibold">Name</label>
+                                <p className="text-foreground font-medium">{order.customer_info?.name || 'Guest'}</p>
                             </div>
                             <div>
-                                <label className="text-xs text-slate-500 uppercase font-semibold">Phone</label>
+                                <label className="text-xs text-muted-foreground uppercase font-semibold">Phone</label>
                                 <div className="flex items-center gap-2">
-                                    <Phone className="h-3 w-3 text-slate-400" />
-                                    <p className="text-slate-900 font-mono">{order.customer_info?.phone || 'N/A'}</p>
+                                    <Phone className="h-3 w-3 text-muted-foreground/70" />
+                                    <p className="text-foreground font-mono">{order.customer_info?.phone || 'N/A'}</p>
                                 </div>
                             </div>
                             <div className="col-span-2">
-                                <label className="text-xs text-slate-500 uppercase font-semibold">Address</label>
+                                <label className="text-xs text-muted-foreground uppercase font-semibold">Address</label>
                                 <div className="flex items-start gap-2 mt-1">
                                     <MapPin className="h-4 w-4 text-rose-500 shrink-0 mt-0.5" />
-                                    <p className="text-slate-900">
+                                    <p className="text-foreground">
                                         {order.customer_info?.address || 'No address provided'}
-                                        {order.customer_info?.area && <span className="text-slate-500 block text-sm">{order.customer_info.area}</span>}
+                                        {order.customer_info?.area && <span className="text-muted-foreground block text-sm">{order.customer_info.area}</span>}
                                     </p>
                                 </div>
                             </div>
@@ -104,17 +104,17 @@ export default function OrderDetailsPage() {
                     </CardHeader>
                     <CardContent className="space-y-4">
                          <div>
-                            <label className="text-xs text-slate-500 uppercase font-semibold">Driver</label>
-                            <p className="text-slate-900 font-medium">{order.driver?.user?.full_name || 'Unassigned'}</p>
+                            <label className="text-xs text-muted-foreground uppercase font-semibold">Driver</label>
+                            <p className="text-foreground font-medium">{order.driver?.user?.full_name || 'Unassigned'}</p>
                          </div>
                          <div>
-                            <label className="text-xs text-slate-500 uppercase font-semibold">Warehouse</label>
-                            <p className="text-slate-900">{order.warehouse?.code || `WH-${order.warehouse_id}`}</p>
+                            <label className="text-xs text-muted-foreground uppercase font-semibold">Warehouse</label>
+                            <p className="text-foreground">{order.warehouse?.code || `WH-${order.warehouse_id}`}</p>
                          </div>
-                         <div className="pt-4 border-t border-slate-100">
-                             <div className="flex justify-between items-center bg-slate-50 p-3 rounded-lg">
-                                 <span className="text-sm text-slate-600 font-medium">Total Amount</span>
-                                 <span className="text-lg font-bold text-slate-900">{order.total_amount?.toFixed(3)} KWD</span>
+                         <div className="pt-4 border-t border-border">
+                             <div className="flex justify-between items-center bg-muted p-3 rounded-lg">
+                                 <span className="text-sm text-muted-foreground font-medium">Total Amount</span>
+                                 <span className="text-lg font-bold text-foreground">{order.total_amount?.toFixed(3)} KWD</span>
                              </div>
                          </div>
                     </CardContent>

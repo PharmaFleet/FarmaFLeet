@@ -101,10 +101,10 @@ export function EditDriverDialog({ driver, open, onOpenChange }: EditDriverDialo
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[480px] border-none shadow-2xl rounded-3xl p-0 overflow-hidden bg-white">
-        <DialogHeader className="p-8 bg-slate-50/50 border-b border-slate-100">
-          <DialogTitle className="text-2xl font-black text-slate-900">Edit Driver</DialogTitle>
-          <DialogDescription className="text-slate-500 font-medium">
+      <DialogContent className="sm:max-w-[480px] border-none shadow-2xl rounded-3xl p-0 overflow-hidden bg-card">
+        <DialogHeader className="p-8 bg-muted/50 border-b border-border">
+          <DialogTitle className="text-2xl font-black text-foreground">Edit Driver</DialogTitle>
+          <DialogDescription className="text-muted-foreground font-medium">
             Update driver information and assignment details.
           </DialogDescription>
         </DialogHeader>
@@ -112,15 +112,15 @@ export function EditDriverDialog({ driver, open, onOpenChange }: EditDriverDialo
         <form onSubmit={handleSubmit} className="p-8 space-y-6">
           {/* Driver Info Section */}
           <div className="space-y-4">
-            <div className="p-4 bg-slate-50 rounded-xl">
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Driver</p>
-              <p className="text-lg font-semibold text-slate-900">{driver.user?.full_name || 'Unknown'}</p>
-              <p className="text-sm text-slate-500">{driver.user?.email}</p>
+            <div className="p-4 bg-muted rounded-xl">
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground/70 mb-1">Driver</p>
+              <p className="text-lg font-semibold text-foreground">{driver.user?.full_name || 'Unknown'}</p>
+              <p className="text-sm text-muted-foreground">{driver.user?.email}</p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="vehicle_info" className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                <Label htmlFor="vehicle_info" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                   Vehicle Info
                 </Label>
                 <Input
@@ -128,12 +128,12 @@ export function EditDriverDialog({ driver, open, onOpenChange }: EditDriverDialo
                   placeholder="KW 1234"
                   value={formData.vehicle_info}
                   onChange={(e) => handleChange('vehicle_info', e.target.value)}
-                  className="bg-slate-50 border-slate-200 focus:bg-white h-11 rounded-xl"
+                  className="bg-muted border-border focus:bg-background h-11 rounded-xl"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="biometric_id" className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                <Label htmlFor="biometric_id" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                   Biometric ID
                 </Label>
                 <Input
@@ -141,20 +141,20 @@ export function EditDriverDialog({ driver, open, onOpenChange }: EditDriverDialo
                   placeholder="BIO-12345"
                   value={formData.biometric_id}
                   onChange={(e) => handleChange('biometric_id', e.target.value)}
-                  className="bg-slate-50 border-slate-200 focus:bg-white h-11 rounded-xl"
+                  className="bg-muted border-border focus:bg-background h-11 rounded-xl"
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="warehouse_id" className="text-xs font-bold uppercase tracking-wider text-slate-500">
+              <Label htmlFor="warehouse_id" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 Assigned Warehouse
               </Label>
               <Select
                 value={formData.warehouse_id}
                 onValueChange={(value) => handleChange('warehouse_id', value)}
               >
-                <SelectTrigger className="bg-slate-50 border-slate-200 h-11 rounded-xl">
+                <SelectTrigger className="bg-muted border-border h-11 rounded-xl">
                   <SelectValue placeholder="Select warehouse" />
                 </SelectTrigger>
                 <SelectContent>
@@ -167,12 +167,12 @@ export function EditDriverDialog({ driver, open, onOpenChange }: EditDriverDialo
               </Select>
             </div>
 
-            <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
+            <div className="flex items-center justify-between p-4 bg-muted rounded-xl">
               <div>
-                <Label htmlFor="is_available" className="text-sm font-semibold text-slate-700">
+                <Label htmlFor="is_available" className="text-sm font-semibold text-foreground">
                   Available for Deliveries
                 </Label>
-                <p className="text-xs text-slate-500">Driver can receive new order assignments</p>
+                <p className="text-xs text-muted-foreground">Driver can receive new order assignments</p>
               </div>
               <Switch
                 id="is_available"

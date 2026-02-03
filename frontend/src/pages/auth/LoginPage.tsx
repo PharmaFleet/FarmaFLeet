@@ -140,7 +140,7 @@ export default function LoginPage() {
       </div>
 
       {/* Right Side - Login Form */}
-      <div className="flex-1 flex items-center justify-center bg-slate-50 p-6 lg:p-12">
+      <div className="flex-1 flex items-center justify-center bg-background p-6 lg:p-12">
         <div className="w-full max-w-md">
           {/* Mobile logo - only visible on small screens */}
           <div className="flex justify-center mb-8 lg:hidden">
@@ -148,45 +148,45 @@ export default function LoginPage() {
               <div className="h-12 w-12 bg-emerald-600 rounded-xl flex items-center justify-center">
                 <Truck className="h-6 w-6 text-white" />
               </div>
-              <span className="text-slate-900 text-2xl font-bold">PharmaFleet</span>
+              <span className="text-foreground text-2xl font-bold">PharmaFleet</span>
             </div>
           </div>
 
-          <Card className="w-full shadow-xl border-0 bg-white">
+          <Card className="w-full shadow-xl border-0 bg-card">
             <CardHeader className="space-y-1 text-center pb-6">
-              <CardTitle className="text-2xl font-bold text-slate-900">Welcome back</CardTitle>
-              <CardDescription className="text-slate-500">
+              <CardTitle className="text-2xl font-bold text-foreground">Welcome back</CardTitle>
+              <CardDescription className="text-muted-foreground">
                 Enter your credentials to access your dashboard
               </CardDescription>
             </CardHeader>
             <CardContent className="pb-6">
               <form onSubmit={handleLogin} className="space-y-5">
                 <div className="space-y-2">
-                  <Label htmlFor="email" className="text-sm font-medium text-slate-700">Email address</Label>
-                  <Input 
-                    id="email" 
-                    type="email" 
-                    placeholder="name@company.com" 
+                  <Label htmlFor="email" className="text-sm font-medium text-foreground">Email address</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="name@company.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="h-11 border-slate-200 focus:border-emerald-500 focus:ring-emerald-500"
-                    required 
+                    className="h-11 border-border focus:border-emerald-500 focus:ring-emerald-500"
+                    required
                   />
                 </div>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="password" className="text-sm font-medium text-slate-700">Password</Label>
+                    <Label htmlFor="password" className="text-sm font-medium text-foreground">Password</Label>
                     <a href="#" className="text-sm text-emerald-600 hover:text-emerald-500 font-medium transition-colors">
                       Forgot password?
                     </a>
                   </div>
-                  <Input 
-                    id="password" 
-                    type="password" 
+                  <Input
+                    id="password"
+                    type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="h-11 border-slate-200 focus:border-emerald-500 focus:ring-emerald-500"
-                    required 
+                    className="h-11 border-border focus:border-emerald-500 focus:ring-emerald-500"
+                    required
                   />
                 </div>
                 
@@ -207,22 +207,22 @@ export default function LoginPage() {
               </form>
               
               {/* Demo credentials hint */}
-              <div className="mt-6 p-4 bg-slate-50 rounded-lg border border-slate-200">
-                <p className="text-xs text-slate-500 text-center">
-                  <span className="font-medium text-slate-700">Demo credentials:</span><br />
+              <div className="mt-6 p-4 bg-muted rounded-lg border border-border">
+                <p className="text-xs text-muted-foreground text-center">
+                  <span className="font-medium text-foreground">Demo credentials:</span><br />
                   admin@pharmafleet.com / admin123
                 </p>
               </div>
             </CardContent>
-            <CardFooter className="flex justify-center border-t border-slate-100 py-4 bg-slate-50/50">
-              <p className="text-xs text-slate-400">
+            <CardFooter className="flex justify-center border-t border-border py-4 bg-muted/50">
+              <p className="text-xs text-muted-foreground">
                 Protected by PharmaFleet Security
               </p>
             </CardFooter>
           </Card>
           
           {/* Additional info */}
-          <p className="mt-6 text-center text-sm text-slate-500">
+          <p className="mt-6 text-center text-sm text-muted-foreground">
             Need help? Contact <a href="mailto:support@pharmafleet.com" className="text-emerald-600 hover:text-emerald-500 font-medium">support</a>
           </p>
         </div>

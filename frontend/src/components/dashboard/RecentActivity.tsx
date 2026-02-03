@@ -25,7 +25,7 @@ export function RecentActivity() {
 
   if (isLoading) {
     return (
-      <div className="h-[300px] flex items-center justify-center text-slate-400 text-sm">
+      <div className="h-[300px] flex items-center justify-center text-muted-foreground text-sm">
         <Clock className="h-4 w-4 animate-pulse mr-2" /> Loading activity...
       </div>
     );
@@ -33,7 +33,7 @@ export function RecentActivity() {
 
   if (!notifications || notifications.length === 0) {
     return (
-      <div className="h-[300px] flex items-center justify-center text-slate-400 text-sm">
+      <div className="h-[300px] flex items-center justify-center text-muted-foreground text-sm">
         No recent activity
       </div>
     );
@@ -48,19 +48,19 @@ export function RecentActivity() {
         const Icon = config.icon;
         
         return (
-          <div key={notification.id} className="flex items-start gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors">
+          <div key={notification.id} className="flex items-start gap-3 p-2 rounded-lg hover:bg-muted transition-colors">
             <div className={`p-2 rounded-full ${config.bg}`}>
               <Icon className={`h-4 w-4 ${config.color}`} />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-slate-900 line-clamp-2">
+              <p className="text-sm font-medium text-foreground line-clamp-2">
                 {notification.title}
               </p>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-xs text-muted-foreground mt-0.5">
                 {notification.body}
               </p>
             </div>
-            <span className="text-xs text-slate-400 whitespace-nowrap">
+            <span className="text-xs text-muted-foreground whitespace-nowrap">
               {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
             </span>
           </div>

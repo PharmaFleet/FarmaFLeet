@@ -91,10 +91,10 @@ export function AddDriverDialog({ open, onOpenChange }: AddDriverDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[480px] border-none shadow-2xl rounded-3xl p-0 overflow-hidden bg-white">
-        <DialogHeader className="p-8 bg-slate-50/50 border-b border-slate-100">
-          <DialogTitle className="text-2xl font-black text-slate-900">Add New Driver</DialogTitle>
-          <DialogDescription className="text-slate-500 font-medium">
+      <DialogContent className="sm:max-w-[480px] border-none shadow-2xl rounded-3xl p-0 overflow-hidden bg-card">
+        <DialogHeader className="p-8 bg-muted/50 border-b border-border">
+          <DialogTitle className="text-2xl font-black text-foreground">Add New Driver</DialogTitle>
+          <DialogDescription className="text-muted-foreground font-medium">
             Register a new fleet operator and create their system credentials.
           </DialogDescription>
         </DialogHeader>
@@ -102,80 +102,80 @@ export function AddDriverDialog({ open, onOpenChange }: AddDriverDialogProps) {
         <form onSubmit={handleSubmit} className="p-8 space-y-6">
             <div className="space-y-4">
                 <div className="space-y-2">
-                    <Label htmlFor="full_name" className="text-xs font-bold uppercase tracking-wider text-slate-500">Full Name</Label>
+                    <Label htmlFor="full_name" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Full Name</Label>
                     <Input 
                         id="full_name"
                         placeholder="John Doe" 
                         value={formData.full_name}
                         onChange={(e) => handleChange('full_name', e.target.value)}
-                        className="bg-slate-50 border-slate-200 focus:bg-white h-11 rounded-xl"
+                        className="bg-muted border-border focus:bg-background h-11 rounded-xl"
                         required
                     />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                        <Label htmlFor="email" className="text-xs font-bold uppercase tracking-wider text-slate-500">Email Address</Label>
+                        <Label htmlFor="email" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Email Address</Label>
                         <Input 
                             id="email"
                             type="email"
                             placeholder="driver@example.com" 
                             value={formData.email}
                             onChange={(e) => handleChange('email', e.target.value)}
-                            className="bg-slate-50 border-slate-200 focus:bg-white h-11 rounded-xl"
+                            className="bg-muted border-border focus:bg-background h-11 rounded-xl"
                             required
                         />
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="password" className="text-xs font-bold uppercase tracking-wider text-slate-500">Initial Password</Label>
+                        <Label htmlFor="password" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Initial Password</Label>
                         <Input 
                             id="password"
                             type="password"
                             placeholder="••••••••" 
                             value={formData.password}
                             onChange={(e) => handleChange('password', e.target.value)}
-                            className="bg-slate-50 border-slate-200 focus:bg-white h-11 rounded-xl"
+                            className="bg-muted border-border focus:bg-background h-11 rounded-xl"
                             required
                         />
                     </div>
                 </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-6 pt-2 border-t border-slate-100">
+            <div className="grid grid-cols-2 gap-6 pt-2 border-t border-border">
                 <div className="space-y-2">
-                    <Label htmlFor="wh_id" className="text-xs font-bold uppercase tracking-wider text-slate-500">Warehouse</Label>
+                    <Label htmlFor="wh_id" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Warehouse</Label>
                     <Input 
                         id="wh_id"
                         type="number"
                         placeholder="1" 
                         value={formData.warehouse_id}
                         onChange={(e) => handleChange('warehouse_id', e.target.value)}
-                        className="bg-slate-50 border-slate-200 focus:bg-white h-11 rounded-xl"
+                        className="bg-muted border-border focus:bg-background h-11 rounded-xl"
                         required
                     />
                 </div>
 
                 <div className="space-y-2">
-                    <Label htmlFor="vehicle" className="text-xs font-bold uppercase tracking-wider text-slate-500">Vehicle Info</Label>
+                    <Label htmlFor="vehicle" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Vehicle Info</Label>
                     <Input 
                         id="vehicle"
                         placeholder="KW 1234" 
                         value={formData.vehicle_info}
                         onChange={(e) => handleChange('vehicle_info', e.target.value)}
-                        className="bg-slate-50 border-slate-200 focus:bg-white h-11 rounded-xl"
+                        className="bg-muted border-border focus:bg-background h-11 rounded-xl"
                         required
                     />
                 </div>
             </div>
             
             <div className="space-y-2">
-                <Label htmlFor="bio_id" className="text-xs font-bold uppercase tracking-wider text-slate-500">Biometric ID</Label>
+                <Label htmlFor="bio_id" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Biometric ID</Label>
                 <Input 
                     id="bio_id"
                     placeholder="BIO-12345" 
                     value={formData.biometric_id}
                     onChange={(e) => handleChange('biometric_id', e.target.value)}
-                    className="bg-slate-50 border-slate-200 focus:bg-white h-11 rounded-xl"
+                    className="bg-muted border-border focus:bg-background h-11 rounded-xl"
                     required
                 />
             </div>

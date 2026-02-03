@@ -46,8 +46,8 @@ export default function AnalyticsPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-           <h2 className="text-3xl font-bold tracking-tight text-slate-900">Analytics</h2>
-           <p className="text-slate-500">Reports and performance metrics.</p>
+           <h2 className="text-3xl font-bold tracking-tight text-foreground">Analytics</h2>
+           <p className="text-muted-foreground">Reports and performance metrics.</p>
         </div>
         <Button variant="outline">
             <Calendar className="mr-2 h-4 w-4" />

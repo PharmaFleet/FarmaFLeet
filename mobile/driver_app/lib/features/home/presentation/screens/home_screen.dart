@@ -36,8 +36,8 @@ class _HomeScreenState extends State<HomeScreen> {
       context.read<HomeBloc>().add(HomeLoadRequested());
     });
 
-    // Auto-refresh every 30 seconds
-    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+    // Auto-refresh every 5 seconds for faster notification updates
+    _refreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       if (mounted) {
         _refreshData();
       }

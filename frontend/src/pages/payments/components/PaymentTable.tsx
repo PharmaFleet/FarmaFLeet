@@ -39,7 +39,7 @@ export function PaymentTable({ data, isLoading, verifyPayment }: PaymentTablePro
   return (
     <div className="overflow-x-auto">
         <Table>
-          <TableHeader className="bg-slate-50/50">
+          <TableHeader className="bg-muted/50">
             <TableRow className="hover:bg-transparent border-b">
               <TableHead>Transaction ID</TableHead>
               <TableHead>Order ID</TableHead>
@@ -54,32 +54,32 @@ export function PaymentTable({ data, isLoading, verifyPayment }: PaymentTablePro
             {isLoading ? (
                 [...Array(6)].map((_, i) => (
                     <TableRow key={i} className="animate-pulse">
-                         <TableCell><div className="h-4 w-24 bg-slate-100 rounded" /></TableCell>
-                         <TableCell><div className="h-4 w-16 bg-slate-100 rounded" /></TableCell>
-                         <TableCell><div className="h-4 w-24 bg-slate-100 rounded" /></TableCell>
-                         <TableCell><div className="h-4 w-20 bg-slate-100 rounded" /></TableCell>
-                         <TableCell><div className="h-4 w-20 bg-slate-100 rounded" /></TableCell>
-                         <TableCell><div className="h-4 w-20 bg-slate-100 rounded" /></TableCell>
-                         <TableCell><div className="h-4 w-32 bg-slate-100 rounded" /></TableCell>
+                         <TableCell><div className="h-4 w-24 bg-muted rounded" /></TableCell>
+                         <TableCell><div className="h-4 w-16 bg-muted rounded" /></TableCell>
+                         <TableCell><div className="h-4 w-24 bg-muted rounded" /></TableCell>
+                         <TableCell><div className="h-4 w-20 bg-muted rounded" /></TableCell>
+                         <TableCell><div className="h-4 w-20 bg-muted rounded" /></TableCell>
+                         <TableCell><div className="h-4 w-20 bg-muted rounded" /></TableCell>
+                         <TableCell><div className="h-4 w-32 bg-muted rounded" /></TableCell>
                     </TableRow>
                 ))
             ) : data?.items?.length === 0 ? (
                 <TableRow>
-                     <TableCell colSpan={7} className="h-40 text-center text-slate-400 italic">No payments found.</TableCell>
+                     <TableCell colSpan={7} className="h-40 text-center text-muted-foreground italic">No payments found.</TableCell>
                 </TableRow>
             ) : (
                 data?.items?.map((payment: Payment) => (
                     <TableRow key={payment.id} className="group hover:bg-emerald-50/30 transition-colors">
-                        <TableCell className="font-mono text-xs text-slate-500 group-hover:text-emerald-700">
+                        <TableCell className="font-mono text-xs text-muted-foreground group-hover:text-emerald-700">
                             {payment.transaction_id || `TX-${payment.id}`}
                         </TableCell>
-                        <TableCell className="font-medium text-slate-900">#{payment.order_id}</TableCell>
-                        <TableCell className="text-slate-600">
+                        <TableCell className="font-medium text-foreground">#{payment.order_id}</TableCell>
+                        <TableCell className="text-muted-foreground">
                             {payment.driver_name || `Driver #${payment.driver_id}`}
                         </TableCell>
-                        <TableCell className="font-bold text-slate-900">{payment.amount.toFixed(3)} KWD</TableCell>
+                        <TableCell className="font-bold text-foreground">{payment.amount.toFixed(3)} KWD</TableCell>
                         <TableCell>
-                            <span className="text-sm text-slate-600">{payment.method}</span>
+                            <span className="text-sm text-muted-foreground">{payment.method}</span>
                         </TableCell>
                         <TableCell>
                             <div className="flex items-center gap-2">
@@ -104,7 +104,7 @@ export function PaymentTable({ data, isLoading, verifyPayment }: PaymentTablePro
                                 )}
                             </div>
                         </TableCell>
-                        <TableCell className="text-slate-500 text-xs">
+                        <TableCell className="text-muted-foreground text-xs">
                             {new Date(payment.collected_at || payment.created_at || '').toLocaleDateString(undefined, {
                                 year: 'numeric',
                                 month: 'short',

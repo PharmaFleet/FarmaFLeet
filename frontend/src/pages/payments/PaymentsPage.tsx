@@ -24,17 +24,17 @@ export default function PaymentsPage() {
     <div className="space-y-8 p-8 max-w-[1600px] mx-auto">
        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
         <div>
-           <h2 className="text-4xl font-extrabold tracking-tight text-slate-900">Payments</h2>
-           <p className="text-slate-500 mt-1">Track collections, reconcile transactions, and monitor financial health.</p>
+           <h2 className="text-4xl font-extrabold tracking-tight text-foreground">Payments</h2>
+           <p className="text-muted-foreground mt-1">Track collections, reconcile transactions, and monitor financial health.</p>
         </div>
-        <Button variant="outline" className="shadow-sm border-slate-200" onClick={handleExport}>
+        <Button variant="outline" className="shadow-sm border-border" onClick={handleExport}>
             <Download className="mr-2 h-4 w-4 text-emerald-600" />
             Export Report
         </Button>
       </div>
 
       {/* Grid Container */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden transition-all duration-300">
+      <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden transition-all duration-300">
         <PaymentFilters 
             search={search}
             setSearch={setSearch}
@@ -53,11 +53,11 @@ export default function PaymentsPage() {
       
        {/* Pagination Controls */}
        <div className="flex items-center justify-between px-2">
-        <p className="text-xs text-slate-400">
+        <p className="text-xs text-muted-foreground">
             Audit trail of financial collections
         </p>
         <div className="flex items-center space-x-4">
-            <span className="text-xs font-medium text-slate-500">
+            <span className="text-xs font-medium text-muted-foreground">
                 Page {page} of {data?.pages || 1}
             </span>
             <div className="flex gap-2">

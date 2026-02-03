@@ -39,8 +39,8 @@ export default function UsersPage() {
     <div className="space-y-6">
        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-           <h2 className="text-3xl font-bold tracking-tight text-slate-900">User Management</h2>
-           <p className="text-slate-500">Manage system users and verify roles.</p>
+           <h2 className="text-3xl font-bold tracking-tight text-foreground">User Management</h2>
+           <p className="text-muted-foreground">Manage system users and verify roles.</p>
         </div>
         <Button className="bg-emerald-600 hover:bg-emerald-700">
             <UserPlus className="mr-2 h-4 w-4" />
@@ -48,7 +48,7 @@ export default function UsersPage() {
         </Button>
       </div>
 
-      <div className="flex gap-2 items-center bg-white p-4 rounded-lg border shadow-sm">
+      <div className="flex gap-2 items-center bg-card p-4 rounded-lg border border-border shadow-sm">
         <div className="relative flex-1 max-w-sm">
             <Input 
                 placeholder="Search users..." 
@@ -62,7 +62,7 @@ export default function UsersPage() {
         </Button>
       </div>
 
-      <div className="rounded-md border bg-white shadow-sm">
+      <div className="rounded-md border border-border bg-card shadow-sm">
         <Table>
           <TableHeader>
             <TableRow>
@@ -78,11 +78,11 @@ export default function UsersPage() {
             {isLoading ? (
                 [...Array(5)].map((_, i) => (
                     <TableRow key={i}>
-                         <TableCell><div className="h-4 w-8 bg-slate-100 rounded animate-pulse" /></TableCell>
-                         <TableCell><div className="h-4 w-32 bg-slate-100 rounded animate-pulse" /></TableCell>
-                         <TableCell><div className="h-4 w-40 bg-slate-100 rounded animate-pulse" /></TableCell>
-                         <TableCell><div className="h-4 w-24 bg-slate-100 rounded animate-pulse" /></TableCell>
-                         <TableCell><div className="h-4 w-16 bg-slate-100 rounded animate-pulse" /></TableCell>
+                         <TableCell><div className="h-4 w-8 bg-muted rounded animate-pulse" /></TableCell>
+                         <TableCell><div className="h-4 w-32 bg-muted rounded animate-pulse" /></TableCell>
+                         <TableCell><div className="h-4 w-40 bg-muted rounded animate-pulse" /></TableCell>
+                         <TableCell><div className="h-4 w-24 bg-muted rounded animate-pulse" /></TableCell>
+                         <TableCell><div className="h-4 w-16 bg-muted rounded animate-pulse" /></TableCell>
                          <TableCell></TableCell>
                     </TableRow>
                 ))
@@ -100,8 +100,8 @@ export default function UsersPage() {
                             <span className="capitalize">{user.role.replace('_', ' ')}</span>
                         </TableCell>
                         <TableCell>
-                            <Badge variant={user.is_active ? 'default' : 'secondary'} 
-                                   className={user.is_active ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border-0' : 'bg-slate-100 text-slate-500 border-0'}>
+                            <Badge variant={user.is_active ? 'default' : 'secondary'}
+                                   className={user.is_active ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border-0' : 'bg-muted text-muted-foreground border-0'}>
                                 {user.is_active ? 'Active' : 'Inactive'}
                             </Badge>
                         </TableCell>
@@ -137,7 +137,7 @@ export default function UsersPage() {
         >
           Previous
         </Button>
-        <span className="text-sm text-slate-600">
+        <span className="text-sm text-muted-foreground">
             Page {page} of {data?.pages || 1}
         </span>
         <Button

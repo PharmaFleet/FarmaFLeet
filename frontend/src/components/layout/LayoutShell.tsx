@@ -12,7 +12,7 @@ export function LayoutShell() {
   }
 
   return (
-    <div className="flex h-screen w-full bg-slate-50 overflow-hidden">
+    <div className="flex h-screen w-full bg-background overflow-hidden">
       <Sidebar />
       <div className="flex flex-col flex-1 w-0 overflow-hidden">
         <TopBar />

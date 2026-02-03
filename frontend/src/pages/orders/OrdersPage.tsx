@@ -230,11 +230,11 @@ export default function OrdersPage() {
 
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
         <div>
-           <h2 className="text-4xl font-extrabold tracking-tight text-slate-900">Orders</h2>
-           <p className="text-slate-500 mt-1">Manage and track your delivery operations in real-time.</p>
+           <h2 className="text-4xl font-extrabold tracking-tight text-foreground">Orders</h2>
+           <p className="text-muted-foreground mt-1">Manage and track your delivery operations in real-time.</p>
         </div>
         <div className="flex gap-3">
-            <Button variant="outline" className="shadow-sm border-slate-200" onClick={() => fileInputRef.current?.click()} disabled={importMutation.isPending}>
+            <Button variant="outline" className="shadow-sm border-border" onClick={() => fileInputRef.current?.click()} disabled={importMutation.isPending}>
                 <Download className="mr-2 h-4 w-4 text-emerald-600" />
                 {importMutation.isPending ? 'Importing...' : 'Import'}
             </Button>
@@ -301,7 +301,7 @@ export default function OrdersPage() {
       )}
 
       {/* Tabs */}
-      <div className="border-b border-slate-200">
+      <div className="border-b border-border">
         <nav className="-mb-px flex space-x-8 overflow-x-auto" aria-label="Tabs">
           {tabs.map((tab) => (
             <button
@@ -313,7 +313,7 @@ export default function OrdersPage() {
               className={cn(
                 statusFilter === tab.value
                   ? 'border-emerald-500 text-emerald-600'
-                  : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300',
+                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border',
                 'whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors'
               )}
             >
@@ -323,15 +323,15 @@ export default function OrdersPage() {
         </nav>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden transition-all duration-300">
-        <div className="flex flex-col sm:flex-row gap-4 items-center bg-slate-50/50 p-6 border-b border-slate-200">
+      <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden transition-all duration-300">
+        <div className="flex flex-col sm:flex-row gap-4 items-center bg-muted/50 p-6 border-b border-border">
             <div className="relative flex-1 max-w-md w-full">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-                <Input 
-                    placeholder="Search orders, customers, phone..." 
+                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                    placeholder="Search orders, customers, phone..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    className="w-full pl-10 border-slate-200 focus:ring-emerald-500/20"
+                    className="w-full pl-10 border-border focus:ring-emerald-500/20"
                 />
             </div>
             <Button
@@ -340,9 +340,9 @@ export default function OrdersPage() {
               onClick={() => setShowArchived(!showArchived)}
               className={cn(
                 "transition-all",
-                showArchived 
-                  ? "bg-amber-500 hover:bg-amber-600 text-white" 
-                  : "border-slate-200 hover:border-amber-300 hover:bg-amber-50"
+                showArchived
+                  ? "bg-amber-500 hover:bg-amber-600 text-white"
+                  : "border-border hover:border-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950"
               )}
             >
               {showArchived ? "📦 Showing Archived" : "📦 View Archive"}
@@ -351,7 +351,7 @@ export default function OrdersPage() {
 
         <div className="overflow-x-auto">
             <Table>
-              <TableHeader className="bg-slate-50/50">
+              <TableHeader className="bg-muted/50">
                 <TableRow className="hover:bg-transparent border-b">
                   <TableHead className="w-[50px]">
                     <Checkbox 
@@ -374,20 +374,20 @@ export default function OrdersPage() {
                 {isLoading ? (
                     [...Array(6)].map((_, i) => (
                         <TableRow key={i} className="animate-pulse">
-                            <TableCell><div className="h-4 w-4 bg-slate-100 rounded" /></TableCell>
-                            <TableCell><div className="h-4 w-24 bg-slate-100 rounded" /></TableCell>
-                            <TableCell><div className="h-4 w-32 bg-slate-100 rounded" /></TableCell>
-                            <TableCell><div className="h-4 w-40 bg-slate-100 rounded" /></TableCell>
-                            <TableCell><div className="h-4 w-20 bg-slate-100 rounded" /></TableCell>
-                            <TableCell><div className="h-4 w-24 bg-slate-100 rounded" /></TableCell>
-                            <TableCell><div className="h-4 w-24 bg-slate-100 rounded" /></TableCell>
-                            <TableCell><div className="h-4 w-20 bg-slate-100 rounded ml-auto" /></TableCell>
+                            <TableCell><div className="h-4 w-4 bg-muted rounded" /></TableCell>
+                            <TableCell><div className="h-4 w-24 bg-muted rounded" /></TableCell>
+                            <TableCell><div className="h-4 w-32 bg-muted rounded" /></TableCell>
+                            <TableCell><div className="h-4 w-40 bg-muted rounded" /></TableCell>
+                            <TableCell><div className="h-4 w-20 bg-muted rounded" /></TableCell>
+                            <TableCell><div className="h-4 w-24 bg-muted rounded" /></TableCell>
+                            <TableCell><div className="h-4 w-24 bg-muted rounded" /></TableCell>
+                            <TableCell><div className="h-4 w-20 bg-muted rounded ml-auto" /></TableCell>
                             <TableCell></TableCell>
                         </TableRow>
                     ))
                 ) : data?.items?.length === 0 ? (
                     <TableRow>
-                        <TableCell colSpan={9} className="h-40 text-center text-slate-400 italic">
+                        <TableCell colSpan={9} className="h-40 text-center text-muted-foreground italic">
                             No orders found matching your criteria.
                         </TableCell>
                     </TableRow>
@@ -404,28 +404,28 @@ export default function OrdersPage() {
                                 aria-label={`Select order ${order.sales_order_number}`}
                               />
                             </TableCell>
-                            <TableCell className="font-mono text-xs text-slate-500 group-hover:text-emerald-700">
+                            <TableCell className="font-mono text-xs text-muted-foreground group-hover:text-emerald-700">
                                 {order.sales_order_number}
                             </TableCell>
                                     <TableCell>
                                 <div className="flex flex-col">
                                     <div className="flex items-center gap-2">
-                                        <span className="font-semibold text-slate-900">{order.customer_info?.name || 'Guest'}</span>
+                                        <span className="font-semibold text-foreground">{order.customer_info?.name || 'Guest'}</span>
                                         {(!order.customer_info?.address || !order.customer_info?.phone) && (
                                             <div title="Missing Address or Phone" className="text-amber-500 cursor-help">
                                                 <AlertOctagon className="h-3 w-3" />
                                             </div>
                                         )}
                                     </div>
-                                    <span className="text-[11px] text-slate-500">{order.customer_info?.phone || 'No phone'}</span>
+                                    <span className="text-[11px] text-muted-foreground">{order.customer_info?.phone || 'No phone'}</span>
                                 </div>
                             </TableCell>
                             <TableCell>
                                 <div
-                                    className="max-w-[200px] text-sm text-slate-600 truncate"
+                                    className="max-w-[200px] text-sm text-muted-foreground truncate"
                                     title={order.customer_info?.address || 'No address'}
                                 >
-                                    {order.customer_info?.address || <span className="text-slate-400 italic">No address</span>}
+                                    {order.customer_info?.address || <span className="text-muted-foreground/60 italic">No address</span>}
                                 </div>
                             </TableCell>
                             <TableCell>
@@ -435,32 +435,32 @@ export default function OrdersPage() {
                                         order.status === OrderStatus.DELIVERED ? "bg-emerald-100 text-emerald-800" : 
                                         order.status === OrderStatus.CANCELLED ? "bg-rose-100 text-rose-800" : 
                                         order.status === OrderStatus.FAILED || order.status === OrderStatus.REJECTED ? "bg-amber-100 text-amber-800" : 
-                                        "bg-slate-100 text-slate-700"
+                                        "bg-muted text-muted-foreground"
                                     )}
                                 >
                                     {order.status}
                                 </Badge>
                             </TableCell>
-                            <TableCell className="text-slate-600">
+                            <TableCell className="text-muted-foreground">
                                 <span className="text-sm">{order.warehouse?.code || `WH-${order.warehouse_id}`}</span>
                             </TableCell>
                             <TableCell>
                                 <div className="flex items-center gap-2">
-                                    <div className="h-6 w-6 rounded-full bg-slate-100 flex items-center justify-center border border-slate-200">
-                                        <Truck className="h-3 w-3 text-slate-500" />
+                                    <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center border border-border">
+                                        <Truck className="h-3 w-3 text-muted-foreground" />
                                     </div>
-                                    <span className="text-sm text-slate-600">
+                                    <span className="text-sm text-muted-foreground">
                                         {order.driver?.user?.full_name || 'Unassigned'}
                                     </span>
                                 </div>
                             </TableCell>
                             <TableCell className="text-right pr-8">
-                                <span className="font-bold text-slate-900">{order.total_amount.toFixed(3)} KWD</span>
+                                <span className="font-bold text-foreground">{order.total_amount.toFixed(3)} KWD</span>
                             </TableCell>
                             <TableCell>
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" className="h-9 w-9 p-0 hover:bg-white shadow-sm border border-transparent hover:border-slate-200">
+                                        <Button variant="ghost" className="h-9 w-9 p-0 hover:bg-muted shadow-sm border border-transparent hover:border-border">
                                             <MoreHorizontal className="h-4 w-4" />
                                         </Button>
                                     </DropdownMenuTrigger>
@@ -498,12 +498,12 @@ export default function OrdersPage() {
       </div>
 
       <div className="flex items-center justify-between px-2">
-        <p className="text-xs text-slate-400">
+        <p className="text-xs text-muted-foreground">
             Showing {data?.items?.length || 0} of {data?.total || 0} orders
         </p>
         <div className="flex items-center space-x-6">
             <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-500">Rows per page:</span>
+              <span className="text-xs text-muted-foreground">Rows per page:</span>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" className="h-8 w-20 justify-between">
@@ -519,7 +519,7 @@ export default function OrdersPage() {
                         setPageSize(size);
                         setPage(1);
                       }}
-                      className={cn(pageSize === size && "bg-slate-100 font-medium")}
+                      className={cn(pageSize === size && "bg-muted font-medium")}
                     >
                       {size}
                     </DropdownMenuItem>
@@ -527,7 +527,7 @@ export default function OrdersPage() {
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
-            <span className="text-xs font-medium text-slate-500">
+            <span className="text-xs font-medium text-muted-foreground">
                 Page {page} / {data?.pages || 1}
             </span>
             <div className="flex gap-2">

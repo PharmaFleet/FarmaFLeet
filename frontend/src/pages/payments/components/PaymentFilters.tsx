@@ -26,19 +26,19 @@ export function PaymentFilters({
   setMethodFilter
 }: PaymentFiltersProps) {
   return (
-    <div className="flex flex-col sm:flex-row gap-4 items-center bg-slate-50/50 p-6 border-b border-slate-200">
+    <div className="flex flex-col sm:flex-row gap-4 items-center bg-muted/50 p-6 border-b border-border">
         <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-            <Input 
-                placeholder="Search transaction, order #, or driver..." 
+            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <Input
+                placeholder="Search transaction, order #, or driver..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-10 border-slate-200 focus:ring-emerald-500/20"
+                className="w-full pl-10 border-border focus:ring-emerald-500/20"
             />
         </div>
          <div className="flex gap-2 w-full sm:w-auto">
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[150px] bg-white border-slate-200">
+                <SelectTrigger className="w-[150px] bg-card border-border">
                     <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -48,7 +48,7 @@ export function PaymentFilters({
                 </SelectContent>
             </Select>
             <Select value={methodFilter} onValueChange={setMethodFilter}>
-                <SelectTrigger className="w-[150px] bg-white border-slate-200">
+                <SelectTrigger className="w-[150px] bg-card border-border">
                     <SelectValue placeholder="Method" />
                 </SelectTrigger>
                 <SelectContent>

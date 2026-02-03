@@ -11,8 +11,8 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6">
        <div>
-           <h2 className="text-3xl font-bold tracking-tight text-slate-900">Settings</h2>
-           <p className="text-slate-500">Manage your account and preferences.</p>
+           <h2 className="text-3xl font-bold tracking-tight text-foreground">Settings</h2>
+           <p className="text-muted-foreground">Manage your account and preferences.</p>
        </div>
 
        <Tabs defaultValue="account" className="w-full">
@@ -64,7 +64,7 @@ export default function SettingsPage() {
                         <CardDescription>Manage how you receive alerts.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-sm text-slate-500">
+                        <div className="text-sm text-muted-foreground">
                              Notification settings logic will be implemented here.
                         </div>
                     </CardContent>

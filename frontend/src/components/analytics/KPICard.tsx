@@ -58,11 +58,11 @@ function TrendIndicator({ trend }: { trend: TrendData }): JSX.Element {
       ? 'text-red-600' 
       : 'text-slate-500';
   
-  const bgClass = direction === 'up' 
-    ? 'bg-emerald-50' 
-    : direction === 'down' 
-      ? 'bg-red-50' 
-      : 'bg-slate-50';
+  const bgClass = direction === 'up'
+    ? 'bg-emerald-50 dark:bg-emerald-950'
+    : direction === 'down'
+      ? 'bg-red-50 dark:bg-red-950'
+      : 'bg-muted';
 
   return (
     <div className={cn('flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium', bgClass, colorClass)}>
@@ -101,19 +101,19 @@ export function KPICard({
   return (
     <Card className={cn('', className)}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium text-slate-600">{title}</CardTitle>
-        <div className="p-1.5 bg-slate-50 rounded-md">
-          <Icon className="h-4 w-4 text-slate-600" />
+        <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
+        <div className="p-1.5 bg-muted rounded-md">
+          <Icon className="h-4 w-4 text-muted-foreground" />
         </div>
       </CardHeader>
       <CardContent>
         <div className="flex items-baseline justify-between">
-          <div className="text-2xl font-bold text-slate-900">
+          <div className="text-2xl font-bold text-foreground">
             {formatValue(value, format)}
           </div>
           <TrendIndicator trend={trend} />
         </div>
-        <p className="text-xs text-slate-500 mt-2">
+        <p className="text-xs text-muted-foreground mt-2">
           vs previous period
         </p>
       </CardContent>

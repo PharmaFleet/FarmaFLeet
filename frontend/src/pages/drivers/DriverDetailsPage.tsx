@@ -37,16 +37,16 @@ export default function DriverDetailsPage() {
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                     <Button variant="ghost" size="icon" onClick={() => navigate('/drivers')}>
-                        <ArrowLeft className="h-5 w-5 text-slate-500" />
+                        <ArrowLeft className="h-5 w-5 text-muted-foreground" />
                     </Button>
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-3">
+                        <h1 className="text-2xl font-bold text-foreground flex items-center gap-3">
                             {driver.user?.full_name}
-                            <Badge className={driver.is_available ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"}>
+                            <Badge className={driver.is_available ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-muted-foreground"}>
                                 {driver.is_available ? "Available" : "Offline"}
                             </Badge>
                         </h1>
-                        <p className="text-slate-500 text-sm mt-1">Driver ID: #{driver.id}</p>
+                        <p className="text-muted-foreground text-sm mt-1">Driver ID: #{driver.id}</p>
                     </div>
                 </div>
                 <Button
@@ -69,27 +69,27 @@ export default function DriverDetailsPage() {
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div className="flex items-center gap-3">
-                            <Mail className="h-4 w-4 text-slate-400" />
-                            <span className="text-sm text-slate-700">{driver.user?.email || 'No email'}</span>
+                            <Mail className="h-4 w-4 text-muted-foreground/70" />
+                            <span className="text-sm text-foreground">{driver.user?.email || 'No email'}</span>
                         </div>
                         <div className="flex items-center gap-3">
-                            <Phone className="h-4 w-4 text-slate-400" />
-                            <span className="text-sm text-slate-700">{driver.user?.phone || 'No phone'}</span>
+                            <Phone className="h-4 w-4 text-muted-foreground/70" />
+                            <span className="text-sm text-foreground">{driver.user?.phone || 'No phone'}</span>
                         </div>
-                        <div className="pt-4 border-t border-slate-100 mt-4">
+                        <div className="pt-4 border-t border-border mt-4">
                             <div className="flex items-center gap-3">
-                                <Truck className="h-4 w-4 text-slate-400" />
+                                <Truck className="h-4 w-4 text-muted-foreground/70" />
                                 <div>
-                                    <p className="text-xs text-slate-500 uppercase font-semibold">Vehicle</p>
-                                    <p className="text-sm font-medium text-slate-900">{driver.vehicle_info || 'Not assigned'}</p>
+                                    <p className="text-xs text-muted-foreground uppercase font-semibold">Vehicle</p>
+                                    <p className="text-sm font-medium text-foreground">{driver.vehicle_info || 'Not assigned'}</p>
                                 </div>
                             </div>
                         </div>
                          <div className="flex items-center gap-3">
-                                <MapPin className="h-4 w-4 text-slate-400" />
+                                <MapPin className="h-4 w-4 text-muted-foreground/70" />
                                 <div>
-                                    <p className="text-xs text-slate-500 uppercase font-semibold">Warehouse</p>
-                                    <p className="text-sm font-medium text-slate-900">{driver.warehouse?.code || `WH-${driver.warehouse_id}`}</p>
+                                    <p className="text-xs text-muted-foreground uppercase font-semibold">Warehouse</p>
+                                    <p className="text-sm font-medium text-foreground">{driver.warehouse?.code || `WH-${driver.warehouse_id}`}</p>
                                 </div>
                         </div>
                     </CardContent>
@@ -120,17 +120,17 @@ export default function DriverDetailsPage() {
                                 {isLoadingOrders ? (
                                     <TableRow><TableCell colSpan={4}>Loading history...</TableCell></TableRow>
                                 ) : ordersData?.items?.length === 0 ? (
-                                    <TableRow><TableCell colSpan={4} className="text-center italic text-slate-500">No recent orders</TableCell></TableRow>
+                                    <TableRow><TableCell colSpan={4} className="text-center italic text-muted-foreground">No recent orders</TableCell></TableRow>
                                 ) : (
                                     ordersData?.items?.map(order => (
-                                        <TableRow key={order.id} className="cursor-pointer hover:bg-slate-50" onClick={() => navigate(`/orders/${order.id}`)}>
+                                        <TableRow key={order.id} className="cursor-pointer hover:bg-muted" onClick={() => navigate(`/orders/${order.id}`)}>
                                             <TableCell className="font-mono text-xs">{order.sales_order_number}</TableCell>
                                             <TableCell>
                                                 <Badge variant="outline" className="text-xs font-normal">
                                                     {order.status}
                                                 </Badge>
                                             </TableCell>
-                                            <TableCell className="text-xs text-slate-500">
+                                            <TableCell className="text-xs text-muted-foreground">
                                                 {order.created_at ? format(new Date(order.created_at), 'MMM d, p') : '-'}
                                             </TableCell>
                                             <TableCell className="text-right font-medium">

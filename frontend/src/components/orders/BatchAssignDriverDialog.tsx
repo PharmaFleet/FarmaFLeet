@@ -82,7 +82,7 @@ export function BatchAssignDriverDialog({ orderIds, open, onOpenChange, onSucces
                         Batch Assign Orders
                     </DialogTitle>
                     <DialogDescription>
-                        Assign <span className="font-semibold text-slate-900">{orderIds.length}</span> selected order(s) to a single driver.
+                        Assign <span className="font-semibold text-foreground">{orderIds.length}</span> selected order(s) to a single driver.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
@@ -95,7 +95,7 @@ export function BatchAssignDriverDialog({ orderIds, open, onOpenChange, onSucces
                         <Label htmlFor="driver">Select Driver</Label>
                         {/* Search Input */}
                         <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <Input
                                 placeholder="Search by name, vehicle, or warehouse..."
                                 value={searchQuery}
@@ -122,7 +122,7 @@ export function BatchAssignDriverDialog({ orderIds, open, onOpenChange, onSucces
                             </SelectContent>
                         </Select>
                         {searchQuery && (
-                            <p className="text-xs text-slate-500">
+                            <p className="text-xs text-muted-foreground">
                                 Showing {filteredDrivers.length} of {drivers.length} drivers
                             </p>
                         )}

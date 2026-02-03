@@ -86,8 +86,8 @@ export default function NotificationCenter() {
   return (
     <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
         <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="relative group hover:bg-slate-100/80 rounded-xl transition-all">
-                <Bell className="h-5 w-5 text-slate-500 group-hover:text-emerald-600 transition-colors" />
+            <Button variant="ghost" size="icon" className="relative group hover:bg-muted/80 rounded-xl transition-all">
+                <Bell className="h-5 w-5 text-muted-foreground group-hover:text-emerald-600 transition-colors" />
                 {unreadCount > 0 && (
                     <Badge className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full p-0 flex items-center justify-center text-[10px] bg-emerald-600 border-2 border-white pointer-events-none">
                         {unreadCount}
@@ -95,11 +95,11 @@ export default function NotificationCenter() {
                 )}
             </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-80 p-0 border-none shadow-2xl rounded-2xl overflow-hidden bg-white mt-2" align="end">
-            <DropdownMenuLabel className="p-5 bg-slate-50/50 border-b border-slate-100">
+        <DropdownMenuContent className="w-80 p-0 border-none shadow-2xl rounded-2xl overflow-hidden bg-card mt-2" align="end">
+            <DropdownMenuLabel className="p-5 bg-muted/50 border-b border-border">
                 <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-black text-slate-900">Notifications</p>
-                    <p className="text-[11px] font-medium text-slate-500">
+                    <p className="text-sm font-black text-foreground">Notifications</p>
+                    <p className="text-[11px] font-medium text-muted-foreground">
                         {unreadCount > 0 ? `You have ${unreadCount} unread messages` : 'Up to date!'}
                     </p>
                 </div>
@@ -109,16 +109,16 @@ export default function NotificationCenter() {
                 <DropdownMenuGroup className="p-2">
                     {notifications.length === 0 ? (
                          <div className="py-12 text-center">
-                             <div className="h-12 w-12 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-3">
-                                 <Bell className="h-6 w-6 text-slate-300" />
+                             <div className="h-12 w-12 bg-muted rounded-full flex items-center justify-center mx-auto mb-3">
+                                 <Bell className="h-6 w-6 text-muted-foreground/50" />
                              </div>
-                             <p className="text-sm text-slate-400 font-medium italic">All caught up</p>
+                             <p className="text-sm text-muted-foreground font-medium italic">All caught up</p>
                          </div>
                     ) : (
                         notifications.map((notification) => (
-                            <DropdownMenuItem 
-                                key={notification.id} 
-                                className="cursor-pointer focus:bg-slate-50 p-3 mb-1 rounded-xl transition-all border border-transparent hover:border-slate-100 group"
+                            <DropdownMenuItem
+                                key={notification.id}
+                                className="cursor-pointer focus:bg-muted p-3 mb-1 rounded-xl transition-all border border-transparent hover:border-border group"
                                 onClick={() => !notification.is_read && handleMarkAsRead(notification.id)}
                             >
                                 <div className="flex w-full items-start gap-3">
@@ -129,15 +129,15 @@ export default function NotificationCenter() {
                                         <div className="flex items-center justify-between gap-2 mb-0.5">
                                             <span className={cn(
                                                 "text-xs font-bold truncate",
-                                                !notification.is_read ? 'text-slate-900' : 'text-slate-500'
+                                                !notification.is_read ? 'text-foreground' : 'text-muted-foreground'
                                             )}>
                                                 {notification.title}
                                             </span>
-                                            <span className="text-[10px] text-slate-400 font-medium whitespace-nowrap">
+                                            <span className="text-[10px] text-muted-foreground font-medium whitespace-nowrap">
                                                 {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
                                             </span>
                                         </div>
-                                        <p className="text-[11px] text-slate-500 leading-normal line-clamp-2 text-pretty">
+                                        <p className="text-[11px] text-muted-foreground leading-normal line-clamp-2 text-pretty">
                                             {notification.body}
                                         </p>
                                     </div>

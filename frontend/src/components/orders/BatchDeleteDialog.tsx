@@ -55,7 +55,7 @@ export function BatchDeleteDialog({ orderIds, open, onOpenChange, onSuccess }: B
                         Permanently Delete Orders
                     </DialogTitle>
                     <DialogDescription>
-                        You are about to permanently delete <span className="font-semibold text-slate-900">{orderIds.length}</span> order(s).
+                        You are about to permanently delete <span className="font-semibold text-foreground">{orderIds.length}</span> order(s).
                     </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">

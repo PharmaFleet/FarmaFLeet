@@ -157,25 +157,25 @@ export function MiniMapView() {
   // Show fallback with driver list if map unavailable
   if (!GOOGLE_MAPS_KEY || mapError) {
     return (
-      <div className="h-full w-full bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg p-4 overflow-y-auto">
-        <div className="flex items-center gap-2 mb-3 text-slate-600">
+      <div className="h-full w-full bg-gradient-to-br from-muted to-muted/50 rounded-lg p-4 overflow-y-auto">
+        <div className="flex items-center gap-2 mb-3 text-muted-foreground">
           <AlertCircle className="h-4 w-4" />
           <span className="text-xs">Map requires valid Google Maps API key</span>
         </div>
-        <div className="text-sm font-medium text-slate-700 mb-2">
+        <div className="text-sm font-medium text-foreground mb-2">
           Drivers ({drivers?.length || 0})
         </div>
         {drivers?.slice(0, 5).map((driver: any) => (
-          <div key={driver.driver_id} className="flex items-center gap-2 p-2 bg-white rounded mb-1 shadow-sm">
+          <div key={driver.driver_id} className="flex items-center gap-2 p-2 bg-card rounded mb-1 shadow-sm">
             <MapPin className={`h-4 w-4 ${driver.hasLiveLocation ? 'text-emerald-500' : 'text-amber-500'}`} />
-            <span className="text-sm text-slate-700">{driver.name || driver.vehicle_info || `Driver ${driver.driver_id}`}</span>
-            <span className="text-xs text-slate-400 ml-auto">
+            <span className="text-sm text-foreground">{driver.name || driver.vehicle_info || `Driver ${driver.driver_id}`}</span>
+            <span className="text-xs text-muted-foreground ml-auto">
               {driver.hasLiveLocation ? '🟢 GPS' : '🟡 Warehouse'}
             </span>
           </div>
         ))}
         {(!drivers || drivers.length === 0) && (
-          <div className="text-sm text-slate-400 text-center py-4">No drivers with location</div>
+          <div className="text-sm text-muted-foreground text-center py-4">No drivers with location</div>
         )}
       </div>
     );
@@ -183,8 +183,8 @@ export function MiniMapView() {
 
   if (!MapComponents) {
     return (
-      <div className="h-full w-full bg-slate-100 rounded-lg flex items-center justify-center">
-        <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
+      <div className="h-full w-full bg-muted rounded-lg flex items-center justify-center">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -258,36 +258,36 @@ function DriverDetailsPanel({ driver, onClose }: { driver: SelectedDriver; onClo
   });
 
   return (
-    <div className="absolute bottom-2 left-2 right-2 bg-white rounded-lg shadow-lg p-3 z-10 border border-slate-200">
+    <div className="absolute bottom-2 left-2 right-2 bg-card rounded-lg shadow-lg p-3 z-10 border border-border">
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           {driver.vehicle_type === 'motorcycle' ? (
-            <Bike className="h-4 w-4 text-slate-600" />
+            <Bike className="h-4 w-4 text-muted-foreground" />
           ) : (
-            <Car className="h-4 w-4 text-slate-600" />
+            <Car className="h-4 w-4 text-muted-foreground" />
           )}
-          <span className="font-semibold text-sm text-slate-800 truncate">
+          <span className="font-semibold text-sm text-foreground truncate">
             {driver.name || driver.vehicle_info || `Driver ${driver.driver_id}`}
           </span>
         </div>
         <button
           onClick={onClose}
-          className="p-1 hover:bg-slate-100 rounded transition-colors"
+          className="p-1 hover:bg-muted rounded transition-colors"
         >
-          <X className="h-4 w-4 text-slate-400" />
+          <X className="h-4 w-4 text-muted-foreground" />
         </button>
       </div>
 
       {/* Status badges */}
       <div className="flex items-center gap-2 mb-2">
         <span className={`text-xs px-2 py-0.5 rounded-full ${
-          driver.is_available ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'
+          driver.is_available ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300' : 'bg-muted text-muted-foreground'
         }`}>
           {driver.is_available ? 'Available' : 'Busy'}
         </span>
         <span className={`text-xs px-2 py-0.5 rounded-full ${
-          driver.hasLiveLocation ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+          driver.hasLiveLocation ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300'
         }`}>
           {driver.hasLiveLocation ? '📍 GPS' : '🏢 Warehouse'}
         </span>
@@ -295,7 +295,7 @@ function DriverDetailsPanel({ driver, onClose }: { driver: SelectedDriver; onClo
 
       {/* Info row */}
       {driver.warehouse_name && (
-        <div className="flex items-center gap-1.5 text-xs text-slate-600 mb-2">
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-2">
           <Warehouse className="h-3 w-3" />
           <span>{driver.warehouse_name}</span>
         </div>
@@ -303,18 +303,18 @@ function DriverDetailsPanel({ driver, onClose }: { driver: SelectedDriver; onClo
 
       {/* Stats */}
       {statsLoading ? (
-        <div className="text-xs text-slate-400 flex items-center gap-1">
+        <div className="text-xs text-muted-foreground flex items-center gap-1">
           <Loader2 className="h-3 w-3 animate-spin" /> Loading stats...
         </div>
       ) : stats ? (
-        <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100">
+        <div className="grid grid-cols-3 gap-2 pt-2 border-t border-border">
           <div className="text-center">
-            <div className="text-lg font-bold text-slate-800">{stats.orders_assigned}</div>
-            <div className="text-[10px] text-slate-500">Assigned</div>
+            <div className="text-lg font-bold text-foreground">{stats.orders_assigned}</div>
+            <div className="text-[10px] text-muted-foreground">Assigned</div>
           </div>
           <div className="text-center">
             <div className="text-lg font-bold text-emerald-600">{stats.orders_delivered}</div>
-            <div className="text-[10px] text-slate-500">Delivered</div>
+            <div className="text-[10px] text-muted-foreground">Delivered</div>
           </div>
           <div className="text-center">
             <div className="text-lg font-bold text-amber-600">
@@ -324,7 +324,7 @@ function DriverDetailsPanel({ driver, onClose }: { driver: SelectedDriver; onClo
                   : `${stats.online_duration_minutes}m`
                 : '-'}
             </div>
-            <div className="text-[10px] text-slate-500">Online</div>
+            <div className="text-[10px] text-muted-foreground">Online</div>
           </div>
         </div>
       ) : null}
