@@ -595,7 +595,11 @@ async def assign_order(
         select(Order)
         .where(Order.id == order.id)
         .options(
-            selectinload(Order.status_history), selectinload(Order.proof_of_delivery)
+            selectinload(Order.warehouse),
+            selectinload(Order.driver).selectinload(Driver.user),
+            selectinload(Order.driver).selectinload(Driver.warehouse),
+            selectinload(Order.status_history),
+            selectinload(Order.proof_of_delivery),
         )
     )
     result = await db.execute(query)

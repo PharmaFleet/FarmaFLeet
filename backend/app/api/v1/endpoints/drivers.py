@@ -225,7 +225,8 @@ async def read_driver_me_orders(
         select(Order)
         .where(Order.driver_id == driver.id)
         .options(
-            selectinload(Order.driver),
+            selectinload(Order.driver).selectinload(Driver.user),
+            selectinload(Order.driver).selectinload(Driver.warehouse),
             selectinload(Order.warehouse),
             selectinload(Order.status_history),
             selectinload(Order.proof_of_delivery),

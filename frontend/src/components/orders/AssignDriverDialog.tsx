@@ -36,8 +36,16 @@ export function AssignDriverDialog({ orderId, currentDriverId, open, onOpenChang
 
     const { data: drivers, isLoading: isLoadingDrivers } = useQuery({
         queryKey: ['available-drivers'],
-        queryFn: () => driverService.getAll({ limit: 100, is_available: true }), // simplified
+        queryFn: () => driverService.getAll({ size: 500, active_only: true }),
     });
+
+    // Reset state when dialog closes
+    const handleOpenChange = (isOpen: boolean) => {
+        if (!isOpen) {
+            setSelectedDriverId("");
+        }
+        onOpenChange(isOpen);
+    };
 
     const mutation = useMutation({
         mutationFn: (driverId: number) => orderService.assignDriver(orderId, driverId),
@@ -65,7 +73,7 @@ export function AssignDriverDialog({ orderId, currentDriverId, open, onOpenChang
     };
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
+        <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
                     <DialogTitle>Assign Driver</DialogTitle>
@@ -95,7 +103,7 @@ export function AssignDriverDialog({ orderId, currentDriverId, open, onOpenChang
                     </div>
                 </div>
                 <DialogFooter>
-                    <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+                    <Button variant="outline" onClick={() => handleOpenChange(false)}>Cancel</Button>
                     <Button onClick={handleAssign} disabled={!selectedDriverId || mutation.isPending}>
                         {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Assign

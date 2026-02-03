@@ -56,9 +56,16 @@ class DashboardView extends StatelessWidget {
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
-            const DrawerHeader(
-              decoration: BoxDecoration(color: Colors.blue),
-              child: Text('PharmaFleet Driver', style: TextStyle(color: Colors.white, fontSize: 24)),
+            BlocBuilder<AuthBloc, AuthState>(
+              builder: (context, state) {
+                final userName = state is AuthAuthenticated
+                    ? state.user.fullName ?? 'Driver'
+                    : 'Driver';
+                return DrawerHeader(
+                  decoration: const BoxDecoration(color: Colors.blue),
+                  child: Text(userName, style: const TextStyle(color: Colors.white, fontSize: 24)),
+                );
+              },
             ),
             ListTile(
               leading: const Icon(Icons.list_alt),
