@@ -172,6 +172,20 @@ class NotificationService {
         // Show shift limit warning
         debugPrint('Shift limit reached');
         break;
+      case 'order_cancelled':
+        // Order was cancelled by manager
+        final orderId = data['order_id'];
+        final orderNumber = data['order_number'];
+        debugPrint('Order cancelled: $orderNumber (ID: $orderId)');
+        // Navigate to orders list to refresh
+        break;
+      case 'order_reassigned':
+        // Order was reassigned to another driver
+        final orderId = data['order_id'];
+        final orderNumber = data['order_number'];
+        debugPrint('Order reassigned: $orderNumber (ID: $orderId)');
+        // Navigate to orders list to refresh
+        break;
       default:
         debugPrint('Unknown notification type: $type');
     }

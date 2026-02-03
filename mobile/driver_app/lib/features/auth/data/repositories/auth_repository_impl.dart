@@ -31,9 +31,16 @@ class AuthRepositoryImpl implements AuthRepository {
 
       final accessToken = response.data['access_token'];
       if (accessToken != null) {
+        debugPrint('[AuthRepo] Saving token: ${accessToken.toString().substring(0, 20)}...');
         await _storage.write(key: AppConstants.tokenKey, value: accessToken);
+
+        // Verify token was saved
+        final savedToken = await _storage.read(key: AppConstants.tokenKey);
+        debugPrint('[AuthRepo] Token saved successfully: ${savedToken != null}');
+
         return accessToken;
       } else {
+        debugPrint('[AuthRepo] ERROR: No access_token in response');
         throw Exception('Token not found in response');
       }
     } on DioException catch (e) {

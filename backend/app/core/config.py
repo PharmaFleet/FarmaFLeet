@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
     SECRET_KEY: str = "CHANGEME"  # Must be set in env (validated below)
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 120  # 2 hours (reduced from 8 days for security)
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 hours - extended for mobile app reliability
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30  # 30 days for refresh token
 
     # Database

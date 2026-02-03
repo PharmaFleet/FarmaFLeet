@@ -194,5 +194,81 @@ class NotificationService:
         if token:
             await self.send_to_token(token, title, body, data={"type": "shift_limit"})
 
+    async def notify_driver_order_cancelled(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        order_id: int,
+        order_number: str,
+        token: Optional[str] = None,
+    ):
+        """Notify driver that an assigned order has been cancelled."""
+        title = "Order Cancelled"
+        body = f"Order {order_number} has been cancelled and removed from your assignments."
+
+        notif = Notification(
+            user_id=user_id,
+            title=title,
+            body=body,
+            data={
+                "type": "order_cancelled",
+                "order_id": str(order_id),
+                "order_number": order_number,
+            },
+            created_at=datetime.utcnow(),
+            sent_at=datetime.utcnow() if token else None,
+        )
+        db.add(notif)
+
+        if token:
+            await self.send_to_token(
+                token,
+                title,
+                body,
+                data={
+                    "type": "order_cancelled",
+                    "order_id": str(order_id),
+                    "order_number": order_number,
+                },
+            )
+
+    async def notify_driver_order_reassigned(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        order_id: int,
+        order_number: str,
+        token: Optional[str] = None,
+    ):
+        """Notify driver that an order has been reassigned to another driver."""
+        title = "Order Reassigned"
+        body = f"Order {order_number} has been reassigned to another driver."
+
+        notif = Notification(
+            user_id=user_id,
+            title=title,
+            body=body,
+            data={
+                "type": "order_reassigned",
+                "order_id": str(order_id),
+                "order_number": order_number,
+            },
+            created_at=datetime.utcnow(),
+            sent_at=datetime.utcnow() if token else None,
+        )
+        db.add(notif)
+
+        if token:
+            await self.send_to_token(
+                token,
+                title,
+                body,
+                data={
+                    "type": "order_reassigned",
+                    "order_id": str(order_id),
+                    "order_number": order_number,
+                },
+            )
+
 
 notification_service = NotificationService()

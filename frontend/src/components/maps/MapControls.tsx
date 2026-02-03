@@ -1,8 +1,10 @@
-import { X, Filter, Route, User, Users, Coffee, CircleOff } from 'lucide-react';
+import { X, Filter, Route, User, Users, Coffee, CircleOff, Package, Clock, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { DriverWithLocation, DriverMapStatus, MapBounds } from '@/stores/driversStore';
+import { DriverWithLocation, DriverMapStatus } from '@/stores/driversStore';
+import { useQuery } from '@tanstack/react-query';
+import { driverService } from '@/services/driverService';
 
 interface MapControlsProps {
   selectedDriver: DriverWithLocation | null;
@@ -82,8 +84,16 @@ export function MapControls({
   drivers,
   filteredDrivers,
   isLoading,
-  onRefresh,
+  onRefresh: _onRefresh,
 }: MapControlsProps): JSX.Element {
+  // Fetch driver stats when a driver is selected
+  const { data: driverStats, isLoading: statsLoading } = useQuery({
+    queryKey: ['driver-stats', selectedDriver?.id],
+    queryFn: () => driverService.getStats(selectedDriver!.id),
+    enabled: !!selectedDriver,
+    staleTime: 30000, // 30 seconds
+  });
+
   // Count drivers by status
   const statusCounts = {
     [DriverMapStatus.ONLINE]: drivers.filter((d) => d.status === DriverMapStatus.ONLINE).length,
@@ -206,6 +216,49 @@ export function MapControls({
               <div className="text-xs">
                 <span className="text-muted-foreground">Warehouse:</span>{' '}
                 <span className="font-medium">{selectedDriver.warehouse.name}</span>
+              </div>
+            )}
+
+            {/* Driver Statistics */}
+            {driverStats && (
+              <div className="pt-2 border-t space-y-2">
+                <div className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                  <TrendingUp className="h-3 w-3" />
+                  Statistics
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="flex items-center gap-1.5">
+                    <Package className="h-3 w-3 text-blue-500" />
+                    <span className="text-muted-foreground">Assigned:</span>
+                    <span className="font-medium">{driverStats.orders_assigned}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Package className="h-3 w-3 text-green-500" />
+                    <span className="text-muted-foreground">Delivered:</span>
+                    <span className="font-medium">{driverStats.orders_delivered}</span>
+                  </div>
+                </div>
+                {driverStats.online_duration_minutes != null && (
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <Clock className="h-3 w-3 text-amber-500" />
+                    <span className="text-muted-foreground">Online:</span>
+                    <span className="font-medium">
+                      {driverStats.online_duration_minutes >= 60
+                        ? `${Math.floor(driverStats.online_duration_minutes / 60)}h ${driverStats.online_duration_minutes % 60}m`
+                        : `${driverStats.online_duration_minutes}m`}
+                    </span>
+                  </div>
+                )}
+                {driverStats.last_order_assigned_at && (
+                  <div className="text-xs text-muted-foreground">
+                    Last order: {new Date(driverStats.last_order_assigned_at).toLocaleString()}
+                  </div>
+                )}
+              </div>
+            )}
+            {statsLoading && (
+              <div className="pt-2 border-t text-xs text-muted-foreground">
+                Loading statistics...
               </div>
             )}
 

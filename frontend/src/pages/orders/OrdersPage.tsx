@@ -362,6 +362,7 @@ export default function OrdersPage() {
                   </TableHead>
                   <TableHead className="w-[140px]">Order #</TableHead>
                   <TableHead>Customer</TableHead>
+                  <TableHead className="min-w-[200px]">Address</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Warehouse</TableHead>
                   <TableHead>Driver</TableHead>
@@ -376,6 +377,7 @@ export default function OrdersPage() {
                             <TableCell><div className="h-4 w-4 bg-slate-100 rounded" /></TableCell>
                             <TableCell><div className="h-4 w-24 bg-slate-100 rounded" /></TableCell>
                             <TableCell><div className="h-4 w-32 bg-slate-100 rounded" /></TableCell>
+                            <TableCell><div className="h-4 w-40 bg-slate-100 rounded" /></TableCell>
                             <TableCell><div className="h-4 w-20 bg-slate-100 rounded" /></TableCell>
                             <TableCell><div className="h-4 w-24 bg-slate-100 rounded" /></TableCell>
                             <TableCell><div className="h-4 w-24 bg-slate-100 rounded" /></TableCell>
@@ -385,7 +387,7 @@ export default function OrdersPage() {
                     ))
                 ) : data?.items?.length === 0 ? (
                     <TableRow>
-                        <TableCell colSpan={8} className="h-40 text-center text-slate-400 italic">
+                        <TableCell colSpan={9} className="h-40 text-center text-slate-400 italic">
                             No orders found matching your criteria.
                         </TableCell>
                     </TableRow>
@@ -416,6 +418,14 @@ export default function OrdersPage() {
                                         )}
                                     </div>
                                     <span className="text-[11px] text-slate-500">{order.customer_info?.phone || 'No phone'}</span>
+                                </div>
+                            </TableCell>
+                            <TableCell>
+                                <div
+                                    className="max-w-[200px] text-sm text-slate-600 truncate"
+                                    title={order.customer_info?.address || 'No address'}
+                                >
+                                    {order.customer_info?.address || <span className="text-slate-400 italic">No address</span>}
                                 </div>
                             </TableCell>
                             <TableCell>

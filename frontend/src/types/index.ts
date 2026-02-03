@@ -13,6 +13,7 @@ export interface Driver {
   user_id: number;
   is_available: boolean;
   vehicle_info?: string;
+  vehicle_type?: string; // "car" or "motorcycle"
   biometric_id?: string;
   warehouse_id?: number;
   user?: User; // Optional if joined

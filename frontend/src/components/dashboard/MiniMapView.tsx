@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { driverService } from '@/services/driverService';
-import { Loader2, MapPin, AlertCircle } from 'lucide-react';
-import { useState, useEffect, useMemo } from 'react';
+import { Loader2, MapPin, AlertCircle, X, Warehouse, Car, Bike } from 'lucide-react';
+import { useState, useEffect } from 'react';
 
 const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
 
@@ -9,13 +9,28 @@ const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
 const DEFAULT_CENTER = { lat: 29.3759, lng: 47.9774 };
 
 /**
- * Create a motorcycle marker icon as a data URL
- * Green for live GPS, amber for warehouse fallback
+ * Create a car marker icon as a data URL
  */
-function createMotorcycleIcon(hasLiveLocation: boolean): string {
-  const color = hasLiveLocation ? '#22c55e' : '#f59e0b'; // green-500 or amber-500
-  const size = 28;
+function createCarIcon(color: string, size: number): string {
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="11" fill="${color}" stroke="white" stroke-width="2"/>
+      <g transform="translate(4, 5)" fill="white">
+        <path d="M2 8 L2 11 L14 11 L14 8 L12 8 L11 5 L5 5 L4 8 Z" fill="white"/>
+        <path d="M5 5 L6 2 L10 2 L11 5" fill="white"/>
+        <circle cx="4" cy="11" r="1.5" fill="${color}"/>
+        <circle cx="12" cy="11" r="1.5" fill="${color}"/>
+        <rect x="6" y="3" width="4" height="2" fill="${color}" rx="0.5"/>
+      </g>
+    </svg>
+  `;
+  return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
+}
 
+/**
+ * Create a motorcycle marker icon as a data URL
+ */
+function createMotorcycleIcon(color: string, size: number): string {
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none">
       <circle cx="12" cy="12" r="11" fill="${color}" stroke="white" stroke-width="2"/>
@@ -28,17 +43,41 @@ function createMotorcycleIcon(hasLiveLocation: boolean): string {
       </g>
     </svg>
   `;
-
   return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
+}
+
+/**
+ * Create a marker icon based on vehicle type
+ * Green for live GPS, amber for warehouse fallback
+ */
+function createVehicleIcon(hasLiveLocation: boolean, vehicleType?: string): string {
+  const color = hasLiveLocation ? '#22c55e' : '#f59e0b'; // green-500 or amber-500
+  const size = 28;
+
+  if (vehicleType === 'motorcycle') {
+    return createMotorcycleIcon(color, size);
+  }
+  return createCarIcon(color, size);
 }
 
 // Helper to check valid coordinates (not 0,0 which is invalid)
 const isValidCoord = (lat: number | undefined, lng: number | undefined) =>
   lat != null && lng != null && !(lat === 0 && lng === 0);
 
+interface SelectedDriver {
+  driver_id: number;
+  name: string | null;
+  vehicle_info: string | null;
+  vehicle_type: string | null;
+  warehouse_name?: string | null;
+  hasLiveLocation: boolean;
+  is_available: boolean;
+}
+
 export function MiniMapView() {
   const [mapError, setMapError] = useState<string | null>(null);
   const [MapComponents, setMapComponents] = useState<any>(null);
+  const [selectedDriver, setSelectedDriver] = useState<SelectedDriver | null>(null);
 
   // Fetch both drivers (with warehouse) AND live locations, then merge
   const { data: driversWithLocation, isLoading, error } = useQuery({
@@ -74,7 +113,9 @@ export function MiniMapView() {
             latitude: hasValidLive ? liveLocation.latitude : (hasValidWarehouse ? warehouseLat : null),
             longitude: hasValidLive ? liveLocation.longitude : (hasValidWarehouse ? warehouseLng : null),
             vehicle_info: driver.vehicle_info,
+            vehicle_type: driver.vehicle_type,
             name: driver.user?.full_name,
+            warehouse_name: driver.warehouse?.name,
             is_available: driver.is_available,
             hasLiveLocation: hasValidLive,
           };
@@ -163,7 +204,7 @@ export function MiniMapView() {
           {drivers?.map((driver: any) => {
              const lat = Number(driver.latitude);
              const lng = Number(driver.longitude);
-             const icon = createMotorcycleIcon(driver.hasLiveLocation);
+             const icon = createVehicleIcon(driver.hasLiveLocation, driver.vehicle_type);
              const locationInfo = driver.hasLiveLocation ? 'GPS' : 'Warehouse';
              const title = `${driver.name || driver.vehicle_info || `Driver ${driver.driver_id}`} (${locationInfo})`;
 
@@ -173,16 +214,120 @@ export function MiniMapView() {
                  position={{ lat, lng }}
                  title={title}
                  icon={icon}
+                 onClick={() => setSelectedDriver({
+                   driver_id: driver.driver_id,
+                   name: driver.name,
+                   vehicle_info: driver.vehicle_info,
+                   vehicle_type: driver.vehicle_type,
+                   warehouse_name: driver.warehouse_name,
+                   hasLiveLocation: driver.hasLiveLocation,
+                   is_available: driver.is_available,
+                 })}
                />
              );
            })}
         </Map>
       </APIProvider>
+
+      {/* Selected Driver Info Panel */}
+      {selectedDriver && (
+        <DriverDetailsPanel
+          driver={selectedDriver}
+          onClose={() => setSelectedDriver(null)}
+        />
+      )}
+
       {isLoading && (
         <div className="absolute top-2 right-2 bg-white/80 p-1.5 rounded text-xs flex items-center gap-1">
           <Loader2 className="h-3 w-3 animate-spin" /> Updating...
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Driver Details Panel - compact info panel for MiniMapView
+ */
+function DriverDetailsPanel({ driver, onClose }: { driver: SelectedDriver; onClose: () => void }) {
+  // Fetch driver stats
+  const { data: stats, isLoading: statsLoading } = useQuery({
+    queryKey: ['driver-stats', driver.driver_id],
+    queryFn: () => driverService.getStats(driver.driver_id),
+    staleTime: 30000,
+  });
+
+  return (
+    <div className="absolute bottom-2 left-2 right-2 bg-white rounded-lg shadow-lg p-3 z-10 border border-slate-200">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          {driver.vehicle_type === 'motorcycle' ? (
+            <Bike className="h-4 w-4 text-slate-600" />
+          ) : (
+            <Car className="h-4 w-4 text-slate-600" />
+          )}
+          <span className="font-semibold text-sm text-slate-800 truncate">
+            {driver.name || driver.vehicle_info || `Driver ${driver.driver_id}`}
+          </span>
+        </div>
+        <button
+          onClick={onClose}
+          className="p-1 hover:bg-slate-100 rounded transition-colors"
+        >
+          <X className="h-4 w-4 text-slate-400" />
+        </button>
+      </div>
+
+      {/* Status badges */}
+      <div className="flex items-center gap-2 mb-2">
+        <span className={`text-xs px-2 py-0.5 rounded-full ${
+          driver.is_available ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'
+        }`}>
+          {driver.is_available ? 'Available' : 'Busy'}
+        </span>
+        <span className={`text-xs px-2 py-0.5 rounded-full ${
+          driver.hasLiveLocation ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+        }`}>
+          {driver.hasLiveLocation ? '📍 GPS' : '🏢 Warehouse'}
+        </span>
+      </div>
+
+      {/* Info row */}
+      {driver.warehouse_name && (
+        <div className="flex items-center gap-1.5 text-xs text-slate-600 mb-2">
+          <Warehouse className="h-3 w-3" />
+          <span>{driver.warehouse_name}</span>
+        </div>
+      )}
+
+      {/* Stats */}
+      {statsLoading ? (
+        <div className="text-xs text-slate-400 flex items-center gap-1">
+          <Loader2 className="h-3 w-3 animate-spin" /> Loading stats...
+        </div>
+      ) : stats ? (
+        <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100">
+          <div className="text-center">
+            <div className="text-lg font-bold text-slate-800">{stats.orders_assigned}</div>
+            <div className="text-[10px] text-slate-500">Assigned</div>
+          </div>
+          <div className="text-center">
+            <div className="text-lg font-bold text-emerald-600">{stats.orders_delivered}</div>
+            <div className="text-[10px] text-slate-500">Delivered</div>
+          </div>
+          <div className="text-center">
+            <div className="text-lg font-bold text-amber-600">
+              {stats.online_duration_minutes != null
+                ? stats.online_duration_minutes >= 60
+                  ? `${Math.floor(stats.online_duration_minutes / 60)}h`
+                  : `${stats.online_duration_minutes}m`
+                : '-'}
+            </div>
+            <div className="text-[10px] text-slate-500">Online</div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

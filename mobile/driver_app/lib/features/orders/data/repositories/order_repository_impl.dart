@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../domain/entities/order_entity.dart';
 import '../../domain/repositories/order_repository.dart';
@@ -11,6 +12,7 @@ class OrderRepositoryImpl implements OrderRepository {
 
   @override
   Future<List<OrderEntity>> getOrders({String? statusFilter}) async {
+    debugPrint('[OrderRepo] Fetching orders with filter: $statusFilter');
     try {
       final queryParams = <String, dynamic>{};
       if (statusFilter != null) {
@@ -22,9 +24,18 @@ class OrderRepositoryImpl implements OrderRepository {
         queryParameters: queryParams,
       );
 
+      debugPrint('[OrderRepo] Orders fetched successfully: ${(response.data as List).length} orders');
       final List<dynamic> data = response.data;
       return data.map((json) => OrderModel.fromJson(json)).toList();
+    } on DioException catch (e) {
+      debugPrint('[OrderRepo] DioException: ${e.response?.statusCode} - ${e.message}');
+      debugPrint('[OrderRepo] Response data: ${e.response?.data}');
+      if (e.response?.statusCode == 401) {
+        throw Exception('Unauthorized - please login again');
+      }
+      throw Exception('Failed to fetch orders: ${e.message}');
     } catch (e) {
+      debugPrint('[OrderRepo] Exception: $e');
       throw Exception('Failed to fetch orders: $e');
     }
   }

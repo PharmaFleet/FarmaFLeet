@@ -641,7 +641,7 @@ describe('OrdersPage Component', () => {
         expect(table).toBeInTheDocument();
 
         const headers = screen.getAllByRole('columnheader');
-        expect(headers.length).toBe(8); // Checkbox, Order #, Customer, Status, Warehouse, Driver, Amount, Actions
+        expect(headers.length).toBe(9); // Checkbox, Order #, Customer, Address, Status, Warehouse, Driver, Amount, Actions
       });
     });
   });

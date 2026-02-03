@@ -1,4 +1,4 @@
-import React, { memo, useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import { Marker } from '@vis.gl/react-google-maps';
 import { DriverWithLocation, DriverMapStatus } from '@/stores/driversStore';
 
@@ -19,13 +19,35 @@ const STATUS_COLORS: Record<DriverMapStatus, string> = {
 };
 
 /**
+ * Create a car marker icon as a data URL
+ */
+function createCarIcon(color: string, size: number, opacity: number): string {
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none">
+      <!-- Background circle -->
+      <circle cx="12" cy="12" r="11" fill="${color}" stroke="white" stroke-width="2" opacity="${opacity}"/>
+      <!-- Car icon -->
+      <g transform="translate(4, 5)" fill="white">
+        <!-- Car body -->
+        <path d="M2 8 L2 11 L14 11 L14 8 L12 8 L11 5 L5 5 L4 8 Z" fill="white"/>
+        <!-- Car roof -->
+        <path d="M5 5 L6 2 L10 2 L11 5" fill="white"/>
+        <!-- Front wheel -->
+        <circle cx="4" cy="11" r="1.5" fill="${color}"/>
+        <!-- Back wheel -->
+        <circle cx="12" cy="11" r="1.5" fill="${color}"/>
+        <!-- Windows -->
+        <rect x="6" y="3" width="4" height="2" fill="${color}" rx="0.5"/>
+      </g>
+    </svg>
+  `;
+  return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
+}
+
+/**
  * Create a motorcycle marker icon as a data URL
  */
-function createMarkerIcon(color: string, isSelected: boolean, hasLiveLocation: boolean | undefined): string {
-  const size = isSelected ? 40 : 32;
-  const opacity = hasLiveLocation === false ? 0.7 : 1;
-
-  // Motorcycle icon SVG
+function createMotorcycleIcon(color: string, size: number, opacity: number): string {
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none">
       <!-- Background circle -->
@@ -45,8 +67,21 @@ function createMarkerIcon(color: string, isSelected: boolean, hasLiveLocation: b
       </g>
     </svg>
   `;
-
   return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
+}
+
+/**
+ * Create a marker icon based on vehicle type
+ */
+function createMarkerIcon(color: string, isSelected: boolean, hasLiveLocation: boolean | undefined, vehicleType?: string): string {
+  const size = isSelected ? 40 : 32;
+  const opacity = hasLiveLocation === false ? 0.7 : 1;
+
+  // Use motorcycle icon for motorcycle, car icon for everything else (default)
+  if (vehicleType === 'motorcycle') {
+    return createMotorcycleIcon(color, size, opacity);
+  }
+  return createCarIcon(color, size, opacity);
 }
 
 /**
@@ -80,6 +115,11 @@ function areEqual(prevProps: DriverMarkerProps, nextProps: DriverMarkerProps): b
 
   // Check if live location flag changed
   if (prevDriver.hasLiveLocation !== nextDriver.hasLiveLocation) {
+    return false;
+  }
+
+  // Check if vehicle type changed
+  if (prevDriver.vehicle_type !== nextDriver.vehicle_type) {
     return false;
   }
 
@@ -119,8 +159,8 @@ export const DriverMarker = memo(function DriverMarker({
 
   // Memoize icon to prevent recreation
   const icon = useMemo(
-    () => createMarkerIcon(color, isSelected, driver.hasLiveLocation),
-    [color, isSelected, driver.hasLiveLocation]
+    () => createMarkerIcon(color, isSelected, driver.hasLiveLocation, driver.vehicle_type),
+    [color, isSelected, driver.hasLiveLocation, driver.vehicle_type]
   );
 
   const handleClick = () => {

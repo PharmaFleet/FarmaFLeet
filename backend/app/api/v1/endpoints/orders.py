@@ -244,6 +244,13 @@ async def import_orders(
         created_count = 0
         errors = []
 
+        # Build warehouse code -> id mapping
+        wh_stmt = select(Warehouse)
+        wh_result = await db.execute(wh_stmt)
+        all_warehouses = wh_result.scalars().all()
+        warehouse_map = {wh.code: wh.id for wh in all_warehouses}
+        default_warehouse = all_warehouses[0] if all_warehouses else None
+
         for i, row in enumerate(data):
             try:
                 # Use same mapping logic as before
@@ -289,25 +296,28 @@ async def import_orders(
                 # Clean and normalize payment method, default to CASH if empty
                 payment_method = clean_value(payment_method_raw) or "CASH"
 
-                # Ensure a default warehouse exists
-                wh_stmt = select(Warehouse).limit(1)
-                wh_result = await db.execute(wh_stmt)
-                default_wh = wh_result.scalars().first()
+                # Extract warehouse code from Excel and map to warehouse ID
+                excel_wh_code = clean_value(
+                    row.get("Warehouse") or row.get("warehouse") or row.get("WH")
+                )
 
-                if not default_wh:
+                if excel_wh_code and excel_wh_code in warehouse_map:
+                    target_wh_id = warehouse_map[excel_wh_code]
+                elif default_warehouse:
+                    target_wh_id = default_warehouse.id
+                else:
                     # Create default warehouse if none exists
-                    default_wh = Warehouse(
+                    new_wh = Warehouse(
                         code="WH-DEFAULT",
                         name="Main Warehouse",
                         location=WKTElement("POINT(47.9774 29.3759)", srid=4326),
                     )
-                    db.add(default_wh)
+                    db.add(new_wh)
                     await db.commit()
-                    await db.refresh(default_wh)
-
-                target_wh_id = default_wh.id
-
-                # If we had warehouse code logic, insert here.
+                    await db.refresh(new_wh)
+                    default_warehouse = new_wh
+                    warehouse_map[new_wh.code] = new_wh.id
+                    target_wh_id = new_wh.id
 
                 order_in = OrderCreate(
                     sales_order_number=sales_order_number,
@@ -519,9 +529,20 @@ async def assign_order(
     """
     Assign order to driver.
     """
-    order = await db.get(Order, order_id)
+    # Load order with existing driver to detect reassignment
+    order_result = await db.execute(
+        select(Order)
+        .where(Order.id == order_id)
+        .options(selectinload(Order.driver).selectinload(Driver.user))
+    )
+    order = order_result.scalars().first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+
+    # Store previous driver for reassignment notification
+    previous_driver = order.driver
+    previous_driver_user = previous_driver.user if previous_driver else None
+    is_reassignment = previous_driver is not None and previous_driver.id != driver_id
 
     stmt = (
         select(Driver).where(Driver.id == driver_id).options(selectinload(Driver.user))
@@ -537,7 +558,7 @@ async def assign_order(
     history = OrderStatusHistory(
         order_id=order.id,
         status=OrderStatus.ASSIGNED,
-        notes=f"Assigned to driver {driver.user_id}",
+        notes=f"Assigned to driver {driver.user_id}" + (" (reassigned)" if is_reassignment else ""),
     )
     db.add(history)
     db.add(order)
@@ -553,10 +574,20 @@ async def assign_order(
     )
     result = await db.execute(query)
 
-    # Notify driver
+    # Notify new driver
     if driver.user.fcm_token:
         await notification_service.notify_driver_new_orders(
             db, driver.user_id, 1, driver.user.fcm_token
+        )
+
+    # Notify previous driver about reassignment
+    if is_reassignment and previous_driver_user:
+        await notification_service.notify_driver_order_reassigned(
+            db=db,
+            user_id=previous_driver_user.id,
+            order_id=order.id,
+            order_number=order.sales_order_number,
+            token=previous_driver_user.fcm_token,
         )
 
     return result.scalars().first()
@@ -825,12 +856,22 @@ async def cancel_order(
     """
     Cancel an order (soft cancellation - changes status to CANCELLED).
     """
-    order = await db.get(Order, order_id)
+    # Load order with driver relationship for notification
+    result = await db.execute(
+        select(Order)
+        .where(Order.id == order_id)
+        .options(selectinload(Order.driver).selectinload(Driver.user))
+    )
+    order = result.scalars().first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
     if order.status == OrderStatus.DELIVERED:
         raise HTTPException(status_code=400, detail="Cannot cancel a delivered order")
+
+    # Store driver info before cancellation
+    previous_driver = order.driver
+    previous_driver_user = previous_driver.user if previous_driver else None
 
     order.status = OrderStatus.CANCELLED
 
@@ -842,6 +883,18 @@ async def cancel_order(
     db.add(history)
     db.add(order)
     await db.commit()
+
+    # Notify the driver if the order was assigned
+    if previous_driver_user:
+        await notification_service.notify_driver_order_cancelled(
+            db=db,
+            user_id=previous_driver_user.id,
+            order_id=order.id,
+            order_number=order.sales_order_number,
+            token=previous_driver_user.fcm_token,
+        )
+        await db.commit()  # Commit notification
+
     return {"msg": "Order cancelled successfully"}
 
 

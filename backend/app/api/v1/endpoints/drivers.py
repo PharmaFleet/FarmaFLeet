@@ -515,6 +515,57 @@ async def read_driver(
     return driver
 
 
+@router.get("/{driver_id}/stats")
+async def read_driver_stats(
+    driver_id: int,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+) -> Any:
+    """
+    Get driver statistics.
+    Returns orders_assigned, orders_delivered, last_order_assigned_at, online_duration_minutes.
+    """
+    # Verify driver exists
+    driver = await db.get(Driver, driver_id)
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver not found")
+
+    # Count total orders assigned to this driver
+    orders_assigned_result = await db.execute(
+        select(func.count(Order.id)).where(Order.driver_id == driver_id)
+    )
+    orders_assigned = orders_assigned_result.scalar_one()
+
+    # Count delivered orders
+    orders_delivered_result = await db.execute(
+        select(func.count(Order.id)).where(
+            Order.driver_id == driver_id, Order.status == OrderStatus.DELIVERED
+        )
+    )
+    orders_delivered = orders_delivered_result.scalar_one()
+
+    # Get last order assigned timestamp (using updated_at of most recent order)
+    last_order_result = await db.execute(
+        select(func.max(Order.updated_at)).where(Order.driver_id == driver_id)
+    )
+    last_order_assigned_at = last_order_result.scalar_one()
+
+    # Calculate online duration (time since last_online_at if available and driver is online)
+    online_duration_minutes = None
+    if driver.is_available and driver.last_online_at:
+        duration = datetime.utcnow() - driver.last_online_at
+        online_duration_minutes = int(duration.total_seconds() / 60)
+
+    return {
+        "driver_id": driver_id,
+        "orders_assigned": orders_assigned,
+        "orders_delivered": orders_delivered,
+        "last_order_assigned_at": last_order_assigned_at.isoformat() if last_order_assigned_at else None,
+        "online_duration_minutes": online_duration_minutes,
+        "is_available": driver.is_available,
+    }
+
+
 @router.put("/{driver_id}", response_model=DriverSchema)
 async def update_driver(
     *,

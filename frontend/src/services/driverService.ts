@@ -37,5 +37,17 @@ getAll: async (params?: any): Promise<PaginatedResponse<Driver>> => {
   getLocations: async (): Promise<any[]> => {
       const response = await api.get('/drivers/locations');
       return response.data;
+  },
+
+  getStats: async (id: number): Promise<{
+    driver_id: number;
+    orders_assigned: number;
+    orders_delivered: number;
+    last_order_assigned_at: string | null;
+    online_duration_minutes: number | null;
+    is_available: boolean;
+  }> => {
+      const response = await api.get(`/drivers/${id}/stats`);
+      return response.data;
   }
 };
