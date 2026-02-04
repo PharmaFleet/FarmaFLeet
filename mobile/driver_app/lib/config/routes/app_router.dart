@@ -1,10 +1,14 @@
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/di/injection_container.dart' as di;
 import '../../core/util/go_router_refresh_stream.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/splash_screen.dart';
 import '../../features/dashboard/presentation/screens/home_screen.dart';
+import '../../features/notifications/presentation/bloc/notification_bloc.dart';
+import '../../features/notifications/presentation/screens/notification_center_screen.dart';
 import '../../features/orders/presentation/screens/order_details_screen.dart';
 import '../../features/orders/presentation/screens/orders_list_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
@@ -71,6 +75,13 @@ class AppRouter {
       GoRoute(
         path: '/orders',
         builder: (context, state) => const OrdersListScreen(),
+      ),
+      GoRoute(
+        path: '/notifications',
+        builder: (context, state) => BlocProvider(
+          create: (context) => di.sl<NotificationBloc>(),
+          child: const NotificationCenterScreen(),
+        ),
       ),
     ],
   );

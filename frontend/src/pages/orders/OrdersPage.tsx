@@ -186,6 +186,7 @@ export default function OrdersPage() {
     { value: 'ALL', label: 'All Orders' },
     { value: OrderStatus.PENDING, label: 'Unassigned / Pending' },
     { value: OrderStatus.ASSIGNED, label: 'Assigned' },
+    { value: OrderStatus.PICKED_UP, label: 'Picked Up' },
     { value: OrderStatus.OUT_FOR_DELIVERY, label: 'Out for Delivery' },
     { value: OrderStatus.DELIVERED, label: 'Delivered' },
     { value: OrderStatus.CANCELLED, label: 'Cancelled' },

@@ -48,6 +48,24 @@ class OrderStatusUpdateRequested extends OrdersEvent {
   List<Object?> get props => [orderId, status, notes, photo, signature, paymentMethod, amountCollected];
 }
 
+class BatchPickupRequested extends OrdersEvent {
+  final List<int> orderIds;
+  const BatchPickupRequested(this.orderIds);
+
+  @override
+  List<Object?> get props => [orderIds];
+}
+
+class BatchDeliveryRequested extends OrdersEvent {
+  final List<int> orderIds;
+  final List<Map<String, dynamic>>? proofs;
+
+  const BatchDeliveryRequested(this.orderIds, {this.proofs});
+
+  @override
+  List<Object?> get props => [orderIds, proofs];
+}
+
 // States
 abstract class OrdersState extends Equatable {
   const OrdersState();
@@ -96,6 +114,40 @@ class OrderStatusUpdateFailure extends OrdersState {
   List<Object> get props => [orderId, message];
 }
 
+// Batch Pickup States
+class BatchPickupInProgress extends OrdersState {}
+
+class BatchPickupSuccess extends OrdersState {
+  final int count;
+  const BatchPickupSuccess(this.count);
+  @override
+  List<Object> get props => [count];
+}
+
+class BatchPickupFailure extends OrdersState {
+  final String message;
+  const BatchPickupFailure(this.message);
+  @override
+  List<Object> get props => [message];
+}
+
+// Batch Delivery States
+class BatchDeliveryInProgress extends OrdersState {}
+
+class BatchDeliverySuccess extends OrdersState {
+  final int count;
+  const BatchDeliverySuccess(this.count);
+  @override
+  List<Object> get props => [count];
+}
+
+class BatchDeliveryFailure extends OrdersState {
+  final String message;
+  const BatchDeliveryFailure(this.message);
+  @override
+  List<Object> get props => [message];
+}
+
 // Bloc
 class OrdersBloc extends Bloc<OrdersEvent, OrdersState> {
   final OrderRepository repository;
@@ -104,6 +156,8 @@ class OrdersBloc extends Bloc<OrdersEvent, OrdersState> {
     on<FetchOrders>(_onFetchOrders);
     on<RefreshOrders>(_onRefreshOrders);
     on<OrderStatusUpdateRequested>(_onOrderStatusUpdateRequested);
+    on<BatchPickupRequested>(_onBatchPickupRequested);
+    on<BatchDeliveryRequested>(_onBatchDeliveryRequested);
   }
 
   Future<void> _onFetchOrders(FetchOrders event, Emitter<OrdersState> emit) async {
@@ -172,6 +226,36 @@ class OrdersBloc extends Bloc<OrdersEvent, OrdersState> {
       emit(OrderStatusUpdateSuccess(event.orderId, event.status));
     } catch (e) {
       emit(OrderStatusUpdateFailure(event.orderId, e.toString()));
+    }
+  }
+
+  Future<void> _onBatchPickupRequested(
+    BatchPickupRequested event,
+    Emitter<OrdersState> emit,
+  ) async {
+    emit(BatchPickupInProgress());
+
+    try {
+      final result = await repository.batchPickupOrders(event.orderIds);
+      final count = result['picked_up'] as int? ?? event.orderIds.length;
+      emit(BatchPickupSuccess(count));
+    } catch (e) {
+      emit(BatchPickupFailure(e.toString()));
+    }
+  }
+
+  Future<void> _onBatchDeliveryRequested(
+    BatchDeliveryRequested event,
+    Emitter<OrdersState> emit,
+  ) async {
+    emit(BatchDeliveryInProgress());
+
+    try {
+      final result = await repository.batchDeliveryOrders(event.orderIds, event.proofs);
+      final count = result['delivered'] as int? ?? event.orderIds.length;
+      emit(BatchDeliverySuccess(count));
+    } catch (e) {
+      emit(BatchDeliveryFailure(e.toString()));
     }
   }
 }

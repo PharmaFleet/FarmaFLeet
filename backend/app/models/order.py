@@ -44,6 +44,12 @@ class Order(Base):
     # Archiving - orders older than 7 days with DELIVERED status are auto-archived
     is_archived: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
 
+    # Delivery timestamp - set when order is marked as DELIVERED
+    # Used for 24-hour archive buffer (orders archived 24h after delivery)
+    delivered_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
+
     # Relationships
     warehouse = relationship("Warehouse", back_populates="orders")
     driver = relationship("Driver", back_populates="orders")

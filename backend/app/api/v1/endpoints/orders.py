@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import uuid
 from typing import Any, List, Optional, Dict
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Body
@@ -495,6 +495,195 @@ async def batch_delete_orders(
     return {"deleted": len(existing_ids), "errors": errors}
 
 
+class BatchPickupRequest(BaseModel):
+    order_ids: List[int]
+
+
+@router.post("/batch-pickup")
+async def batch_pickup_orders(
+    request: BatchPickupRequest,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+) -> Any:
+    """
+    Batch pickup multiple orders.
+    Only the assigned driver can pickup their assigned orders.
+    Orders must be in ASSIGNED status to be picked up.
+    """
+    from app.models.user import UserRole
+
+    # Verify user is a driver
+    if current_user.role != UserRole.DRIVER:
+        raise HTTPException(
+            status_code=403,
+            detail="Only drivers can pickup orders"
+        )
+
+    # Get driver profile
+    driver_result = await db.execute(
+        select(Driver).where(Driver.user_id == current_user.id)
+    )
+    driver = driver_result.scalars().first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver profile not found")
+
+    picked_up_count = 0
+    errors = []
+
+    for order_id in request.order_ids:
+        order = await db.get(Order, order_id)
+        if not order:
+            errors.append({"order_id": order_id, "message": "Order not found"})
+            continue
+
+        if order.driver_id != driver.id:
+            errors.append({
+                "order_id": order_id,
+                "message": "Order is not assigned to you"
+            })
+            continue
+
+        if order.status != OrderStatus.ASSIGNED.value:
+            errors.append({
+                "order_id": order_id,
+                "message": f"Order must be in ASSIGNED status, currently: {order.status}"
+            })
+            continue
+
+        # Update order status to PICKED_UP
+        order.status = OrderStatus.PICKED_UP
+        history = OrderStatusHistory(
+            order_id=order.id,
+            status=OrderStatus.PICKED_UP,
+            notes="Batch picked up by driver",
+        )
+        db.add(history)
+        db.add(order)
+        picked_up_count += 1
+
+    await db.commit()
+    return {"picked_up": picked_up_count, "errors": errors}
+
+
+class BatchDeliveryRequest(BaseModel):
+    order_ids: List[int]
+    proofs: Optional[List[Dict[str, Any]]] = None  # [{order_id, photo_url?, signature_url?}]
+
+
+@router.post("/batch-delivery")
+async def batch_delivery_orders(
+    request: BatchDeliveryRequest,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+) -> Any:
+    """
+    Complete multiple deliveries at once.
+    POD (Proof of Delivery) is optional.
+    Orders must be in PICKED_UP, IN_TRANSIT, or OUT_FOR_DELIVERY status.
+    Only the assigned driver can complete delivery.
+    """
+    from app.models.user import UserRole
+
+    # Verify user is a driver
+    if current_user.role != UserRole.DRIVER:
+        raise HTTPException(
+            status_code=403,
+            detail="Only drivers can deliver orders"
+        )
+
+    # Get driver profile
+    driver_result = await db.execute(
+        select(Driver).where(Driver.user_id == current_user.id)
+    )
+    driver = driver_result.scalars().first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver profile not found")
+
+    # Build proof lookup if provided
+    proof_lookup = {}
+    if request.proofs:
+        for proof in request.proofs:
+            if "order_id" in proof:
+                proof_lookup[proof["order_id"]] = proof
+
+    delivered_count = 0
+    errors = []
+    valid_statuses = [
+        OrderStatus.PICKED_UP.value,
+        OrderStatus.IN_TRANSIT.value,
+        OrderStatus.OUT_FOR_DELIVERY.value,
+    ]
+
+    for order_id in request.order_ids:
+        # Load order with existing POD
+        order_result = await db.execute(
+            select(Order)
+            .where(Order.id == order_id)
+            .options(selectinload(Order.proof_of_delivery))
+        )
+        order = order_result.scalars().first()
+
+        if not order:
+            errors.append({"order_id": order_id, "message": "Order not found"})
+            continue
+
+        if order.driver_id != driver.id:
+            errors.append({
+                "order_id": order_id,
+                "message": "Order is not assigned to you"
+            })
+            continue
+
+        if order.status not in valid_statuses:
+            errors.append({
+                "order_id": order_id,
+                "message": f"Order must be in PICKED_UP, IN_TRANSIT, or OUT_FOR_DELIVERY status, currently: {order.status}"
+            })
+            continue
+
+        # Update order status to DELIVERED
+        order.status = OrderStatus.DELIVERED
+        order.delivered_at = datetime.now(timezone.utc)
+        # Don't set is_archived immediately - will be done by 24h buffer logic
+
+        # Create status history
+        history = OrderStatusHistory(
+            order_id=order.id,
+            status=OrderStatus.DELIVERED,
+            notes="Batch delivered by driver",
+        )
+        db.add(history)
+
+        # Handle POD if provided
+        proof_data = proof_lookup.get(order_id)
+        if proof_data:
+            photo_url = proof_data.get("photo_url")
+            signature_url = proof_data.get("signature_url")
+
+            if order.proof_of_delivery:
+                # Update existing POD
+                if photo_url:
+                    order.proof_of_delivery.photo_url = photo_url
+                if signature_url:
+                    order.proof_of_delivery.signature_url = signature_url
+                order.proof_of_delivery.timestamp = datetime.now(timezone.utc)
+            else:
+                # Create new POD
+                if photo_url or signature_url:
+                    pod = ProofOfDelivery(
+                        order_id=order.id,
+                        photo_url=photo_url,
+                        signature_url=signature_url,
+                    )
+                    db.add(pod)
+
+        db.add(order)
+        delivered_count += 1
+
+    await db.commit()
+    return {"delivered": delivered_count, "errors": errors}
+
+
 @router.post("/batch-assign")
 async def batch_assign_orders(
     assignments: List[Dict[str, int]] = Body(...),
@@ -691,9 +880,10 @@ async def update_order_status(
         raise HTTPException(status_code=404, detail="Order not found")
 
     order.status = status
-    # Auto-archive when delivered
+    # Set delivered_at timestamp when delivered (24-hour archive buffer)
+    # Don't archive immediately - will be done by auto-archive cron job after 24h
     if status == OrderStatus.DELIVERED:
-        order.is_archived = True
+        order.delivered_at = datetime.now(timezone.utc)
 
     history = OrderStatusHistory(order_id=order.id, status=status, notes=notes)
     db.add(history)
@@ -773,7 +963,7 @@ async def upload_proof_of_delivery(
         db.add(pod)
 
     order.status = OrderStatus.DELIVERED
-    order.is_archived = True  # Auto-archive on delivery
+    order.delivered_at = datetime.now(timezone.utc)  # Set delivery time for 24h archive buffer
     history = OrderStatusHistory(
         order_id=order.id,
         status=OrderStatus.DELIVERED,
@@ -880,7 +1070,7 @@ async def submit_proof_of_delivery_url(
         db.add(pod)
 
     order.status = OrderStatus.DELIVERED
-    order.is_archived = True  # Auto-archive on delivery
+    order.delivered_at = datetime.now(timezone.utc)  # Set delivery time for 24h archive buffer
     history = OrderStatusHistory(
         order_id=order.id,
         status=OrderStatus.DELIVERED,
@@ -1163,19 +1353,39 @@ async def auto_archive_orders(
     current_user: User = Depends(deps.get_current_admin_user),
 ) -> Any:
     """
-    Auto-archive delivered orders older than 7 days.
+    Auto-archive delivered orders using 24-hour buffer.
+    Orders are archived 24 hours after delivery (based on delivered_at field).
+    Falls back to 7 days based on updated_at for orders without delivered_at.
     This endpoint is designed to be called by a daily cron job.
     Admin only.
     """
+    from sqlalchemy import or_, and_
 
-    cutoff_date = datetime.utcnow() - timedelta(days=7)
+    now = datetime.now(timezone.utc)
+    cutoff_24h = now - timedelta(hours=24)
+    cutoff_7d = now - timedelta(days=7)
 
-    # Find delivered orders older than 7 days that aren't archived yet
+    # Find delivered orders that should be archived:
+    # 1. Orders with delivered_at more than 24 hours ago, OR
+    # 2. Legacy orders without delivered_at, using updated_at > 7 days as fallback
     stmt = (
         select(Order)
         .where(Order.status == OrderStatus.DELIVERED)
-        .where(Order.updated_at < cutoff_date)
         .where(Order.is_archived.is_(False))
+        .where(
+            or_(
+                # New logic: delivered_at is set and more than 24 hours ago
+                and_(
+                    Order.delivered_at.isnot(None),
+                    Order.delivered_at < cutoff_24h
+                ),
+                # Legacy fallback: no delivered_at, use updated_at > 7 days
+                and_(
+                    Order.delivered_at.is_(None),
+                    Order.updated_at < cutoff_7d
+                )
+            )
+        )
     )
     result = await db.execute(stmt)
     orders_to_archive = result.scalars().all()

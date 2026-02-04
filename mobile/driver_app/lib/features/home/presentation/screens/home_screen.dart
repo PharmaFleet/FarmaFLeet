@@ -1,9 +1,10 @@
 import 'dart:async';
 
+import 'package:driver_app/core/di/injection_container.dart' as di;
 import 'package:driver_app/core/services/location_service.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:driver_app/features/home/presentation/bloc/home_bloc.dart';
 import 'package:driver_app/features/home/presentation/screens/daily_summary_screen.dart';
+import 'package:driver_app/features/notifications/domain/repositories/notification_repository.dart';
 import 'package:driver_app/theme/theme.dart';
 // Aliased import for the UI component
 import 'package:driver_app/widgets/activity_item.dart' as activity_widget;
@@ -13,6 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class HomeScreen extends StatefulWidget {
   final LocationService locationService;
@@ -25,12 +27,15 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   Timer? _refreshTimer;
+  Timer? _notificationTimer;
   bool _hasLocationPermission = false;
+  int _unreadNotificationCount = 0;
 
   @override
   void initState() {
     super.initState();
     _requestLocationPermission();
+    _fetchUnreadCount();
     // Load initial data when screen is created
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<HomeBloc>().add(HomeLoadRequested());
@@ -42,6 +47,25 @@ class _HomeScreenState extends State<HomeScreen> {
         _refreshData();
       }
     });
+
+    // Refresh notification count every 30 seconds
+    _notificationTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted) {
+        _fetchUnreadCount();
+      }
+    });
+  }
+
+  Future<void> _fetchUnreadCount() async {
+    try {
+      final repository = di.sl<NotificationRepository>();
+      final count = await repository.getUnreadCount();
+      if (mounted) {
+        setState(() => _unreadNotificationCount = count);
+      }
+    } catch (_) {
+      // Ignore errors - just don't update the count
+    }
   }
 
   Future<void> _requestLocationPermission() async {
@@ -85,6 +109,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     _refreshTimer?.cancel();
+    _notificationTimer?.cancel();
     super.dispose();
   }
 
@@ -163,6 +188,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   onOnlineStatusChanged: _toggleOnlineStatus,
                   onRefresh: _refreshData,
                   hasLocationPermission: _hasLocationPermission,
+                  unreadNotificationCount: _unreadNotificationCount,
+                  onNotificationTapped: () async {
+                    await context.push('/notifications');
+                    // Refresh count when returning
+                    _fetchUnreadCount();
+                  },
                 );
               }
 
@@ -235,12 +266,16 @@ class _HomeContentView extends StatelessWidget {
   final Function(bool) onOnlineStatusChanged;
   final VoidCallback onRefresh;
   final bool hasLocationPermission;
+  final int unreadNotificationCount;
+  final VoidCallback onNotificationTapped;
 
   const _HomeContentView({
     required this.state,
     required this.onOnlineStatusChanged,
     required this.onRefresh,
     required this.hasLocationPermission,
+    required this.unreadNotificationCount,
+    required this.onNotificationTapped,
   });
 
   @override
@@ -256,6 +291,8 @@ class _HomeContentView extends StatelessWidget {
           _HeaderSection(
             isOnline: state.isOnline,
             onOnlineStatusChanged: onOnlineStatusChanged,
+            unreadNotificationCount: unreadNotificationCount,
+            onNotificationTapped: onNotificationTapped,
           ),
           const SizedBox(height: AppSpacing.lg),
 
@@ -292,10 +329,14 @@ class _HomeContentView extends StatelessWidget {
 class _HeaderSection extends StatelessWidget {
   final bool isOnline;
   final Function(bool) onOnlineStatusChanged;
+  final int unreadNotificationCount;
+  final VoidCallback onNotificationTapped;
 
   const _HeaderSection({
     required this.isOnline,
     required this.onOnlineStatusChanged,
+    required this.unreadNotificationCount,
+    required this.onNotificationTapped,
   });
 
   @override
@@ -344,6 +385,51 @@ class _HeaderSection extends StatelessWidget {
               ],
             ),
           ),
+          // Notification Bell with Badge
+          Stack(
+            children: [
+              IconButton(
+                icon: Icon(
+                  Icons.notifications_outlined,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+                onPressed: onNotificationTapped,
+              ),
+              if (unreadNotificationCount > 0)
+                Positioned(
+                  right: 4,
+                  top: 4,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.error,
+                      shape: unreadNotificationCount > 9
+                          ? BoxShape.rectangle
+                          : BoxShape.circle,
+                      borderRadius: unreadNotificationCount > 9
+                          ? BorderRadius.circular(8)
+                          : null,
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 16,
+                      minHeight: 16,
+                    ),
+                    child: Text(
+                      unreadNotificationCount > 99
+                          ? '99+'
+                          : '$unreadNotificationCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(width: AppSpacing.xs),
           Switch(
             value: isOnline,
             onChanged: onOnlineStatusChanged,

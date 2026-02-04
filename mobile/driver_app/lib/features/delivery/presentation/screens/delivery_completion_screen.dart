@@ -65,14 +65,8 @@ class _DeliveryCompletionScreenState extends State<DeliveryCompletionScreen> {
   }
 
   Future<void> _completeDelivery() async {
-    if (_photo == null && _signature == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please provide photo or signature as proof'),
-        ),
-      );
-      return;
-    }
+    // POD is now optional - no validation required
+    // Previously required photo or signature as proof of delivery
 
     setState(() => _isSubmitting = true);
 
@@ -170,7 +164,7 @@ class _DeliveryCompletionScreenState extends State<DeliveryCompletionScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Proof of Delivery - Photo',
+                      'Proof of Delivery - Photo (Optional)',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -229,7 +223,7 @@ class _DeliveryCompletionScreenState extends State<DeliveryCompletionScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const Text(
-                          'Customer Signature',
+                          'Customer Signature (Optional)',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,

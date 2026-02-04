@@ -94,4 +94,55 @@ class OrderRepositoryImpl implements OrderRepository {
       throw Exception('Failed to submit POD: $e');
     }
   }
+
+  @override
+  Future<Map<String, dynamic>> batchPickupOrders(List<int> orderIds) async {
+    debugPrint('[OrderRepo] Batch pickup for orders: $orderIds');
+    try {
+      final response = await dio.post(
+        '/orders/batch-pickup',
+        data: {'order_ids': orderIds},
+      );
+      debugPrint('[OrderRepo] Batch pickup successful: ${response.data}');
+      return Map<String, dynamic>.from(response.data);
+    } on DioException catch (e) {
+      debugPrint('[OrderRepo] Batch pickup DioException: ${e.response?.statusCode} - ${e.message}');
+      debugPrint('[OrderRepo] Response data: ${e.response?.data}');
+      if (e.response?.statusCode == 401) {
+        throw Exception('Unauthorized - please login again');
+      }
+      throw Exception('Failed to batch pickup orders: ${e.message}');
+    } catch (e) {
+      debugPrint('[OrderRepo] Batch pickup Exception: $e');
+      throw Exception('Failed to batch pickup orders: $e');
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>> batchDeliveryOrders(List<int> orderIds, List<Map<String, dynamic>>? proofs) async {
+    debugPrint('[OrderRepo] Batch delivery for orders: $orderIds');
+    try {
+      final data = <String, dynamic>{'order_ids': orderIds};
+      if (proofs != null && proofs.isNotEmpty) {
+        data['proofs'] = proofs;
+      }
+
+      final response = await dio.post(
+        '/orders/batch-delivery',
+        data: data,
+      );
+      debugPrint('[OrderRepo] Batch delivery successful: ${response.data}');
+      return Map<String, dynamic>.from(response.data);
+    } on DioException catch (e) {
+      debugPrint('[OrderRepo] Batch delivery DioException: ${e.response?.statusCode} - ${e.message}');
+      debugPrint('[OrderRepo] Response data: ${e.response?.data}');
+      if (e.response?.statusCode == 401) {
+        throw Exception('Unauthorized - please login again');
+      }
+      throw Exception('Failed to batch deliver orders: ${e.message}');
+    } catch (e) {
+      debugPrint('[OrderRepo] Batch delivery Exception: $e');
+      throw Exception('Failed to batch deliver orders: $e');
+    }
+  }
 }
