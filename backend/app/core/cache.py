@@ -56,8 +56,6 @@ def cache_response(expiration: int = 60):
                 # If it's a Pydantic model, dump it
                 if hasattr(response_data, "model_dump"):
                     data_to_cache = response_data.model_dump()
-                elif hasattr(response_data, "dict"):
-                    data_to_cache = response_data.dict()
                 else:
                     data_to_cache = response_data
 

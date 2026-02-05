@@ -145,4 +145,25 @@ class OrderRepositoryImpl implements OrderRepository {
       throw Exception('Failed to batch deliver orders: $e');
     }
   }
+
+  @override
+  Future<void> returnOrder(int id, String reason) async {
+    debugPrint('[OrderRepo] Returning order $id with reason: $reason');
+    try {
+      await dio.post(
+        '/orders/$id/return',
+        data: {'reason': reason},
+      );
+      debugPrint('[OrderRepo] Order $id returned successfully');
+    } on DioException catch (e) {
+      debugPrint('[OrderRepo] Return order DioException: ${e.response?.statusCode} - ${e.message}');
+      if (e.response?.statusCode == 401) {
+        throw Exception('Unauthorized - please login again');
+      }
+      throw Exception('Failed to return order: ${e.message}');
+    } catch (e) {
+      debugPrint('[OrderRepo] Return order Exception: $e');
+      throw Exception('Failed to return order: $e');
+    }
+  }
 }

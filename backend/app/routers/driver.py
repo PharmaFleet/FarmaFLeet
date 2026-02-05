@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from fastapi import (
@@ -130,13 +130,13 @@ async def update_location(
     db_obj = DriverLocation(
         driver_id=driver.id,
         location=WKTElement(point_wkt, srid=4326),
-        timestamp=location_in.timestamp or datetime.utcnow(),
+        timestamp=location_in.timestamp or datetime.now(timezone.utc),
     )
     db.add(db_obj)
 
     # Check for shift limit (12 hours) - send notification if needed
     if driver.is_available and driver.last_online_at:
-        shift_duration = datetime.utcnow() - driver.last_online_at
+        shift_duration = datetime.now(timezone.utc) - driver.last_online_at
         if shift_duration > timedelta(hours=12):
             if current_user.fcm_token:
                 await notification_service.notify_driver_shift_limit(
@@ -284,7 +284,7 @@ async def update_driver_status(
 
     driver.is_available = is_available
     if is_available:
-        driver.last_online_at = datetime.utcnow()
+        driver.last_online_at = datetime.now(timezone.utc)
 
     db.add(driver)
     await db.commit()
@@ -303,7 +303,7 @@ async def update_driver_status(
             "driver_name": current_user.full_name,
             "status": "online" if is_available else "offline",
             "is_available": is_available,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
         message = {"type": "driver_status_change", "data": status_data}

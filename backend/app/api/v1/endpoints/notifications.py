@@ -7,6 +7,9 @@ from app.api import deps
 from app.models.notification import Notification
 from app.models.user import User
 from app.schemas.notification import Notification as NotificationSchema
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -44,7 +47,7 @@ async def register_device(
     # Ideally store this in a Device model or User field.
     # For now, print or mock.
     # In real app: Redis or DB table 'UserDevices'
-    print(f"Registered FCM token for user {current_user.id}: {fcm_token}")
+    logger.info(f"Registered FCM token for user {current_user.id}")
     return {"msg": "Device registered successfully"}
 
 

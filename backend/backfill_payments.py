@@ -3,7 +3,7 @@ from app.models.financial import PaymentCollection
 from app.models.order import Order, OrderStatus
 from sqlalchemy import select, and_
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 async def backfill_payments():
@@ -40,7 +40,7 @@ async def backfill_payments():
                     driver_id=order.driver_id,
                     amount=order.total_amount,
                     method=order.payment_method,
-                    collected_at=order.updated_at or datetime.utcnow(),
+                    collected_at=order.updated_at or datetime.now(timezone.utc),
                 )
                 db.add(payment)
                 created_count += 1

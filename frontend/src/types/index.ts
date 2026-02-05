@@ -12,6 +12,7 @@ export interface Driver {
   id: number;
   user_id: number;
   is_available: boolean;
+  code?: string;
   vehicle_info?: string;
   vehicle_type?: string; // "car" or "motorcycle"
   biometric_id?: string;
@@ -79,6 +80,12 @@ export interface Order {
   status: OrderStatus;
   created_at: string;
   updated_at: string;
+  is_archived?: boolean;
+  delivered_at?: string;
+  assigned_at?: string;
+  picked_up_at?: string;
+  notes?: string;
+  sales_taker?: string;
   status_history?: OrderStatusHistory[];
   proof_of_delivery?: ProofOfDelivery;
   driver?: Driver;

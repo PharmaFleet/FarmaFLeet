@@ -14,6 +14,7 @@ class AppConstants {
   static const String loginEndpoint = '/login/access-token';
   static const String profileEndpoint = '/users/me';
   static const String logoutEndpoint = "/auth/logout";
+  static const String refreshEndpoint = "/auth/refresh";
   static const String updateStatusEndpoint = "/drivers/me/status";
   static const String updateLocationEndpoint = "/drivers/location";
 }

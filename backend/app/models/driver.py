@@ -12,6 +12,7 @@ class Driver(Base):
         ForeignKey("warehouse.id"), nullable=True
     )  # Assigned warehouse
 
+    code: Mapped[Optional[str]] = mapped_column(String, nullable=True, unique=True, index=True)
     biometric_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     vehicle_info: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     vehicle_type: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # "car" or "motorcycle"

@@ -5,6 +5,7 @@ import '../../../../core/widgets/info_row.dart';
 
 class OrderCard extends StatelessWidget {
   final int orderId;
+  final String? salesOrderNumber;
   final String customerName;
   final String status;
   final double amount;
@@ -14,6 +15,7 @@ class OrderCard extends StatelessWidget {
   const OrderCard({
     super.key,
     required this.orderId,
+    this.salesOrderNumber,
     required this.customerName,
     required this.status,
     required this.amount,
@@ -37,15 +39,31 @@ class OrderCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header: ID + Status Badge
+              // Header: SO Number / ID + Status Badge
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    "#$orderId",
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: AppColors.primary,
-                        ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (salesOrderNumber != null && salesOrderNumber!.isNotEmpty)
+                          Text(
+                            salesOrderNumber!,
+                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                  color: AppColors.primary,
+                                ),
+                            overflow: TextOverflow.ellipsis,
+                          )
+                        else
+                          Text(
+                            "#$orderId",
+                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                  color: AppColors.primary,
+                                ),
+                          ),
+                      ],
+                    ),
                   ),
                   Container(
                     padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 4.h),

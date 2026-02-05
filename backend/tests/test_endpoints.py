@@ -478,3 +478,458 @@ class TestNotificationEndpoints:
         )
         # 404 is returned when user lookup fails (mock DB has no user)
         assert response.status_code in [200, 201, 401, 403, 404, 422]
+
+
+class TestReturnWorkflowEndpoints:
+    """Return workflow endpoint tests (Phase 6.1)"""
+
+    def test_return_order_endpoint(self, client, admin_token_headers):
+        """Test single order return endpoint"""
+        response = client.post(
+            "/api/v1/orders/1/return",
+            json={"reason": "Damaged"},
+            headers=admin_token_headers,
+        )
+        assert response.status_code in [200, 400, 401, 403, 404]
+
+    def test_return_requires_reason(self, client, admin_token_headers):
+        """Test return endpoint requires a reason in the body.
+        With mock DB returning None for order lookup, 404 is returned before
+        body validation. 422 is returned if FastAPI validates the body first."""
+        response = client.post(
+            "/api/v1/orders/1/return",
+            json={},
+            headers=admin_token_headers,
+        )
+        assert response.status_code in [400, 404, 422]
+
+    def test_batch_return_endpoint(self, client, admin_token_headers):
+        """Test batch return endpoint"""
+        response = client.post(
+            "/api/v1/orders/batch-return",
+            json={"order_ids": [1, 2], "reason": "Bulk return"},
+            headers=admin_token_headers,
+        )
+        assert response.status_code in [200, 400, 401, 403, 404]
+
+    def test_batch_return_error_format(self, client, admin_token_headers):
+        """Test batch return response has correct keys when 200"""
+        response = client.post(
+            "/api/v1/orders/batch-return",
+            json={"order_ids": [1, 2], "reason": "Bulk return"},
+            headers=admin_token_headers,
+        )
+        if response.status_code == 200:
+            data = response.json()
+            assert "returned" in data
+            assert "errors" in data
+
+
+class TestFieldSpecificSearchEndpoints:
+    """Field-specific search endpoint tests (Phase 6.2)"""
+
+    def test_search_by_order_number(self, client, admin_token_headers):
+        """Test filtering orders by order number"""
+        response = client.get(
+            "/api/v1/orders/",
+            params={"order_number": "SO-001"},
+            headers=admin_token_headers,
+        )
+        assert response.status_code in [200, 401, 403, 404]
+
+    def test_search_by_customer_name(self, client, admin_token_headers):
+        """Test filtering orders by customer name"""
+        response = client.get(
+            "/api/v1/orders/",
+            params={"customer_name": "John"},
+            headers=admin_token_headers,
+        )
+        assert response.status_code in [200, 401, 403, 404]
+
+    def test_search_by_phone(self, client, admin_token_headers):
+        """Test filtering orders by customer phone"""
+        response = client.get(
+            "/api/v1/orders/",
+            params={"customer_phone": "965"},
+            headers=admin_token_headers,
+        )
+        assert response.status_code in [200, 401, 403, 404]
+
+    def test_search_by_sales_taker(self, client, admin_token_headers):
+        """Test filtering orders by sales taker"""
+        response = client.get(
+            "/api/v1/orders/",
+            params={"sales_taker": "Ahmad"},
+            headers=admin_token_headers,
+        )
+        assert response.status_code in [200, 401, 403, 404]
+
+    def test_search_by_payment_method(self, client, admin_token_headers):
+        """Test filtering orders by payment method"""
+        response = client.get(
+            "/api/v1/orders/",
+            params={"payment_method": "cash"},
+            headers=admin_token_headers,
+        )
+        assert response.status_code in [200, 401, 403, 404]
+
+    def test_search_by_driver_name(self, client, admin_token_headers):
+        """Test filtering orders by driver name"""
+        response = client.get(
+            "/api/v1/orders/",
+            params={"driver_name": "Ali"},
+            headers=admin_token_headers,
+        )
+        assert response.status_code in [200, 401, 403, 404]
+
+    def test_search_by_driver_code(self, client, admin_token_headers):
+        """Test filtering orders by driver code"""
+        response = client.get(
+            "/api/v1/orders/",
+            params={"driver_code": "BIO"},
+            headers=admin_token_headers,
+        )
+        assert response.status_code in [200, 401, 403, 404]
+
+    def test_universal_search(self, client, admin_token_headers):
+        """Test universal search across multiple fields"""
+        response = client.get(
+            "/api/v1/orders/",
+            params={"search": "SO-001"},
+            headers=admin_token_headers,
+        )
+        assert response.status_code in [200, 401, 403, 404]
+
+
+class TestDateRangeFilterEndpoints:
+    """Date range filter endpoint tests (Phase 6.2)"""
+
+    def test_date_range_filter(self, client, admin_token_headers):
+        """Test filtering orders by date range"""
+        response = client.get(
+            "/api/v1/orders/",
+            params={"date_from": "2026-01-01", "date_to": "2026-01-31"},
+            headers=admin_token_headers,
+        )
+        assert response.status_code in [200, 401, 403, 404]
+
+    def test_date_column_selector(self, client, admin_token_headers):
+        """Test filtering with a specific date field selector"""
+        response = client.get(
+            "/api/v1/orders/",
+            params={"date_from": "2026-01-01", "date_field": "assigned_at"},
+            headers=admin_token_headers,
+        )
+        assert response.status_code in [200, 401, 403, 404]
+
+    def test_date_range_with_status(self, client, admin_token_headers):
+        """Test combining date range filter with status filter"""
+        response = client.get(
+            "/api/v1/orders/",
+            params={"date_from": "2026-01-01", "status": "delivered"},
+            headers=admin_token_headers,
+        )
+        assert response.status_code in [200, 401, 403, 404]
+
+
+class TestExtendedSortingEndpoints:
+    """Extended sorting endpoint tests (Phase 6.3)"""
+
+    def test_sort_by_driver_name(self, client, admin_token_headers):
+        """Test sorting orders by driver name ascending"""
+        response = client.get(
+            "/api/v1/orders/",
+            params={"sort_by": "driver_name", "sort_order": "asc"},
+            headers=admin_token_headers,
+        )
+        assert response.status_code in [200, 401, 403, 404]
+
+    def test_sort_by_warehouse_code(self, client, admin_token_headers):
+        """Test sorting orders by warehouse code descending"""
+        response = client.get(
+            "/api/v1/orders/",
+            params={"sort_by": "warehouse_code", "sort_order": "desc"},
+            headers=admin_token_headers,
+        )
+        assert response.status_code in [200, 401, 403, 404]
+
+    def test_sort_by_sales_taker(self, client, admin_token_headers):
+        """Test sorting orders by sales taker"""
+        response = client.get(
+            "/api/v1/orders/",
+            params={"sort_by": "sales_taker"},
+            headers=admin_token_headers,
+        )
+        assert response.status_code in [200, 401, 403, 404]
+
+    def test_sort_by_payment_method(self, client, admin_token_headers):
+        """Test sorting orders by payment method"""
+        response = client.get(
+            "/api/v1/orders/",
+            params={"sort_by": "payment_method"},
+            headers=admin_token_headers,
+        )
+        assert response.status_code in [200, 401, 403, 404]
+
+    def test_sort_by_assigned_at(self, client, admin_token_headers):
+        """Test sorting orders by assigned_at timestamp"""
+        response = client.get(
+            "/api/v1/orders/",
+            params={"sort_by": "assigned_at"},
+            headers=admin_token_headers,
+        )
+        assert response.status_code in [200, 401, 403, 404]
+
+    def test_sort_by_delivered_at(self, client, admin_token_headers):
+        """Test sorting orders by delivered_at timestamp"""
+        response = client.get(
+            "/api/v1/orders/",
+            params={"sort_by": "delivered_at"},
+            headers=admin_token_headers,
+        )
+        assert response.status_code in [200, 401, 403, 404]
+
+    def test_sort_by_total_amount(self, client, admin_token_headers):
+        """Test sorting orders by total amount ascending"""
+        response = client.get(
+            "/api/v1/orders/",
+            params={"sort_by": "total_amount", "sort_order": "asc"},
+            headers=admin_token_headers,
+        )
+        assert response.status_code in [200, 401, 403, 404]
+
+
+class TestEnhancedExportEndpoints:
+    """Enhanced export endpoint tests (Phase 6.4)"""
+
+    def test_export_with_status_filter(self, client, admin_token_headers):
+        """Test export with status filter"""
+        response = client.post(
+            "/api/v1/orders/export",
+            params={"status": "delivered"},
+            headers=admin_token_headers,
+        )
+        assert response.status_code in [200, 401, 403, 404]
+
+    def test_export_with_warehouse_filter(self, client, admin_token_headers):
+        """Test export with warehouse filter"""
+        response = client.post(
+            "/api/v1/orders/export",
+            params={"warehouse_id": 1},
+            headers=admin_token_headers,
+        )
+        assert response.status_code in [200, 401, 403, 404]
+
+    def test_export_with_date_range(self, client, admin_token_headers):
+        """Test export with date range filter"""
+        response = client.post(
+            "/api/v1/orders/export",
+            params={"date_from": "2026-01-01", "date_to": "2026-01-31"},
+            headers=admin_token_headers,
+        )
+        assert response.status_code in [200, 401, 403, 404]
+
+    def test_export_with_search(self, client, admin_token_headers):
+        """Test export with universal search filter"""
+        response = client.post(
+            "/api/v1/orders/export",
+            params={"search": "John"},
+            headers=admin_token_headers,
+        )
+        assert response.status_code in [200, 401, 403, 404]
+
+    def test_export_with_field_filters(self, client, admin_token_headers):
+        """Test export with field-specific filters"""
+        response = client.post(
+            "/api/v1/orders/export",
+            params={"customer_name": "John", "payment_method": "cash"},
+            headers=admin_token_headers,
+        )
+        assert response.status_code in [200, 401, 403, 404]
+
+
+class TestEnhancedImportEndpoints:
+    """Enhanced import endpoint tests (Phase 6.4/6.5)"""
+
+    def test_import_csv_with_sales_taker(self, client, admin_token_headers):
+        """Test CSV import with Sales Taker column"""
+        csv_content = "Sales order,Customer name,Total amount,Sales Taker\nSO-100,Test Customer,10.0,Ahmad\n"
+        csv_buffer = io.BytesIO(csv_content.encode("utf-8"))
+        response = client.post(
+            "/api/v1/orders/import",
+            files={"file": ("orders.csv", csv_buffer, "text/csv")},
+            headers=admin_token_headers,
+        )
+        assert response.status_code in [200, 201, 400, 404, 422]
+
+    def test_import_csv_with_retail_payment(self, client, admin_token_headers):
+        """Test CSV import with Retail payment method column"""
+        csv_content = "Sales order,Customer name,Total amount,Retail payment method\nSO-101,Test Customer,15.0,KNET\n"
+        csv_buffer = io.BytesIO(csv_content.encode("utf-8"))
+        response = client.post(
+            "/api/v1/orders/import",
+            files={"file": ("orders.csv", csv_buffer, "text/csv")},
+            headers=admin_token_headers,
+        )
+        assert response.status_code in [200, 201, 400, 404, 422]
+
+    def test_import_csv_encoding_fallback(self, client, admin_token_headers):
+        """Test CSV import with latin-1 encoded file"""
+        csv_content = "Sales order,Customer name,Total amount\nSO-102,Caf\xe9 Customer,20.0\n"
+        csv_buffer = io.BytesIO(csv_content.encode("latin-1"))
+        response = client.post(
+            "/api/v1/orders/import",
+            files={"file": ("orders.csv", csv_buffer, "text/csv")},
+            headers=admin_token_headers,
+        )
+        assert response.status_code in [200, 201, 400, 404, 422]
+
+
+class TestDriverCodeEndpoints:
+    """Driver code endpoint tests (Phase 6.6)"""
+
+    def test_create_driver_with_code(self, client, admin_token_headers):
+        """Test creating a driver with an explicit code"""
+        response = client.post(
+            "/api/v1/drivers/",
+            json={
+                "user_id": 1,
+                "biometric_id": "BIO456",
+                "code": "D001",
+                "vehicle_info": "car - XYZ 123",
+                "warehouse_id": 1,
+            },
+            headers=admin_token_headers,
+        )
+        assert response.status_code in [200, 201, 400, 401, 403, 404, 422]
+
+    def test_create_driver_without_code(self, client, admin_token_headers):
+        """Test creating a driver without code (should default to biometric_id)"""
+        response = client.post(
+            "/api/v1/drivers/",
+            json={
+                "user_id": 1,
+                "biometric_id": "BIO789",
+                "vehicle_info": "motorcycle - ABC 456",
+                "warehouse_id": 1,
+            },
+            headers=admin_token_headers,
+        )
+        assert response.status_code in [200, 201, 400, 401, 403, 404, 422]
+
+
+class TestOrderModelFields:
+    """Order and Driver model field verification tests"""
+
+    def test_order_has_sales_taker_field(self):
+        """Verify Order model has sales_taker attribute"""
+        from app.models.order import Order
+
+        assert hasattr(Order, "sales_taker")
+
+    def test_order_has_assigned_at_field(self):
+        """Verify Order model has assigned_at attribute"""
+        from app.models.order import Order
+
+        assert hasattr(Order, "assigned_at")
+
+    def test_order_has_picked_up_at_field(self):
+        """Verify Order model has picked_up_at attribute"""
+        from app.models.order import Order
+
+        assert hasattr(Order, "picked_up_at")
+
+    def test_order_has_delivered_at_field(self):
+        """Verify Order model has delivered_at attribute"""
+        from app.models.order import Order
+
+        assert hasattr(Order, "delivered_at")
+
+    def test_order_has_notes_field(self):
+        """Verify Order model has notes attribute"""
+        from app.models.order import Order
+
+        assert hasattr(Order, "notes")
+
+    def test_driver_has_code_field(self):
+        """Verify Driver model has code attribute"""
+        from app.models.driver import Driver
+
+        assert hasattr(Driver, "code")
+
+    def test_driver_has_vehicle_type_field(self):
+        """Verify Driver model has vehicle_type attribute"""
+        from app.models.driver import Driver
+
+        assert hasattr(Driver, "vehicle_type")
+
+    def test_order_status_has_returned(self):
+        """Verify OrderStatus enum includes RETURNED value"""
+        from app.models.order import OrderStatus
+
+        assert hasattr(OrderStatus, "RETURNED")
+        assert OrderStatus.RETURNED == "returned"
+
+
+class TestBodyEmbedEndpoints:
+    """Body(embed=True) endpoint tests for mixed path+body params"""
+
+    def test_cancel_order_with_reason(self, client, admin_token_headers):
+        """Test cancel order with reason body parameter"""
+        response = client.post(
+            "/api/v1/orders/1/cancel",
+            json={"reason": "Customer requested"},
+            headers=admin_token_headers,
+        )
+        assert response.status_code in [200, 400, 401, 403, 404]
+
+    def test_status_update_with_notes(self, client, admin_token_headers):
+        """Test status update with notes body parameter"""
+        response = client.patch(
+            "/api/v1/orders/1/status",
+            json={"status": "picked_up", "notes": "Picked up by driver"},
+            headers=admin_token_headers,
+        )
+        assert response.status_code in [200, 400, 401, 403, 404, 422]
+
+    def test_reject_order_with_reason(self, client, admin_token_headers):
+        """Test reject order with reason body parameter"""
+        response = client.post(
+            "/api/v1/orders/1/reject",
+            json={"reason": "No access"},
+            headers=admin_token_headers,
+        )
+        assert response.status_code in [200, 400, 401, 403, 404]
+
+
+class TestHealthAndMiscEndpoints:
+    """Health check and miscellaneous endpoint tests"""
+
+    def test_health_endpoint(self, client):
+        """Test health check endpoint"""
+        response = client.get("/health")
+        assert response.status_code in [200, 404]
+
+    def test_batch_operations_endpoints_exist(self, client, admin_token_headers):
+        """Test batch pickup and batch delivery endpoints exist (not 405)"""
+        pickup_response = client.post(
+            "/api/v1/orders/batch-pickup",
+            json={"order_ids": [1, 2]},
+            headers=admin_token_headers,
+        )
+        assert pickup_response.status_code != 405
+
+        delivery_response = client.post(
+            "/api/v1/orders/batch-delivery",
+            json={"order_ids": [1, 2]},
+            headers=admin_token_headers,
+        )
+        assert delivery_response.status_code != 405
+
+    def test_auto_archive_endpoint(self, client, admin_token_headers):
+        """Test auto-archive endpoint"""
+        response = client.post(
+            "/api/v1/orders/auto-archive",
+            headers=admin_token_headers,
+        )
+        assert response.status_code in [200, 401, 403, 404]

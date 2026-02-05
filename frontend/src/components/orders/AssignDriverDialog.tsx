@@ -21,6 +21,7 @@ import { orderService } from '@/services/orderService';
 import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import { VehicleIcon } from '@/components/shared/VehicleIcon';
 
 interface AssignDriverDialogProps {
     orderId: number;
@@ -94,7 +95,10 @@ export function AssignDriverDialog({ orderId, currentDriverId, open, onOpenChang
                                 ) : (
                                     drivers?.items?.map((driver) => (
                                         <SelectItem key={driver.id} value={driver.id.toString()}>
-                                            {driver.user?.full_name} ({driver.is_available ? 'Available' : 'Busy'})
+                                            <span className="flex items-center gap-2">
+                                                <VehicleIcon vehicleType={driver.vehicle_type} size={14} />
+                                                {driver.user?.full_name} ({driver.is_available ? 'Available' : 'Busy'})
+                                            </span>
                                         </SelectItem>
                                     ))
                                 )}

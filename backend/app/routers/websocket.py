@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 from typing import List, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import (
     APIRouter,
@@ -68,7 +68,7 @@ class ConnectionManager:
                 await websocket.accept()
                 self.active_connections.append(websocket)
                 self.connection_info[websocket] = {
-                    "connected_at": datetime.utcnow(),
+                    "connected_at": datetime.now(timezone.utc),
                     "token": token,
                     "authenticated": True,
                     "user_id": int(user_id),
@@ -259,7 +259,7 @@ async def driver_websocket(
         {
             "event": "connected",
             "message": "Successfully connected to driver location updates",
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "authenticated": manager.connection_info.get(websocket, {}).get(
                 "authenticated", False
             ),
@@ -278,7 +278,7 @@ async def driver_websocket(
 
                 if event == "ping":
                     await manager.send_personal_message(
-                        {"event": "pong", "timestamp": datetime.utcnow().isoformat()},
+                        {"event": "pong", "timestamp": datetime.now(timezone.utc).isoformat()},
                         websocket,
                     )
 
@@ -328,5 +328,5 @@ async def get_websocket_stats() -> Dict[str, Any]:
     """
     return {
         "connections": manager.get_connection_stats(),
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
     }

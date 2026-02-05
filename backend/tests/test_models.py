@@ -3,7 +3,7 @@ Unit tests for backend models and services
 """
 
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 
@@ -80,14 +80,14 @@ class TestDateTimeUtilities:
 
     def test_scheduled_delivery_validation(self):
         """Test that scheduled delivery time must be in future"""
-        future_time = datetime.utcnow() + timedelta(hours=2)
-        past_time = datetime.utcnow() - timedelta(hours=2)
+        future_time = datetime.now(timezone.utc) + timedelta(hours=2)
+        past_time = datetime.now(timezone.utc) - timedelta(hours=2)
 
         # Future time should be valid
-        assert future_time > datetime.utcnow()
+        assert future_time > datetime.now(timezone.utc)
 
         # Past time should be invalid for scheduling
-        assert past_time < datetime.utcnow()
+        assert past_time < datetime.now(timezone.utc)
 
 
 class TestPaymentCalculations:

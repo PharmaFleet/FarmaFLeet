@@ -345,6 +345,7 @@ class _OrderListBuilder extends StatelessWidget {
   Widget _buildOrderItem(BuildContext context, OrderEntity order, bool isSelected) {
     final orderCard = OrderCard(
       orderId: order.id,
+      salesOrderNumber: order.salesOrderNumber,
       customerName: order.customerInfo['name'] ?? 'No Customer',
       status: order.status,
       amount: order.totalAmount,

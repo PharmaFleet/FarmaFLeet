@@ -1,5 +1,5 @@
 import { api, handlePaginatedResponse } from '@/lib/axios';
-import { Driver, PaginatedResponse } from '@/types';
+import { Driver, Order, PaginatedResponse } from '@/types';
 
 export const driverService = {
 getAll: async (params?: any): Promise<PaginatedResponse<Driver>> => {
@@ -17,6 +17,11 @@ getAll: async (params?: any): Promise<PaginatedResponse<Driver>> => {
   getById: async (id: number): Promise<Driver> => {
     const response = await api.get(`/drivers/${id}`);
     return response.data;
+  },
+
+  getDriverOrders: async (driverId: number, params?: { page?: number; size?: number; status_filter?: string }): Promise<PaginatedResponse<Order>> => {
+    const response = await api.get(`/drivers/${driverId}/orders`, { params });
+    return handlePaginatedResponse<Order>(response.data);
   },
 
   create: async (data: any): Promise<Driver> => {

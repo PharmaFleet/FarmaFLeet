@@ -130,6 +130,7 @@ async def seed():
                     user_id=user.id,
                     vehicle_info=f"PHX-{code}" if code != "nan" else "Generic PHX",
                     biometric_id=bio if bio != "nan" else None,
+                    code=code if code != "nan" else (bio if bio != "nan" else None),
                     warehouse_id=wh_id,
                     is_available=True,
                 )

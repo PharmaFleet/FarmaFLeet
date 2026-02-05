@@ -4,8 +4,7 @@ import pytest
 class TestMobileFlows:
     """Integration tests for Mobile Driver flows"""
 
-    @pytest.mark.asyncio
-    async def test_get_driver_orders_empty(self, client, driver_token_headers):
+    def test_get_driver_orders_empty(self, client, driver_token_headers):
         """
         Scenario: Driver fetches orders when none assigned.
         """
@@ -20,8 +19,7 @@ class TestMobileFlows:
         if response.status_code == 200:
             assert isinstance(response.json(), list)
 
-    @pytest.mark.asyncio
-    async def test_driver_location_update_no_profile(
+    def test_driver_location_update_no_profile(
         self, client, driver_token_headers
     ):
         """

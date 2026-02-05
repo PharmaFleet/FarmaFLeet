@@ -67,39 +67,45 @@ _async_session_maker = None
 
 @pytest.fixture(scope="session")
 def event_loop() -> Generator:
-    """Create an instance of the default event_loop for each test case."""
+    """Create a session-scoped event loop for async fixtures and tests."""
     loop = asyncio.get_event_loop_policy().new_event_loop()
     yield loop
     loop.close()
 
 
 @pytest.fixture(scope="session", autouse=True)
-async def setup_database():
-    """Set up the test database once for the entire test session."""
+def setup_database(event_loop):
+    """Set up the test database once for the entire test session.
+
+    Uses sync wrapper around async operations to avoid teardown ordering
+    issues with pytest-asyncio's event loop cleanup.
+    """
     global _engine, _async_session_maker
 
-    _engine = create_async_engine(
-        TEST_DATABASE_URL,
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-        echo=False,
-    )
+    async def _setup():
+        global _engine, _async_session_maker
+        _engine = create_async_engine(
+            TEST_DATABASE_URL,
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+            echo=False,
+        )
+        async with _engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        _async_session_maker = sessionmaker(
+            _engine, class_=AsyncSession, expire_on_commit=False
+        )
 
-    # Create all tables
-    async with _engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    async def _teardown():
+        async with _engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+        await _engine.dispose()
 
-    _async_session_maker = sessionmaker(
-        _engine, class_=AsyncSession, expire_on_commit=False
-    )
-
+    event_loop.run_until_complete(_setup())
     yield
-
-    # Clean up
-    async with _engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-
-    await _engine.dispose()
+    # Teardown may fail if pytest-asyncio already closed the event loop
+    if not event_loop.is_closed():
+        event_loop.run_until_complete(_teardown())
 
 
 @pytest.fixture(autouse=True)

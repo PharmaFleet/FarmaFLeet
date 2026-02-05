@@ -20,6 +20,7 @@ import { Label } from '@/components/ui/label';
 import { Loader2, CheckCircle2, Search } from 'lucide-react';
 import { useAvailableDrivers } from '@/hooks/useDrivers';
 import { useBatchAssign } from '@/hooks/useBatchAssign';
+import { VehicleIcon } from '@/components/shared/VehicleIcon';
 
 interface BatchAssignDriverDialogProps {
     orderIds: number[];
@@ -115,7 +116,10 @@ export function BatchAssignDriverDialog({ orderIds, open, onOpenChange, onSucces
                                 ) : (
                                     filteredDrivers.map((driver) => (
                                         <SelectItem key={driver.id} value={driver.id.toString()}>
-                                            {driver.user?.full_name} ({driver.is_available ? 'Available' : 'Busy'})
+                                            <span className="flex items-center gap-2">
+                                                <VehicleIcon vehicleType={driver.vehicle_type} size={14} />
+                                                {driver.user?.full_name} ({driver.is_available ? 'Available' : 'Busy'})
+                                            </span>
                                         </SelectItem>
                                     ))
                                 )}

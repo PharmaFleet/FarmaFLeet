@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Body
 from pydantic import BaseModel
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, desc, delete
+from sqlalchemy import select, func, desc, asc, delete, cast, String, or_, exists
 from sqlalchemy.orm import selectinload
 from math import ceil
 
@@ -23,6 +23,9 @@ from app.schemas.order import (
 from app.services.excel import excel_service
 from app.services.notification import notification_service
 import pandas as pd
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -45,6 +48,21 @@ async def read_orders(
     driver_id: Optional[int] = None,
     search: Optional[str] = None,
     include_archived: bool = False,
+    sort_by: Optional[str] = None,
+    sort_order: str = "desc",
+    # Field-specific search filters
+    customer_name: Optional[str] = None,
+    customer_phone: Optional[str] = None,
+    customer_address: Optional[str] = None,
+    order_number: Optional[str] = None,
+    driver_name: Optional[str] = None,
+    driver_code: Optional[str] = None,
+    sales_taker: Optional[str] = None,
+    payment_method: Optional[str] = None,
+    # Date range filters
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    date_field: Optional[str] = "created_at",
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
@@ -94,17 +112,104 @@ async def read_orders(
             )
     if driver_id:
         filters.append(Order.driver_id == driver_id)
-    if search:
-        from sqlalchemy import or_, cast, String
 
+    # Field-specific text filters (AND logic - each narrows results)
+    if customer_name:
+        filters.append(cast(Order.customer_info["name"], String).ilike(f"%{customer_name}%"))
+    if customer_phone:
+        filters.append(cast(Order.customer_info["phone"], String).ilike(f"%{customer_phone}%"))
+    if customer_address:
+        filters.append(cast(Order.customer_info["address"], String).ilike(f"%{customer_address}%"))
+    if order_number:
+        filters.append(Order.sales_order_number.ilike(f"%{order_number}%"))
+    if driver_name:
+        driver_name_subq = (
+            select(Driver.id)
+            .join(User, Driver.user_id == User.id)
+            .where(Driver.id == Order.driver_id, User.full_name.ilike(f"%{driver_name}%"))
+        )
+        filters.append(exists(driver_name_subq))
+    if driver_code:
+        driver_code_subq = (
+            select(Driver.id)
+            .where(Driver.id == Order.driver_id, Driver.code.ilike(f"%{driver_code}%"))
+        )
+        filters.append(exists(driver_code_subq))
+    if sales_taker:
+        filters.append(Order.sales_taker.ilike(f"%{sales_taker}%"))
+    if payment_method:
+        filters.append(Order.payment_method.ilike(f"%{payment_method}%"))
+
+    # Date range filters
+    if date_from or date_to:
+        DATE_FIELD_WHITELIST = {
+            "created_at": Order.created_at,
+            "assigned_at": Order.assigned_at,
+            "picked_up_at": Order.picked_up_at,
+            "delivered_at": Order.delivered_at,
+        }
+        date_col = DATE_FIELD_WHITELIST.get(date_field, Order.created_at)
+        if date_from:
+            try:
+                from_dt = datetime.fromisoformat(date_from)
+                filters.append(date_col >= from_dt)
+            except ValueError:
+                pass
+        if date_to:
+            try:
+                to_dt = datetime.fromisoformat(date_to)
+                # Add a day to make "to" date inclusive
+                to_dt = to_dt.replace(hour=23, minute=59, second=59)
+                filters.append(date_col <= to_dt)
+            except ValueError:
+                pass
+
+    if search:
         search_filter = f"%{search}%"
-        filters.append(
-            or_(
-                Order.sales_order_number.ilike(search_filter),
-                cast(Order.customer_info["name"], String).ilike(search_filter),
-                cast(Order.customer_info["phone"], String).ilike(search_filter),
+        # Universal search: order#, customer info, status, warehouse code, driver name/phone/code, notes, sales_taker, amount
+        search_conditions = [
+            Order.sales_order_number.ilike(search_filter),
+            cast(Order.customer_info["name"], String).ilike(search_filter),
+            cast(Order.customer_info["phone"], String).ilike(search_filter),
+            cast(Order.customer_info["address"], String).ilike(search_filter),
+            cast(Order.customer_info["area"], String).ilike(search_filter),
+            Order.status.ilike(search_filter),
+            Order.notes.ilike(search_filter),
+            Order.sales_taker.ilike(search_filter),
+        ]
+
+        # Search by amount (exact or partial match)
+        try:
+            amount_val = float(search)
+            search_conditions.append(Order.total_amount == amount_val)
+        except (ValueError, TypeError):
+            pass
+
+        # Join-based search for driver name/phone/code and warehouse code
+        # These use exists() subqueries to avoid changing the main query join semantics
+        driver_subq = (
+            select(Driver.id)
+            .join(User, Driver.user_id == User.id)
+            .where(
+                Driver.id == Order.driver_id,
+                or_(
+                    User.full_name.ilike(search_filter),
+                    User.phone.ilike(search_filter),
+                    Driver.code.ilike(search_filter),
+                ),
             )
         )
+        search_conditions.append(exists(driver_subq))
+
+        wh_subq = (
+            select(Warehouse.id).where(
+                Warehouse.id == Order.warehouse_id,
+                Warehouse.code.ilike(search_filter),
+            )
+        )
+        search_conditions.append(exists(wh_subq))
+
+        filters.append(or_(*search_conditions))
 
     if filters:
         query = query.where(*filters)
@@ -118,6 +223,51 @@ async def read_orders(
     skip = (page - 1) * limit
     pages = ceil(total / limit) if limit > 0 else 1
 
+    # Sorting with whitelist validation
+    SORT_COLUMNS = {
+        "created_at": Order.created_at,
+        "updated_at": Order.updated_at,
+        "sales_order_number": Order.sales_order_number,
+        "status": Order.status,
+        "total_amount": Order.total_amount,
+        "assigned_at": Order.assigned_at,
+        "picked_up_at": Order.picked_up_at,
+        "delivered_at": Order.delivered_at,
+        "payment_method": Order.payment_method,
+        "sales_taker": Order.sales_taker,
+        "customer_name": cast(Order.customer_info["name"], String),
+        "customer_phone": cast(Order.customer_info["phone"], String),
+    }
+
+    # Handle sort columns that require subqueries (driver_name, driver_code, warehouse_code)
+    subquery_sorts = {
+        "driver_name": (
+            select(User.full_name)
+            .join(Driver, Driver.user_id == User.id)
+            .where(Driver.id == Order.driver_id)
+            .correlate(Order)
+            .scalar_subquery()
+        ),
+        "driver_code": (
+            select(Driver.code)
+            .where(Driver.id == Order.driver_id)
+            .correlate(Order)
+            .scalar_subquery()
+        ),
+        "warehouse_code": (
+            select(Warehouse.code)
+            .where(Warehouse.id == Order.warehouse_id)
+            .correlate(Order)
+            .scalar_subquery()
+        ),
+    }
+
+    if sort_by in subquery_sorts:
+        sort_column = subquery_sorts[sort_by]
+    else:
+        sort_column = SORT_COLUMNS.get(sort_by, Order.created_at)
+    order_func = asc if sort_order == "asc" else desc
+
     # Get items
     query = (
         query.options(
@@ -127,7 +277,7 @@ async def read_orders(
             selectinload(Order.driver).selectinload(Driver.user),
             selectinload(Order.driver).selectinload(Driver.warehouse),
         )
-        .order_by(desc(Order.created_at))
+        .order_by(order_func(sort_column))
         .offset(skip)
         .limit(limit)
     )
@@ -217,6 +367,7 @@ async def create_order(
         payment_method=order_in.payment_method,
         warehouse_id=order_in.warehouse_id,
         status=OrderStatus.PENDING,
+        notes=order_in.notes,
     )
     db.add(db_obj)
     await db.commit()
@@ -239,7 +390,7 @@ async def import_orders(
     file: UploadFile = File(...),
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
-) -> Any:
+) -> Dict[str, Any]:
     """
     Import orders from Excel file.
     """
@@ -253,10 +404,17 @@ async def import_orders(
         contents = await file.read()
         import io
 
+        if not contents:
+            raise HTTPException(status_code=400, detail="Uploaded file is empty")
+
         try:
-            data = excel_service.parse_file(io.BytesIO(contents))
+            data = excel_service.parse_file(io.BytesIO(contents), filename=file.filename or "")
         except Exception as e:
-            raise Exception(f"Excel Parse Error: {str(e)}")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Could not parse file '{file.filename}'. "
+                       f"Supported formats: .xlsx, .xls, .csv, HTML tables. Error: {str(e)}"
+            )
 
         created_count = 0
         errors = []
@@ -305,16 +463,33 @@ async def import_orders(
                 amount_raw = row.get("Total amount") or row.get("Amount")
                 total_amount = float(amount_raw) if not pd.isna(amount_raw) else 0.0
 
-                # Extract payment method from Excel - support various column names
+                # Extract payment method - prefer "Retail payment method" from MS Dynamics
+                retail_payment_raw = (
+                    row.get("Retail payment method")
+                    or row.get("retail payment method")
+                )
                 payment_method_raw = (
-                    row.get("Payment Method")
+                    retail_payment_raw
+                    or row.get("Payment Method")
                     or row.get("Payment method")
                     or row.get("payment_method")
                     or row.get("Payment")
                     or row.get("Method")
                 )
-                # Clean and normalize payment method, default to CASH if empty
                 payment_method = clean_value(payment_method_raw) or "CASH"
+
+                # Extract sales taker
+                sales_taker = clean_value(
+                    row.get("Sales taker")
+                    or row.get("Sales Taker")
+                    or row.get("sales_taker")
+                )
+
+                # Extract customer account
+                customer_account = clean_value(
+                    row.get("Customer account")
+                    or row.get("Customer Account")
+                )
 
                 # Extract warehouse code from Excel and map to warehouse ID
                 excel_wh_code = clean_value(
@@ -333,7 +508,7 @@ async def import_orders(
                         location=WKTElement("POINT(47.9774 29.3759)", srid=4326),
                     )
                     db.add(new_wh)
-                    await db.commit()
+                    await db.flush()
                     await db.refresh(new_wh)
                     default_warehouse = new_wh
                     warehouse_map[new_wh.code] = new_wh.id
@@ -346,6 +521,7 @@ async def import_orders(
                         "phone": cust_phone,
                         "address": cust_addr,
                         "area": cust_area,
+                        "account": customer_account,
                     },
                     total_amount=total_amount,
                     payment_method=payment_method,
@@ -371,6 +547,7 @@ async def import_orders(
                     payment_method=order_in.payment_method,
                     warehouse_id=order_in.warehouse_id,
                     status=OrderStatus.PENDING,
+                    sales_taker=sales_taker,
                 )
                 db.add(db_obj)
                 created_count += 1
@@ -380,6 +557,8 @@ async def import_orders(
         await db.commit()
         return {"created": created_count, "errors": errors}
 
+    except HTTPException:
+        raise
     except Exception as e:
         import traceback
         import logging
@@ -391,7 +570,65 @@ async def import_orders(
 
 
 # ==========================================
-# BATCH OPERATIONS - Must be before /{order_id} routes
+# STATIC POST ROUTES - Must be before /{order_id} routes
+# ==========================================
+
+
+@router.post("/auto-archive")
+async def auto_archive_orders(
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_admin_user),
+) -> Dict[str, Any]:
+    """
+    Auto-archive delivered orders using 24-hour buffer.
+    Orders are archived 24 hours after delivery (based on delivered_at field).
+    Falls back to 7 days based on updated_at for orders without delivered_at.
+    This endpoint is designed to be called by a daily cron job.
+    Admin only.
+    """
+    from sqlalchemy import or_, and_
+
+    now = datetime.now(timezone.utc)
+    cutoff_24h = now - timedelta(hours=24)
+    cutoff_7d = now - timedelta(days=7)
+
+    # Find delivered orders that should be archived:
+    # 1. Orders with delivered_at more than 24 hours ago, OR
+    # 2. Legacy orders without delivered_at, using updated_at > 7 days as fallback
+    stmt = (
+        select(Order)
+        .where(Order.status == OrderStatus.DELIVERED)
+        .where(Order.is_archived.is_(False))
+        .where(
+            or_(
+                # New logic: delivered_at is set and more than 24 hours ago
+                and_(
+                    Order.delivered_at.isnot(None),
+                    Order.delivered_at < cutoff_24h
+                ),
+                # Legacy fallback: no delivered_at, use updated_at > 7 days
+                and_(
+                    Order.delivered_at.is_(None),
+                    Order.updated_at < cutoff_7d
+                )
+            )
+        )
+    )
+    result = await db.execute(stmt)
+    orders_to_archive = result.scalars().all()
+
+    archived_count = 0
+    for order in orders_to_archive:
+        order.is_archived = True
+        db.add(order)
+        archived_count += 1
+
+    await db.commit()
+    return {"msg": f"Archived {archived_count} orders"}
+
+
+# ==========================================
+# BATCH OPERATIONS
 # ==========================================
 
 
@@ -409,7 +646,7 @@ async def batch_cancel_orders(
     request: BatchCancelRequest,
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
-) -> Any:
+) -> Dict[str, Any]:
     """
     Batch cancel multiple orders.
     Cannot cancel orders that are already DELIVERED.
@@ -417,10 +654,23 @@ async def batch_cancel_orders(
     cancelled_count = 0
     errors = []
 
+    # Verify warehouse access for all orders upfront
+    warehouse_ids = await deps.get_user_warehouse_ids(current_user, db)
+
+    # Bulk fetch all orders in a single query
+    result = await db.execute(
+        select(Order).where(Order.id.in_(request.order_ids))
+    )
+    orders_map = {order.id: order for order in result.scalars().all()}
+
     for order_id in request.order_ids:
-        order = await db.get(Order, order_id)
+        order = orders_map.get(order_id)
         if not order:
             errors.append({"order_id": order_id, "error": "Order not found"})
+            continue
+
+        if warehouse_ids is not None and order.warehouse_id not in warehouse_ids:
+            errors.append({"order_id": order_id, "error": "No access to this warehouse"})
             continue
 
         if order.status == OrderStatus.DELIVERED:
@@ -450,7 +700,7 @@ async def batch_delete_orders(
     request: BatchDeleteRequest,
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_admin_user),
-) -> Any:
+) -> Dict[str, Any]:
     """
     Batch delete multiple orders (hard deletion).
     Admin only - removes orders and all related data.
@@ -504,7 +754,7 @@ async def batch_pickup_orders(
     request: BatchPickupRequest,
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
-) -> Any:
+) -> Dict[str, Any]:
     """
     Batch pickup multiple orders.
     Only the assigned driver can pickup their assigned orders.
@@ -528,30 +778,37 @@ async def batch_pickup_orders(
         raise HTTPException(status_code=404, detail="Driver profile not found")
 
     picked_up_count = 0
-    errors = []
+    errors: List[Dict[str, Any]] = []
+
+    # Bulk fetch all orders to avoid N+1 queries
+    result = await db.execute(
+        select(Order).where(Order.id.in_(request.order_ids))
+    )
+    orders_map: Dict[int, Order] = {order.id: order for order in result.scalars().all()}
 
     for order_id in request.order_ids:
-        order = await db.get(Order, order_id)
+        order = orders_map.get(order_id)
         if not order:
-            errors.append({"order_id": order_id, "message": "Order not found"})
+            errors.append({"order_id": order_id, "error": "Order not found"})
             continue
 
         if order.driver_id != driver.id:
             errors.append({
                 "order_id": order_id,
-                "message": "Order is not assigned to you"
+                "error": "Order is not assigned to you"
             })
             continue
 
-        if order.status != OrderStatus.ASSIGNED.value:
+        if order.status != OrderStatus.ASSIGNED:
             errors.append({
                 "order_id": order_id,
-                "message": f"Order must be in ASSIGNED status, currently: {order.status}"
+                "error": f"Order must be in ASSIGNED status, currently: {order.status}"
             })
             continue
 
         # Update order status to PICKED_UP
         order.status = OrderStatus.PICKED_UP
+        order.picked_up_at = datetime.now(timezone.utc)
         history = OrderStatusHistory(
             order_id=order.id,
             status=OrderStatus.PICKED_UP,
@@ -575,7 +832,7 @@ async def batch_delivery_orders(
     request: BatchDeliveryRequest,
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
-) -> Any:
+) -> Dict[str, Any]:
     """
     Complete multiple deliveries at once.
     POD (Proof of Delivery) is optional.
@@ -607,37 +864,38 @@ async def batch_delivery_orders(
                 proof_lookup[proof["order_id"]] = proof
 
     delivered_count = 0
-    errors = []
+    errors: List[Dict[str, Any]] = []
     valid_statuses = [
-        OrderStatus.PICKED_UP.value,
-        OrderStatus.IN_TRANSIT.value,
-        OrderStatus.OUT_FOR_DELIVERY.value,
+        OrderStatus.PICKED_UP,
+        OrderStatus.IN_TRANSIT,
+        OrderStatus.OUT_FOR_DELIVERY,
     ]
 
+    # Bulk fetch all orders with POD to avoid N+1 queries
+    result = await db.execute(
+        select(Order).where(Order.id.in_(request.order_ids))
+        .options(selectinload(Order.proof_of_delivery))
+    )
+    orders_map: Dict[int, Order] = {order.id: order for order in result.scalars().all()}
+
     for order_id in request.order_ids:
-        # Load order with existing POD
-        order_result = await db.execute(
-            select(Order)
-            .where(Order.id == order_id)
-            .options(selectinload(Order.proof_of_delivery))
-        )
-        order = order_result.scalars().first()
+        order = orders_map.get(order_id)
 
         if not order:
-            errors.append({"order_id": order_id, "message": "Order not found"})
+            errors.append({"order_id": order_id, "error": "Order not found"})
             continue
 
         if order.driver_id != driver.id:
             errors.append({
                 "order_id": order_id,
-                "message": "Order is not assigned to you"
+                "error": "Order is not assigned to you"
             })
             continue
 
         if order.status not in valid_statuses:
             errors.append({
                 "order_id": order_id,
-                "message": f"Order must be in PICKED_UP, IN_TRANSIT, or OUT_FOR_DELIVERY status, currently: {order.status}"
+                "error": f"Order must be in PICKED_UP, IN_TRANSIT, or OUT_FOR_DELIVERY status, currently: {order.status}"
             })
             continue
 
@@ -689,32 +947,44 @@ async def batch_assign_orders(
     assignments: List[Dict[str, int]] = Body(...),
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
-) -> Any:
+) -> Dict[str, Any]:
     """
     Batch assign orders.
     """
     count = 0
-    driver_notifications = {}  # driver_id -> {token: str, count: int}
+    driver_notifications: Dict[int, Dict[str, Any]] = {}  # driver_id -> {token, user_id, count}
+    warehouse_ids = await deps.get_user_warehouse_ids(current_user, db)
+
+    # Collect all unique IDs for bulk fetching
+    order_ids: List[int] = [a.get("order_id") for a in assignments if a.get("order_id")]
+    driver_ids: List[int] = list(set(a.get("driver_id") for a in assignments if a.get("driver_id")))
+
+    # Bulk fetch orders to avoid N+1 queries
+    orders_result = await db.execute(select(Order).where(Order.id.in_(order_ids)))
+    orders_map: Dict[int, Order] = {o.id: o for o in orders_result.scalars().all()}
+
+    # Bulk fetch drivers with eager loading to avoid N+1 queries
+    drivers_result = await db.execute(
+        select(Driver).where(Driver.id.in_(driver_ids))
+        .options(selectinload(Driver.user), selectinload(Driver.warehouse))
+    )
+    drivers_map: Dict[int, Driver] = {d.id: d for d in drivers_result.scalars().all()}
 
     for assign in assignments:
-        order_id = assign.get("order_id")
-        driver_id = assign.get("driver_id")
+        order_id: int = assign.get("order_id")
+        driver_id: int = assign.get("driver_id")
         if not order_id or not driver_id:
             continue
 
-        order = await db.get(Order, order_id)
-        # Load driver with user for token
-        drv_stmt = (
-            select(Driver)
-            .where(Driver.id == driver_id)
-            .options(selectinload(Driver.user))
-        )
-        drv_res = await db.execute(drv_stmt)
-        driver = drv_res.scalars().first()
+        order = orders_map.get(order_id)
+        driver = drivers_map.get(driver_id)
 
         if order and driver:
+            if warehouse_ids is not None and order.warehouse_id not in warehouse_ids:
+                continue
             order.driver_id = driver.id
             order.status = OrderStatus.ASSIGNED
+            order.assigned_at = datetime.now(timezone.utc)
             history = OrderStatusHistory(
                 order_id=order.id,
                 status=OrderStatus.ASSIGNED,
@@ -734,7 +1004,7 @@ async def batch_assign_orders(
                     }
                 driver_notifications[driver_id]["count"] += 1
 
-    await db.commit()
+    await db.flush()
 
     # Send notifications to drivers
     for drv_id, data in driver_notifications.items():
@@ -747,7 +1017,6 @@ async def batch_assign_orders(
     if count > 0:
         from app.models.user import User as UserModel, UserRole
         from app.models.notification import Notification
-        from datetime import datetime
 
         admin_roles = [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_MANAGER, UserRole.DISPATCHER]
         stmt = select(UserModel).where(UserModel.role.in_(admin_roles), UserModel.is_active.is_(True))
@@ -763,12 +1032,82 @@ async def batch_assign_orders(
                 title=title,
                 body=body,
                 data={"type": "order", "count": str(count)},
-                created_at=datetime.utcnow(),
+                created_at=datetime.now(timezone.utc),
             )
             db.add(notif)
-        await db.commit()
 
+    await db.commit()
     return {"assigned": count}
+
+
+class BatchReturnRequest(BaseModel):
+    order_ids: List[int]
+    reason: str
+
+
+@router.post("/batch-return")
+async def batch_return_orders(
+    request: BatchReturnRequest,
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+) -> Dict[str, Any]:
+    """
+    Batch return multiple delivered orders.
+    Only DELIVERED orders can be returned.
+    """
+    returned_count = 0
+    errors: List[Dict[str, Any]] = []
+
+    warehouse_ids = await deps.get_user_warehouse_ids(current_user, db)
+
+    # Bulk fetch all orders with driver info to avoid N+1 queries
+    result = await db.execute(
+        select(Order).where(Order.id.in_(request.order_ids))
+        .options(selectinload(Order.driver).selectinload(Driver.user))
+    )
+    orders_map: Dict[int, Order] = {order.id: order for order in result.scalars().all()}
+
+    for order_id in request.order_ids:
+        order = orders_map.get(order_id)
+        if not order:
+            errors.append({"order_id": order_id, "error": "Order not found"})
+            continue
+
+        if warehouse_ids is not None and order.warehouse_id not in warehouse_ids:
+            errors.append({"order_id": order_id, "error": "No access to this warehouse"})
+            continue
+
+        if order.status != OrderStatus.DELIVERED:
+            errors.append({"order_id": order_id, "error": f"Only delivered orders can be returned, currently: {order.status}"})
+            continue
+
+        order.status = OrderStatus.RETURNED
+        history = OrderStatusHistory(
+            order_id=order.id,
+            status=OrderStatus.RETURNED,
+            notes=f"Return reason: {request.reason}",
+        )
+        db.add(history)
+        db.add(order)
+        returned_count += 1
+
+        # Notify assigned driver
+        if order.driver and order.driver.user and order.driver.user.fcm_token:
+            try:
+                from app.models.notification import Notification
+                notif = Notification(
+                    user_id=order.driver.user_id,
+                    title="Order Returned",
+                    body=f"Order {order.sales_order_number or order.id} has been returned: {request.reason}",
+                    data={"type": "order", "order_id": str(order.id)},
+                    created_at=datetime.now(timezone.utc),
+                )
+                db.add(notif)
+            except Exception as e:
+                logger.error(f"Error notifying driver about return: {e}")
+
+    await db.commit()
+    return {"returned": returned_count, "errors": errors}
 
 
 # ==========================================
@@ -796,6 +1135,8 @@ async def assign_order(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
+    await deps.verify_order_warehouse_access(order.warehouse_id, current_user, db)
+
     # Store previous driver for reassignment notification
     previous_driver = order.driver
     previous_driver_user = previous_driver.user if previous_driver else None
@@ -811,6 +1152,7 @@ async def assign_order(
 
     order.driver_id = driver.id
     order.status = OrderStatus.ASSIGNED
+    order.assigned_at = datetime.now(timezone.utc)
 
     history = OrderStatusHistory(
         order_id=order.id,
@@ -819,21 +1161,7 @@ async def assign_order(
     )
     db.add(history)
     db.add(order)
-    await db.commit()
-    await db.refresh(order)
-
-    query = (
-        select(Order)
-        .where(Order.id == order.id)
-        .options(
-            selectinload(Order.warehouse),
-            selectinload(Order.driver).selectinload(Driver.user),
-            selectinload(Order.driver).selectinload(Driver.warehouse),
-            selectinload(Order.status_history),
-            selectinload(Order.proof_of_delivery),
-        )
-    )
-    result = await db.execute(query)
+    await db.flush()
 
     # Notify new driver
     if driver.user.fcm_token:
@@ -859,8 +1187,21 @@ async def assign_order(
         driver_name=driver.user.full_name or driver.user.email,
         assigned_by_name=current_user.full_name or current_user.email,
     )
-    await db.commit()  # Commit the admin notifications
+    await db.commit()
 
+    # Re-fetch with eager loading for response
+    query = (
+        select(Order)
+        .where(Order.id == order.id)
+        .options(
+            selectinload(Order.warehouse),
+            selectinload(Order.driver).selectinload(Driver.user),
+            selectinload(Order.driver).selectinload(Driver.warehouse),
+            selectinload(Order.status_history),
+            selectinload(Order.proof_of_delivery),
+        )
+    )
+    result = await db.execute(query)
     return result.scalars().first()
 
 
@@ -868,7 +1209,7 @@ async def assign_order(
 async def update_order_status(
     order_id: int,
     status: OrderStatus = Body(..., embed=True),
-    notes: Optional[str] = Body(None),
+    notes: Optional[str] = Body(None, embed=True),
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
@@ -879,10 +1220,15 @@ async def update_order_status(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
+    await deps.verify_order_warehouse_access(order.warehouse_id, current_user, db)
+
     order.status = status
-    # Set delivered_at timestamp when delivered (24-hour archive buffer)
-    # Don't archive immediately - will be done by auto-archive cron job after 24h
-    if status == OrderStatus.DELIVERED:
+    # Set status transition timestamps
+    if status == OrderStatus.ASSIGNED:
+        order.assigned_at = datetime.now(timezone.utc)
+    elif status == OrderStatus.PICKED_UP:
+        order.picked_up_at = datetime.now(timezone.utc)
+    elif status == OrderStatus.DELIVERED:
         order.delivered_at = datetime.now(timezone.utc)
 
     history = OrderStatusHistory(order_id=order.id, status=status, notes=notes)
@@ -953,7 +1299,7 @@ async def upload_proof_of_delivery(
     if order.proof_of_delivery:
         order.proof_of_delivery.signature_url = signature
         order.proof_of_delivery.photo_url = photo_url
-        order.proof_of_delivery.timestamp = datetime.utcnow()
+        order.proof_of_delivery.timestamp = datetime.now(timezone.utc)
     else:
         pod = ProofOfDelivery(
             order_id=order.id,
@@ -1007,7 +1353,7 @@ async def upload_proof_of_delivery(
                         driver_id=order.driver_id,
                         amount=order.total_amount,
                         method=method_enum,
-                        collected_at=datetime.utcnow(),
+                        collected_at=datetime.now(timezone.utc),
                     )
                     db.add(payment)
 
@@ -1019,7 +1365,7 @@ async def upload_proof_of_delivery(
                         order.driver.user.fcm_token,
                     )
     except Exception as e:
-        print(f"Error in POD notifications: {e}")
+        logger.error(f"Error in POD notifications: {e}")
         # Continue - POD was submitted successfully, don't fail on notification errors
 
     await db.commit()
@@ -1060,7 +1406,7 @@ async def submit_proof_of_delivery_url(
     if order.proof_of_delivery:
         order.proof_of_delivery.signature_url = pod_data.signature_url
         order.proof_of_delivery.photo_url = pod_data.photo_url
-        order.proof_of_delivery.timestamp = datetime.utcnow()
+        order.proof_of_delivery.timestamp = datetime.now(timezone.utc)
     else:
         pod = ProofOfDelivery(
             order_id=order.id,
@@ -1114,7 +1460,7 @@ async def submit_proof_of_delivery_url(
                         driver_id=order.driver_id,
                         amount=order.total_amount,
                         method=method_enum,
-                        collected_at=datetime.utcnow(),
+                        collected_at=datetime.now(timezone.utc),
                     )
                     db.add(payment)
 
@@ -1126,7 +1472,7 @@ async def submit_proof_of_delivery_url(
                         order.driver.user.fcm_token,
                     )
     except Exception as e:
-        print(f"Error in POD notifications: {e}")
+        logger.error(f"Error in POD notifications: {e}")
         # Continue - POD was submitted successfully, don't fail on notification errors
 
     await db.commit()
@@ -1137,35 +1483,150 @@ async def submit_proof_of_delivery_url(
 async def export_orders(
     status: Optional[str] = None,
     warehouse_id: Optional[int] = None,
+    search: Optional[str] = None,
+    driver_id: Optional[int] = None,
+    customer_name: Optional[str] = None,
+    customer_phone: Optional[str] = None,
+    customer_address: Optional[str] = None,
+    order_number: Optional[str] = None,
+    driver_name: Optional[str] = None,
+    driver_code: Optional[str] = None,
+    sales_taker: Optional[str] = None,
+    payment_method: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    date_field: Optional[str] = "created_at",
+    include_archived: bool = False,
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
-    Export filtered orders.
+    Export filtered orders with all columns.
+    Accepts the same filter parameters as read_orders.
     """
-    import pandas as pd
     import io
 
-    query = select(Order)
-    if status is not None:
-        query = query.where(Order.status == status)
-    if warehouse_id is not None:
-        query = query.where(Order.warehouse_id == warehouse_id)
+    query = select(Order).options(
+        selectinload(Order.warehouse),
+        selectinload(Order.driver).selectinload(Driver.user),
+    )
 
+    filters = []
+
+    # Warehouse access control
+    user_warehouse_ids = await deps.get_user_warehouse_ids(current_user, db)
+    if user_warehouse_ids is not None:
+        filters.append(Order.warehouse_id.in_(user_warehouse_ids))
+
+    # Archive filter
+    filters.append(Order.is_archived.is_(include_archived))
+
+    if status:
+        filters.append(Order.status == status)
+    if warehouse_id:
+        filters.append(Order.warehouse_id == warehouse_id)
+    if driver_id:
+        filters.append(Order.driver_id == driver_id)
+
+    # Field-specific filters
+    if customer_name:
+        filters.append(cast(Order.customer_info["name"], String).ilike(f"%{customer_name}%"))
+    if customer_phone:
+        filters.append(cast(Order.customer_info["phone"], String).ilike(f"%{customer_phone}%"))
+    if customer_address:
+        filters.append(cast(Order.customer_info["address"], String).ilike(f"%{customer_address}%"))
+    if order_number:
+        filters.append(Order.sales_order_number.ilike(f"%{order_number}%"))
+    if driver_name:
+        dn_subq = (
+            select(Driver.id).join(User, Driver.user_id == User.id)
+            .where(Driver.id == Order.driver_id, User.full_name.ilike(f"%{driver_name}%"))
+        )
+        filters.append(exists(dn_subq))
+    if driver_code:
+        dc_subq = (
+            select(Driver.id)
+            .where(Driver.id == Order.driver_id, Driver.code.ilike(f"%{driver_code}%"))
+        )
+        filters.append(exists(dc_subq))
+    if sales_taker:
+        filters.append(Order.sales_taker.ilike(f"%{sales_taker}%"))
+    if payment_method:
+        filters.append(Order.payment_method.ilike(f"%{payment_method}%"))
+
+    # Universal search
+    if search:
+        search_filter = f"%{search}%"
+        search_conditions = [
+            Order.sales_order_number.ilike(search_filter),
+            cast(Order.customer_info["name"], String).ilike(search_filter),
+            cast(Order.customer_info["phone"], String).ilike(search_filter),
+            Order.status.ilike(search_filter),
+            Order.notes.ilike(search_filter),
+        ]
+        filters.append(or_(*search_conditions))
+
+    # Date range
+    if date_from or date_to:
+        DATE_FIELDS = {
+            "created_at": Order.created_at,
+            "assigned_at": Order.assigned_at,
+            "picked_up_at": Order.picked_up_at,
+            "delivered_at": Order.delivered_at,
+        }
+        date_col = DATE_FIELDS.get(date_field, Order.created_at)
+        if date_from:
+            try:
+                filters.append(date_col >= datetime.fromisoformat(date_from))
+            except ValueError:
+                pass
+        if date_to:
+            try:
+                to_dt = datetime.fromisoformat(date_to).replace(hour=23, minute=59, second=59)
+                filters.append(date_col <= to_dt)
+            except ValueError:
+                pass
+
+    if filters:
+        query = query.where(*filters)
+
+    query = query.order_by(Order.created_at.desc())
     result = await db.execute(query)
     orders = result.scalars().all()
 
     data = []
     for o in orders:
-        data.append(
-            {
-                "ID": o.id,
-                "Order Number": o.sales_order_number,
-                "Status": o.status,
-                "Amount": o.total_amount,
-                "Created At": o.created_at,
-            }
-        )
+        # Compute delivery time
+        delivery_time = ""
+        if o.picked_up_at and o.delivered_at:
+            diff = o.delivered_at - o.picked_up_at
+            total_seconds = int(diff.total_seconds())
+            if total_seconds >= 0:
+                hours = total_seconds // 3600
+                minutes = (total_seconds % 3600) // 60
+                delivery_time = f"{hours:02d}:{minutes:02d}"
+
+        data.append({
+            "Order #": o.sales_order_number,
+            "Status": o.status,
+            "Customer Name": o.customer_info.get("name", "") if o.customer_info else "",
+            "Customer Phone": o.customer_info.get("phone", "") if o.customer_info else "",
+            "Customer Address": o.customer_info.get("address", "") if o.customer_info else "",
+            "Customer Area": o.customer_info.get("area", "") if o.customer_info else "",
+            "Amount": o.total_amount,
+            "Payment Method": o.payment_method,
+            "Warehouse": o.warehouse.code if o.warehouse else "",
+            "Driver Name": o.driver.user.full_name if o.driver and o.driver.user else "",
+            "Driver Phone": o.driver.user.phone if o.driver and o.driver.user else "",
+            "Driver Code": o.driver.code if o.driver else "",
+            "Sales Taker": o.sales_taker or "",
+            "Created": o.created_at.strftime("%Y-%m-%d %H:%M") if o.created_at else "",
+            "Assigned": o.assigned_at.strftime("%Y-%m-%d %H:%M") if o.assigned_at else "",
+            "Picked Up": o.picked_up_at.strftime("%Y-%m-%d %H:%M") if o.picked_up_at else "",
+            "Delivered": o.delivered_at.strftime("%Y-%m-%d %H:%M") if o.delivered_at else "",
+            "Delivery Time": delivery_time,
+            "Notes": o.notes or "",
+        })
 
     df = pd.DataFrame(data)
     stream = io.BytesIO()
@@ -1201,8 +1662,11 @@ async def unassign_order(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
+    await deps.verify_order_warehouse_access(order.warehouse_id, current_user, db)
+
     order.driver_id = None
     order.status = OrderStatus.PENDING
+    order.assigned_at = None
 
     history = OrderStatusHistory(
         order_id=order.id, status=OrderStatus.PENDING, notes="Unassigned by manager"
@@ -1238,7 +1702,7 @@ async def reject_order(
 @router.post("/{order_id}/cancel")
 async def cancel_order(
     order_id: int,
-    reason: Optional[str] = Body(None),
+    reason: Optional[str] = Body(None, embed=True),
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
@@ -1254,6 +1718,8 @@ async def cancel_order(
     order = result.scalars().first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+
+    await deps.verify_order_warehouse_access(order.warehouse_id, current_user, db)
 
     if order.status == OrderStatus.DELIVERED:
         raise HTTPException(status_code=400, detail="Cannot cancel a delivered order")
@@ -1271,7 +1737,6 @@ async def cancel_order(
     )
     db.add(history)
     db.add(order)
-    await db.commit()
 
     # Notify the driver if the order was assigned
     if previous_driver_user:
@@ -1282,9 +1747,65 @@ async def cancel_order(
             order_number=order.sales_order_number,
             token=previous_driver_user.fcm_token,
         )
-        await db.commit()  # Commit notification
 
+    await db.commit()
     return {"msg": "Order cancelled successfully"}
+
+
+@router.post("/{order_id}/return")
+async def return_order(
+    order_id: int,
+    reason: str = Body(..., embed=True),
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+) -> Any:
+    """
+    Return a delivered order.
+    Only DELIVERED orders can be returned. Requires a reason.
+    """
+    result = await db.execute(
+        select(Order)
+        .where(Order.id == order_id)
+        .options(selectinload(Order.driver).selectinload(Driver.user))
+    )
+    order = result.scalars().first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    await deps.verify_order_warehouse_access(order.warehouse_id, current_user, db)
+
+    if order.status != OrderStatus.DELIVERED:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Only delivered orders can be returned. Current status: {order.status}"
+        )
+
+    order.status = OrderStatus.RETURNED
+    history = OrderStatusHistory(
+        order_id=order.id,
+        status=OrderStatus.RETURNED,
+        notes=f"Return reason: {reason}",
+    )
+    db.add(history)
+    db.add(order)
+
+    # Notify assigned driver
+    if order.driver and order.driver.user and order.driver.user.fcm_token:
+        try:
+            from app.models.notification import Notification
+            notif = Notification(
+                user_id=order.driver.user_id,
+                title="Order Returned",
+                body=f"Order {order.sales_order_number or order.id} has been returned: {reason}",
+                data={"type": "order", "order_id": str(order.id)},
+                created_at=datetime.now(timezone.utc),
+            )
+            db.add(notif)
+        except Exception as e:
+            logger.error(f"Error notifying driver about return: {e}")
+
+    await db.commit()
+    return {"msg": "Order returned successfully"}
 
 
 @router.delete("/{order_id}")
@@ -1322,6 +1843,8 @@ async def archive_order(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
+    await deps.verify_order_warehouse_access(order.warehouse_id, current_user, db)
+
     order.is_archived = True
     db.add(order)
     await db.commit()
@@ -1341,60 +1864,11 @@ async def unarchive_order(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
+    await deps.verify_order_warehouse_access(order.warehouse_id, current_user, db)
+
     order.is_archived = False
     db.add(order)
     await db.commit()
     return {"msg": f"Order {order_id} restored from archive"}
 
 
-@router.post("/auto-archive")
-async def auto_archive_orders(
-    db: AsyncSession = Depends(deps.get_db),
-    current_user: User = Depends(deps.get_current_admin_user),
-) -> Any:
-    """
-    Auto-archive delivered orders using 24-hour buffer.
-    Orders are archived 24 hours after delivery (based on delivered_at field).
-    Falls back to 7 days based on updated_at for orders without delivered_at.
-    This endpoint is designed to be called by a daily cron job.
-    Admin only.
-    """
-    from sqlalchemy import or_, and_
-
-    now = datetime.now(timezone.utc)
-    cutoff_24h = now - timedelta(hours=24)
-    cutoff_7d = now - timedelta(days=7)
-
-    # Find delivered orders that should be archived:
-    # 1. Orders with delivered_at more than 24 hours ago, OR
-    # 2. Legacy orders without delivered_at, using updated_at > 7 days as fallback
-    stmt = (
-        select(Order)
-        .where(Order.status == OrderStatus.DELIVERED)
-        .where(Order.is_archived.is_(False))
-        .where(
-            or_(
-                # New logic: delivered_at is set and more than 24 hours ago
-                and_(
-                    Order.delivered_at.isnot(None),
-                    Order.delivered_at < cutoff_24h
-                ),
-                # Legacy fallback: no delivered_at, use updated_at > 7 days
-                and_(
-                    Order.delivered_at.is_(None),
-                    Order.updated_at < cutoff_7d
-                )
-            )
-        )
-    )
-    result = await db.execute(stmt)
-    orders_to_archive = result.scalars().all()
-
-    archived_count = 0
-    for order in orders_to_archive:
-        order.is_archived = True
-        db.add(order)
-        archived_count += 1
-
-    await db.commit()
-    return {"msg": f"Archived {archived_count} orders"}

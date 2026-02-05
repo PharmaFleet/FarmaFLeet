@@ -28,6 +28,7 @@ export function AddDriverDialog({ open, onOpenChange }: AddDriverDialogProps) {
       email: '',
       password: '',
       vehicle_info: '',
+      vehicle_type: 'car',
       biometric_id: '',
       warehouse_id: '1',
       is_available: true
@@ -44,6 +45,7 @@ export function AddDriverDialog({ open, onOpenChange }: AddDriverDialogProps) {
           email: formData.email,
           password: formData.password,
           vehicle_info: formData.vehicle_info,
+          vehicle_type: formData.vehicle_type,
           biometric_id: formData.biometric_id,
           warehouse_id: parseInt(formData.warehouse_id),
           is_available: formData.is_available
@@ -67,6 +69,7 @@ export function AddDriverDialog({ open, onOpenChange }: AddDriverDialogProps) {
           email: '',
           password: '',
           vehicle_info: '',
+          vehicle_type: 'car',
           biometric_id: '',
           warehouse_id: '1',
           is_available: true
@@ -144,10 +147,10 @@ export function AddDriverDialog({ open, onOpenChange }: AddDriverDialogProps) {
             <div className="grid grid-cols-2 gap-6 pt-2 border-t border-border">
                 <div className="space-y-2">
                     <Label htmlFor="wh_id" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Warehouse</Label>
-                    <Input 
+                    <Input
                         id="wh_id"
                         type="number"
-                        placeholder="1" 
+                        placeholder="1"
                         value={formData.warehouse_id}
                         onChange={(e) => handleChange('warehouse_id', e.target.value)}
                         className="bg-muted border-border focus:bg-background h-11 rounded-xl"
@@ -157,15 +160,28 @@ export function AddDriverDialog({ open, onOpenChange }: AddDriverDialogProps) {
 
                 <div className="space-y-2">
                     <Label htmlFor="vehicle" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Vehicle Info</Label>
-                    <Input 
+                    <Input
                         id="vehicle"
-                        placeholder="KW 1234" 
+                        placeholder="KW 1234"
                         value={formData.vehicle_info}
                         onChange={(e) => handleChange('vehicle_info', e.target.value)}
                         className="bg-muted border-border focus:bg-background h-11 rounded-xl"
                         required
                     />
                 </div>
+            </div>
+
+            <div className="space-y-2">
+                <Label htmlFor="vehicle_type" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Vehicle Type</Label>
+                <select
+                    id="vehicle_type"
+                    value={formData.vehicle_type}
+                    onChange={(e) => handleChange('vehicle_type', e.target.value)}
+                    className="flex h-11 w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm focus:bg-background focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                >
+                    <option value="car">Car</option>
+                    <option value="motorcycle">Motorcycle</option>
+                </select>
             </div>
             
             <div className="space-y-2">

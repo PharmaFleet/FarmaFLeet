@@ -9,7 +9,7 @@ Tests cover:
 - Warehouse access control
 """
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from jose import jwt, JWTError
 from fastapi.testclient import TestClient
 
@@ -24,18 +24,19 @@ class TestJWTSecurity:
     """Test JWT token security."""
 
     def test_token_expiration_enforced(self):
-        """Test that tokens expire after configured time (2 hours)."""
+        """Test that tokens expire after configured time."""
         token = create_access_token(subject="123")
 
         # Decode and check expiration
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        exp = datetime.fromtimestamp(payload["exp"])
-        now = datetime.utcnow()
+        exp = datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
+        now = datetime.now(timezone.utc)
 
-        # Token should expire in approximately 2 hours (120 minutes)
+        # Token should expire in approximately ACCESS_TOKEN_EXPIRE_MINUTES
+        expected_seconds = settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
         time_until_expiry = exp - now
-        assert time_until_expiry.total_seconds() < 7300  # 2 hours + 100 seconds buffer
-        assert time_until_expiry.total_seconds() > 7000  # At least 1h 56m
+        assert time_until_expiry.total_seconds() < expected_seconds + 100  # Allow 100s buffer
+        assert time_until_expiry.total_seconds() > expected_seconds - 100  # Allow 100s buffer
 
     def test_expired_token_rejected(self):
         """Test that expired tokens are rejected."""
@@ -69,7 +70,7 @@ class TestJWTSecurity:
     def test_token_without_subject_rejected(self):
         """Test that tokens without 'sub' claim are rejected."""
         # Manually create a token without 'sub'
-        payload = {"exp": datetime.utcnow() + timedelta(hours=1)}
+        payload = {"exp": datetime.now(timezone.utc) + timedelta(hours=1)}
         token_without_sub = jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
         response = client.get(
@@ -106,12 +107,15 @@ class TestWebSocketSecurity:
 
     def test_websocket_requires_token(self):
         """Test that WebSocket connections require authentication token."""
-        # Try to connect without token
-        with client.websocket_connect("/api/v1/ws/drivers") as websocket:
-            # Connection should be rejected (exception raised)
+        try:
+            with client.websocket_connect("/api/v1/ws/drivers") as websocket:
+                # If connection accepted, try to receive to detect server close
+                websocket.receive_text()
+            # If we reach here without exception, connection was accepted
+            pytest.fail("WebSocket accepted connection without token")
+        except Exception:
+            # Expected: connection rejected without token
             pass
-        # If we reach here, the test should fail
-        pytest.fail("WebSocket accepted connection without token")
 
     def test_websocket_rejects_invalid_token(self):
         """Test that WebSocket rejects invalid tokens."""

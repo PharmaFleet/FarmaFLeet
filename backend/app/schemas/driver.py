@@ -6,6 +6,7 @@ from app.schemas.warehouse import Warehouse as WarehouseSchema
 
 class DriverBase(BaseModel):
     is_available: bool = True
+    code: Optional[str] = None
     vehicle_info: Optional[str] = None
     vehicle_type: Optional[str] = None  # "car" or "motorcycle"
     biometric_id: Optional[str] = None

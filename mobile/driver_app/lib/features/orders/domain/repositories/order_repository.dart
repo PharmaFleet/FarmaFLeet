@@ -26,4 +26,7 @@ abstract class OrderRepository {
   /// Each proof map can contain: order_id, photo_url, signature_url, notes
   /// Returns a map with 'updated_count' and optionally 'errors'
   Future<Map<String, dynamic>> batchDeliveryOrders(List<int> orderIds, List<Map<String, dynamic>>? proofs);
+
+  /// Returns a delivered order with a reason
+  Future<void> returnOrder(int id, String reason);
 }

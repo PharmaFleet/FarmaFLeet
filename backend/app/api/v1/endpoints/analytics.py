@@ -1,7 +1,7 @@
-from typing import Any
+from typing import Any, Dict, List
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, case, desc, literal
+from sqlalchemy import select, func, case, desc
 from sqlalchemy.orm import selectinload
 
 from app.api import deps
@@ -11,6 +11,10 @@ from app.models.warehouse import Warehouse
 from app.models.user import User
 from app.models.financial import PaymentCollection
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
 
 
@@ -19,7 +23,7 @@ async def get_recent_activities(
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
     limit: int = 20,
-) -> Any:
+) -> List[Dict[str, Any]]:
     """
     Get recent system activities (Assignments, Deliveries, Status Changes, Payments).
     """
@@ -122,7 +126,7 @@ async def get_recent_activities(
     try:
         activities.sort(key=lambda x: x["created_at"] or "", reverse=True)
     except Exception as e:
-        print(f"Error sorting activities: {e}")
+        logger.error(f"Error sorting activities: {e}")
 
     return activities[:limit]
 
@@ -131,14 +135,14 @@ async def get_recent_activities(
 async def executive_dashboard(
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
-) -> Any:
+) -> Dict[str, Any]:
     """
     Get executive high-level metrics.
     """
     # Total Active Orders (Today's Pending/In-Transit)
-    from datetime import datetime, time
+    from datetime import datetime, time, timezone
 
-    today_start = datetime.combine(datetime.utcnow().date(), time.min)
+    today_start = datetime.combine(datetime.now(timezone.utc).date(), time.min)
 
     active_orders = await db.scalar(
         select(func.count(Order.id)).where(
@@ -196,11 +200,11 @@ async def executive_dashboard(
 async def orders_today(
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
-) -> Any:
+) -> Dict[str, int]:
     """Get total orders created today."""
-    from datetime import datetime, time
+    from datetime import datetime, time, timezone
 
-    today_start = datetime.combine(datetime.utcnow().date(), time.min)
+    today_start = datetime.combine(datetime.now(timezone.utc).date(), time.min)
     count = await db.scalar(
         select(func.count(Order.id)).where(Order.created_at >= today_start)
     )
@@ -211,7 +215,7 @@ async def orders_today(
 async def active_drivers(
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
-) -> Any:
+) -> Dict[str, int]:
     """Get count of active (online) drivers."""
     count = await db.scalar(select(func.count(Driver.id)).where(Driver.is_available))
     return {"count": count or 0}
@@ -221,11 +225,11 @@ async def active_drivers(
 async def success_rate(
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
-) -> Any:
+) -> Dict[str, float]:
     """Get today's delivery success rate."""
-    from datetime import datetime, time
+    from datetime import datetime, time, timezone
 
-    today_start = datetime.combine(datetime.utcnow().date(), time.min)
+    today_start = datetime.combine(datetime.now(timezone.utc).date(), time.min)
 
     total = await db.scalar(
         select(func.count(Order.id)).where(Order.created_at >= today_start)
@@ -244,7 +248,7 @@ async def success_rate(
 async def driver_performance(
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
-) -> Any:
+) -> List[Dict[str, Any]]:
     """
     Get performance stats per driver.
     """
@@ -290,7 +294,7 @@ async def driver_performance(
 async def orders_by_warehouse(
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
-) -> Any:
+) -> List[Dict[str, Any]]:
     """
     Get order counts by warehouse.
     """

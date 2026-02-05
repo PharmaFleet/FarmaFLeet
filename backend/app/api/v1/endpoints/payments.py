@@ -1,7 +1,7 @@
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 import math
 import io
-from datetime import datetime
+from datetime import datetime, timezone
 import pandas as pd  # type: ignore
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -31,20 +31,32 @@ async def read_payments(
     status: Optional[str] = None,
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
-) -> Any:
+) -> Dict[str, Any]:
     """
     Retrieve payments with pagination.
     """
+    # Apply warehouse access control
+    user_warehouse_ids = await deps.get_user_warehouse_ids(current_user, db)
+
     # Base query: Join Payment -> Driver -> User to get driver name
     query = (
         select(PaymentCollection, User.full_name.label("driver_name"))
         .join(Driver, PaymentCollection.driver_id == Driver.id)
         .join(User, Driver.user_id == User.id)
+        .join(Order, PaymentCollection.order_id == Order.id)
     )
 
     # Count query: Needs to handle joins if we search by driver name
-    count_q = select(func.count(PaymentCollection.id)).select_from(PaymentCollection)
+    count_q = (
+        select(func.count(PaymentCollection.id))
+        .select_from(PaymentCollection)
+        .join(Order, PaymentCollection.order_id == Order.id)
+    )
     needs_join_for_count = False
+
+    if user_warehouse_ids is not None:
+        query = query.where(Order.warehouse_id.in_(user_warehouse_ids))
+        count_q = count_q.where(Order.warehouse_id.in_(user_warehouse_ids))
 
     filters = []
     if search:
@@ -109,7 +121,14 @@ async def read_pending_payments(
     """
     Get all pending payments (not yet verified).
     """
-    query = select(PaymentCollection).where(PaymentCollection.verified_at.is_(None))
+    query = (
+        select(PaymentCollection)
+        .join(Order, PaymentCollection.order_id == Order.id)
+        .where(PaymentCollection.verified_at.is_(None))
+    )
+    user_warehouse_ids = await deps.get_user_warehouse_ids(current_user, db)
+    if user_warehouse_ids is not None:
+        query = query.where(Order.warehouse_id.in_(user_warehouse_ids))
     result = await db.execute(query)
     payments = result.scalars().all()
     return payments
@@ -148,7 +167,7 @@ async def clear_payment(
     payment_id: int,
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_manager_or_above),
-) -> Any:
+) -> Dict[str, str]:
     """
     Verify/clear a payment collection.
     Manager or admin only.
@@ -158,7 +177,7 @@ async def clear_payment(
         raise HTTPException(status_code=404, detail="Payment not found")
 
     payment.verified_by_id = current_user.id
-    payment.verified_at = datetime.utcnow()
+    payment.verified_at = datetime.now(timezone.utc)
 
     db.add(payment)
     await db.commit()
@@ -169,14 +188,20 @@ async def clear_payment(
 async def payment_report(
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
-) -> Any:
+) -> List[Dict[str, Any]]:
     """
     Generate payment report.
     """
-    # Simple aggregation example
-    query = select(
-        PaymentCollection.method, func.sum(PaymentCollection.amount).label("total")
-    ).group_by(PaymentCollection.method)
+    query = (
+        select(
+            PaymentCollection.method, func.sum(PaymentCollection.amount).label("total")
+        )
+        .join(Order, PaymentCollection.order_id == Order.id)
+        .group_by(PaymentCollection.method)
+    )
+    user_warehouse_ids = await deps.get_user_warehouse_ids(current_user, db)
+    if user_warehouse_ids is not None:
+        query = query.where(Order.warehouse_id.in_(user_warehouse_ids))
 
     result = await db.execute(query)
     report = [{"method": row.method, "total": row.total} for row in result]
@@ -191,7 +216,14 @@ async def export_payments(
     """
     Export payments to Excel.
     """
-    query = select(PaymentCollection).order_by(PaymentCollection.created_at.desc())
+    query = (
+        select(PaymentCollection)
+        .join(Order, PaymentCollection.order_id == Order.id)
+        .order_by(PaymentCollection.created_at.desc())
+    )
+    user_warehouse_ids = await deps.get_user_warehouse_ids(current_user, db)
+    if user_warehouse_ids is not None:
+        query = query.where(Order.warehouse_id.in_(user_warehouse_ids))
     result = await db.execute(query)
     payments = result.scalars().all()
 

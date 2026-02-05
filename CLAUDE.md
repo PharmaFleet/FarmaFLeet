@@ -4,30 +4,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-PharmaFleet is a delivery management system for pharmacy operations in Kuwait. The system consists of three main applications:
-- **Backend**: FastAPI (Python) with PostgreSQL and Redis
-- **Frontend**: React (Vite) web dashboard for managers
-- **Mobile**: Flutter Android app for drivers
+PharmaFleet is a delivery management system for pharmacy operations in Kuwait. Three applications:
+- **Backend**: FastAPI (Python) with async SQLAlchemy + PostgreSQL (Supabase) + Redis
+- **Frontend**: React (Vite) + shadcn/ui + React Query + Zustand
+- **Mobile**: Flutter Android driver app with BLoC pattern + offline-first
 
-The system handles order import from Excel, manual driver assignment, real-time tracking, offline capabilities, and proof of delivery.
+Orders are imported from Microsoft Dynamics 365 Excel exports. Drivers are assigned manually (managers prefer control over algorithms). UI is bilingual (English/Arabic).
 
 ## Production Deployment
 
 **URL**: https://pharmafleet-olive.vercel.app
 
-### Vercel Configuration
-- Frontend: Static build served at root (`/`)
-- Backend: Python serverless at `/api/*` via `backend/api/index.py`
-- Vercel has **native FastAPI support** - no Mangum wrapper needed
-- Database uses **Supabase with PgBouncer** - requires `statement_cache_size=0`
+- Frontend: Static build at root (`/`)
+- Backend: Python serverless at `/api/*` via `backend/api/index.py` (native FastAPI support, no Mangum)
+- Database: Supabase PostgreSQL with PgBouncer (requires `statement_cache_size=0`)
+- Storage: Supabase Storage for proof of delivery images
+- Push to `main` triggers automatic deployment
 
-### Production Database Access
 ```bash
-# Pull production env vars
-vercel env pull .env.vercel --environment=production
-
 # Run migrations on production
-# Note: pydantic_settings loads .env file, so must set env vars BEFORE importing config
+vercel env pull .env.vercel --environment=production
 cd backend
 python -c "
 import os
@@ -39,477 +35,298 @@ command.upgrade(Config('alembic.ini'), 'head')
 "
 ```
 
-### Serverless Considerations
-- `backend/app/db/session.py` auto-detects `VERCEL` env var for serverless-optimized settings
-- Pool size is reduced to 1 for serverless, statement caching disabled for PgBouncer
-
 ## Development Commands
 
-### Using Make (Recommended)
-
-```bash
-# Start all services with Docker
-make dev
-
-# View logs
-make logs              # All services
-make logs-backend      # Backend only
-make logs-frontend     # Frontend only
-
-# Database operations
-make db-migrate        # Run migrations
-make db-seed           # Seed test data
-make db-reset          # Drop, recreate, migrate, and seed
-make db-shell          # Open PostgreSQL shell
-
-# Testing
-make test              # Run backend tests
-make test-coverage     # Run tests with coverage
-
-# Utilities
-make status            # Show container status
-make restart-backend   # Restart backend only
-make clean             # Stop and remove all containers
-```
-
-### Backend (FastAPI)
-
+### Backend
 ```bash
 cd backend
-
-# Setup
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+python -m venv venv && venv\Scripts\activate  # Windows
 pip install -r requirements.txt
-
-# Run migrations
 alembic upgrade head
-
-# Run server
 uvicorn app.main:app --reload
 
-# Run tests
-pytest                 # All tests
-pytest tests/ -v -m "not integration"  # Unit tests only
-pytest tests/ -v -m integration        # Integration tests only
-pytest tests/test_orders.py -v         # Single file
+# Tests
+pytest                                          # All tests
 pytest tests/test_orders.py::test_create_order -v  # Single test
-pytest --cov=app --cov-report=term-missing  # With coverage
+pytest --cov=app --cov-report=term-missing      # Coverage
 
-# Linting and formatting
+# Lint (note: pyproject.toml configures black at line-length=88)
 flake8 app/ --max-line-length=100
-black app/ --line-length=100
+black app/
 ```
 
-### Frontend (React)
-
+### Frontend
 ```bash
 cd frontend
-
-# Setup
 npm install
-
-# Development
-npm run dev            # Start dev server (port 3000)
-
-# Build
-npm run build          # Production build
-npm run preview        # Preview production build
-
-# Testing
-npm run test           # Unit tests (Vitest)
-npm run test:watch     # Watch mode
-npm run test:coverage  # With coverage
-npm test -- OrdersPage.test.tsx        # Single test file
-npm run test:e2e       # E2E tests (Playwright)
-npm run test:e2e:ui    # Playwright UI mode
-
-# Linting
+npm run dev                    # Dev server (port 3000)
+npm run build                  # Production build
+npm run test                   # Vitest
+npm test -- OrdersPage.test.tsx  # Single file
+npm run test:e2e               # Playwright
 npm run lint
 ```
 
-### Mobile (Flutter)
-
+### Mobile
 ```bash
 cd mobile/driver_app
-
-# Setup
 flutter pub get
-
-# Run
 flutter run
-
-# Build
-flutter build apk --debug      # Debug APK
-flutter build apk --release    # Release APK
-
-# Testing
-flutter test                   # Unit tests
-flutter test integration_test  # Integration tests
-
-# Code generation (for models/serialization)
-flutter pub run build_runner build --delete-conflicting-outputs
+flutter build apk --release
+flutter test
 ```
 
-### Backend Scripts
+### Docker (full stack)
+```bash
+# On Linux/macOS (Makefile available):
+make dev          # Start all services
+make db-reset     # Drop, recreate, migrate, seed
+make db-migrate   # Run alembic migrations inside container
+make test         # Backend tests
+make logs-backend # View backend logs
 
-Utility scripts in `backend/scripts/` for common operations:
+# On Windows (no make), use docker compose directly:
+docker compose up -d                                          # Start all services
+docker compose down                                           # Stop all services
+docker exec delivery-system-iii-backend-1 alembic upgrade head  # Run migrations
+docker logs delivery-system-iii-backend-1 --tail 50           # View backend logs
+docker compose restart backend                                # Restart after code changes
+```
 
+**Docker port mapping**: Backend container listens on 8080 (mapped to host 8000). Frontend nginx on 80 (mapped to host 3000). DB on 5432 (mapped to host 5444).
+
+### Seeding Scripts
 ```bash
 cd backend
-
-# Database seeding
-python scripts/seed_superadmin.py      # Create admin user
-python scripts/seed_accounts.py        # Seed from accounts.xlsx (drivers, managers, warehouses)
-python scripts/seed_warehouses.py      # Seed warehouse data from Excel
-
-# Debugging
-python scripts/check_users.py          # List all users
-python scripts/check_driver.py         # Check driver status
-python scripts/list_users.py           # List users with details
-
-# Maintenance
-python scripts/reset_driver_status.py  # Reset all drivers to offline
-python scripts/fix_data.py             # Fix data inconsistencies
+python scripts/seed_superadmin.py   # Create admin user
+python scripts/seed_accounts.py     # Seed from accounts.xlsx
+python scripts/seed_warehouses.py   # Seed warehouses from Excel
 ```
 
-## Architecture
+## Architecture Patterns
 
-### Backend Structure
+### Backend: Async SQLAlchemy with `lazy='raise'`
 
-The backend follows a clean architecture pattern with clear separation of concerns:
+All models use `lazy='raise'` on relationships. This means relationships **must** be eagerly loaded or they raise an error:
 
-```
-backend/app/
-├── api/v1/
-│   ├── api.py              # Main API router aggregation
-│   └── endpoints/          # Individual endpoint modules
-│       ├── login.py        # Authentication
-│       ├── users.py        # User management
-│       ├── drivers.py      # Driver operations
-│       ├── orders.py       # Order CRUD and assignment
-│       ├── payments.py     # Payment tracking
-│       ├── analytics.py    # Reports and metrics
-│       ├── notifications.py # Push notifications
-│       ├── warehouses.py   # Warehouse operations
-│       ├── sync.py         # Offline sync endpoints
-│       └── upload.py       # File upload (Excel, images)
-├── core/
-│   ├── config.py           # Settings and environment variables
-│   ├── security.py         # JWT and password hashing
-│   └── logging.py          # Logging configuration
-├── db/
-│   └── session.py          # Async SQLAlchemy session management
-├── models/                 # SQLAlchemy ORM models
-│   ├── user.py
-│   ├── driver.py
-│   ├── order.py
-│   ├── location.py
-│   ├── warehouse.py
-│   ├── notification.py
-│   └── financial.py
-├── schemas/                # Pydantic schemas for request/response validation
-├── services/               # Business logic layer
-└── routers/                # WebSocket routers
-    └── websocket.py        # Real-time location updates
+```python
+# WRONG - raises error
+driver = await db.get(Driver, driver_id)
+driver.user  # raises!
+
+# CORRECT - use selectinload
+result = await db.execute(
+    select(Driver).where(Driver.id == driver_id)
+    .options(selectinload(Driver.user), selectinload(Driver.warehouse))
+)
 ```
 
-**Key architectural decisions:**
-- **Async everywhere**: Uses async/await with asyncpg and AsyncSession
-- **JWT authentication**: Access tokens expire in 24 hours (extended for mobile app reliability)
-- **Role-based access**: Five roles (super_admin, warehouse_manager, dispatcher, executive, driver)
-- **User fields**: email, full_name, phone, role, fcm_token (for push notifications)
-- **Supabase Storage**: Used for proof of delivery images (signatures, photos)
-- **WebSocket**: Real-time driver location updates (authenticated, 60-second adaptive intervals)
-- **Offline sync**: `/sync` endpoint handles queued actions from offline drivers
-- **Warehouse isolation**: Users can only access orders from their assigned warehouses
-- **Warehouse codes**: Warehouses use codes from Excel imports (DW001-DW010, BV001-BV004, CCB01). Always display `warehouse.code`, not `warehouse_id`
-- **Driver statistics**: GET `/drivers/{id}/stats` returns orders_assigned, orders_delivered, last_order_assigned_at, online_duration_minutes
+When returning ORM objects through Pydantic schemas (`from_attributes=True`), construct schemas explicitly to avoid bidirectional lazy loading:
 
-### Frontend Structure
+```python
+# WRONG - Pydantic may traverse all ORM attributes
+return DriverSchema(id=driver.id, user=current_user)
 
-React SPA with HashRouter for Vercel compatibility:
-
-```
-frontend/src/
-├── components/
-│   ├── analytics/      # Charts and KPI widgets
-│   ├── dashboard/      # Dashboard-specific components
-│   ├── drivers/        # Driver management UI
-│   ├── maps/           # Google Maps integration
-│   ├── orders/         # Order list, filters, assignment
-│   ├── shared/         # Reusable components
-│   └── ui/             # shadcn/ui primitives (Button, Dialog, etc.)
-├── pages/              # Route components
-│   ├── auth/           # Login page
-│   ├── dashboard/      # Main dashboard
-│   ├── orders/         # Order management
-│   ├── drivers/        # Driver management
-│   ├── analytics/      # Reports and analytics
-│   ├── map/            # Live tracking map
-│   ├── payments/       # Payment tracking
-│   ├── settings/       # User settings
-│   └── users/          # User management
-├── stores/             # Zustand state management
-│   ├── analyticsStore.ts
-│   └── driversStore.ts
-├── services/           # API client functions
-├── hooks/              # Custom React hooks
-└── types/              # TypeScript type definitions
+# CORRECT - construct with only needed fields
+user_schema = UserSchema(id=current_user.id, email=current_user.email, ...)
+return DriverSchema(id=driver.id, user=user_schema)
 ```
 
-**Key architectural decisions:**
-- **HashRouter**: Uses `/#/` URLs for Vercel static hosting compatibility
-- **Zustand**: Lightweight state management for analytics and drivers
-- **React Query**: Server state caching and synchronization
-- **shadcn/ui**: Headless component library built on Radix UI
-- **Google Maps**: `@vis.gl/react-google-maps` for map rendering
+### Backend: Transaction Pattern
 
-### Mobile Structure
+Use `db.flush()` for mid-transaction ID generation. One `db.commit()` per endpoint:
 
-Flutter app with BLoC pattern and offline-first architecture:
-
-```
-mobile/driver_app/lib/
-├── core/
-│   ├── network/            # Dio HTTP client with JWT interceptor
-│   └── services/
-│       ├── token_storage_service.dart    # Secure token storage
-│       ├── location_service.dart         # GPS tracking
-│       ├── file_upload_service.dart      # Image compression/upload
-│       ├── sync_service.dart             # Offline queue management
-│       └── local_database_service.dart   # Hive persistence
-├── features/
-│   ├── auth/
-│   │   ├── data/           # API repositories
-│   │   ├── domain/         # Business logic
-│   │   └── presentation/   # BLoC + Screens
-│   ├── orders/             # Order list and status updates
-│   ├── delivery/           # Proof of delivery (signature/photo)
-│   ├── home/               # Dashboard with online/offline toggle
-│   └── settings/           # App settings
-├── theme/                  # Material Design 3 theme
-├── widgets/                # Reusable widgets
-└── l10n/                   # Localization (English, Arabic)
+```python
+db.add(order)
+await db.flush()          # ID available now, but not committed
+db.add(OrderStatusHistory(order_id=order.id, ...))
+await db.commit()         # Single commit for entire operation
 ```
 
-**Key architectural decisions:**
-- **BLoC pattern**: flutter_bloc for predictable state management
-- **Offline-first**: Hive for local persistence, queued actions sync when online
-- **Background services**: Location tracking continues when app is backgrounded
-- **Firebase**: FCM for push notifications to drivers
-- **Image compression**: flutter_image_compress before upload to save bandwidth
-- **Dependency injection**: get_it with injectable for clean architecture
+### Backend: Warehouse Access Control
+
+`get_user_warehouse_ids()` in `backend/app/api/deps.py` returns `None` for super_admins (all access) or a list of warehouse IDs for scoped users. Always filter queries:
+
+```python
+warehouse_ids = await get_user_warehouse_ids(db, current_user)
+if warehouse_ids is not None:
+    query = query.where(Order.warehouse_id.in_(warehouse_ids))
+```
+
+### Backend: Route Ordering
+
+Static routes MUST come before parameterized routes to avoid shadowing:
+
+```python
+@router.post("/auto-archive")   # Static routes first
+@router.post("/batch-cancel")
+@router.post("/batch-assign")
+@router.post("/{order_id}/assign")  # Parameterized routes last
+```
+
+### Backend: OrderStatus Enum
+
+`OrderStatus` inherits from `(str, enum.Enum)` so string comparisons work directly:
+
+```python
+# WRONG
+if order.status == OrderStatus.DELIVERED.value
+
+# CORRECT - no .value needed
+if order.status == OrderStatus.DELIVERED
+```
+
+### Frontend: HashRouter + Polling Architecture
+
+- Uses `HashRouter` (`/#/` URLs) for Vercel static hosting compatibility
+- **WebSocket is disabled on Vercel** (commented out in MapView.tsx). All real-time data uses HTTP polling:
+  - Map: polls `/drivers/locations` every 5 seconds
+  - Dashboard: 30-second `refetchInterval` via React Query
+  - Analytics: 60-second interval
+- Mobile sends location via HTTP POST to `/drivers/location` (singular); frontend fetches from `/drivers/locations` (plural)
+
+### Backend: Batch Operations Pattern
+
+Batch endpoints use bulk fetch with dict map lookup to avoid N+1 queries:
+
+```python
+# Fetch all orders in one query
+result = await db.execute(select(Order).where(Order.id.in_(request.order_ids)))
+orders_map = {o.id: o for o in result.scalars().all()}
+
+# Then iterate with O(1) lookups
+for order_id in request.order_ids:
+    order = orders_map.get(order_id)
+    if not order:
+        errors.append({"order_id": order_id, "error": "Order not found"})
+        continue
+```
+
+All batch error responses use the standard format: `{"order_id": <id>, "error": "<message>"}`.
+
+### Mobile: Offline-First + Token Refresh
+
+- Hive for local persistence, queued actions sync when online via `/sync` endpoints
+- BLoC pattern (flutter_bloc) for state management
+- Background location tracking continues when app is backgrounded
+- 3-tab order structure: Assigned → Active (picked_up/in_transit/out_for_delivery) → History
+- **Token refresh flow**: On 401, `DioClient` attempts `POST /auth/refresh` before logout. Uses a separate Dio instance for the refresh call to avoid interceptor loops. `_isRefreshing` flag prevents concurrent refresh attempts.
 
 ## Database
 
-PostgreSQL with PostGIS extension for spatial data:
-- **Connection pooling**: Managed by SQLAlchemy AsyncEngine
-- **Migrations**: Alembic for version control
-- **Key tables**: users, drivers, orders, locations, warehouses, notifications, financial_transactions
-- **Spatial queries**: Uses PostGIS for distance calculations and geographic queries
+PostgreSQL with PostGIS. Migrations via Alembic.
+- **Alembic autogenerate requires a live DB connection** - create migrations manually when DB is unavailable
+- Key tables: users, drivers, orders, order_status_history, proof_of_delivery, warehouses, notifications, payment_collections, driver_locations
+- Warehouse codes from Excel imports (DW001-DW010, BV001-BV004, CCB01) - always display `warehouse.code`, not `warehouse_id`
+- `backend/app/db/session.py` auto-detects `VERCEL` env var for serverless pool settings (pool_size=1, statement_cache_size=0)
 
-## Environment Configuration
+## Key Business Rules
+
+- **Manual assignment**: No auto-assignment. Managers know their drivers and areas.
+- **24-hour archive buffer**: Delivered orders get `delivered_at` set, NOT `is_archived = True`. Orders stay in "Delivered" tab for 24h, then `/auto-archive` cron moves them to archive.
+- **POD optional**: Proof of delivery (photo/signature) is optional when completing deliveries.
+- **Order statuses**: pending → assigned → picked_up → in_transit → out_for_delivery → delivered/rejected/returned/cancelled
+- **Five roles**: super_admin, warehouse_manager, dispatcher, executive, driver
+- **Batch operations**: Bulk assign, cancel, delete, pickup, delivery, return in `orders.py`
+- **Column rename**: `sales_track` was renamed to `sales_taker` (migration `c8f3a1b2d4e5`). Use `sales_taker` everywhere.
+- **Driver code**: Defaults to `biometric_id` when not explicitly provided. Unique constraint on `code` column.
+
+## Testing
+
+Backend tests use **SQLite in-memory** (no Docker/PostgreSQL required). `conftest.py` patches GeoAlchemy2 and JSONB types for SQLite compatibility. Redis is fully mocked. `asyncio_mode = "auto"` in `pyproject.toml`.
+
+**Caveat**: Tests using the sync `client` fixture (TestClient) must be sync functions (`def test_...`), not `async def`. Mixing `async def` with the sync fixture causes event loop scope conflicts.
+
+## Common Gotchas
+
+### Backend: `Body(embed=True)` Required for Mixed Params
+
+FastAPI `Body()` parameters need `embed=True` when the endpoint has a path/query param AND a body param, or when multiple body params exist. Without it, the body data is silently lost:
+
+```python
+# WRONG - reason is always None
+async def cancel_order(order_id: int, reason: str = Body(None)):
+
+# CORRECT
+async def cancel_order(order_id: int, reason: str = Body(None, embed=True)):
+```
+
+### Backend: Always Use Timezone-Aware Datetimes
+
+```python
+# WRONG - naive datetime
+datetime.utcnow()
+
+# CORRECT - timezone-aware
+from datetime import datetime, timezone
+datetime.now(timezone.utc)
+```
+
+### Frontend: File Upload
+
+Unset Content-Type to let Axios set the multipart boundary:
+```typescript
+await api.post('/orders/import', formData, { headers: { 'Content-Type': undefined } });
+```
+
+### Frontend: Google Maps
+
+- Default to Kuwait City: `lat: 29.3759, lng: 47.9774`
+- Use simple `Marker` with SVG data URLs (not `AdvancedMarker` which needs a Map ID)
+- `@vis.gl/react-google-maps` for rendering
+
+### Frontend: shadcn/ui Components
+
+Install the Radix UI primitive first, then create the component:
+```bash
+npm install @radix-ui/react-switch
+# Then create frontend/src/components/ui/switch.tsx
+```
+
+### Docker: Backend Doesn't Auto-Reload
+
+The backend Dockerfile uses `--workers 4` (production mode) without `--reload`. After editing backend code, restart the container: `docker compose restart backend`
+
+### Docker: Frontend Bakes API URL at Build Time
+
+`npm run build` uses `.env.production` which points to the production Vercel URL. For Docker, the Dockerfile overrides this via build arg:
+```dockerfile
+ARG VITE_API_URL=http://localhost:8000/api/v1
+```
+If you rebuild the frontend image, ensure this arg is set correctly or the frontend will try to call the production API.
+
+### Docker: Run Migrations After DB Reset
+
+The Docker PostgreSQL database does not automatically run Alembic migrations. After `docker compose up -d` or any DB reset, run: `docker exec delivery-system-iii-backend-1 alembic upgrade head`
+
+### Backend: Model Relationship Gotchas
+
+- `ProofOfDelivery` is a **singular object** (`uselist=False`), NOT an array. Access as `order.proof_of_delivery`, not iterating.
+- `OrderStatusHistory` uses `timestamp` field, NOT `created_at`. The frontend must reference `entry.timestamp`.
+- `Order.status_history` and `Order.proof_of_delivery` both need `selectinload()` when used.
+
+### Frontend: React Query Keys
+
+Optimistic update `queryClient.setQueryData` keys MUST exactly match the `useQuery` `queryKey`. Mismatched keys cause stale data after mutations.
+
+### Mobile: debugPrint Security
+
+Never log token content. Log length only: `debugPrint('Token attached (${token.length} chars)')`
+
+## Environment Variables
 
 ### Backend (.env)
 ```
 DATABASE_URL=postgresql://user:pass@host:5444/pharmafleet
-SECRET_KEY=<generate-strong-key>
-SUPABASE_URL=<supabase-project-url>
-SUPABASE_ANON_KEY=<supabase-anon-key>
-SUPABASE_SERVICE_ROLE_KEY=<supabase-service-key>
+SECRET_KEY=<strong-key>
+SUPABASE_URL=<url>
+SUPABASE_ANON_KEY=<key>
+SUPABASE_SERVICE_ROLE_KEY=<key>
 REDIS_URL=redis://localhost:6379/0
 ```
 
 ### Frontend (.env)
 ```
 VITE_API_URL=http://localhost:8000/api/v1
-VITE_GOOGLE_MAPS_API_KEY=<google-maps-key>
+VITE_GOOGLE_MAPS_API_KEY=<key>
 ```
-
-### Mobile (android/local.properties + environment)
-- Firebase config in `google-services.json`
-- Google Maps API key in `AndroidManifest.xml`
-
-## Testing Strategy
-
-### Backend
-- **Unit tests**: Business logic in `services/`
-- **Integration tests**: API endpoints with test database
-- **Fixtures**: Pytest fixtures for test data
-- **Coverage target**: Aim for >80% on critical paths
-
-### Frontend
-- **Unit tests**: Vitest for components and hooks
-- **E2E tests**: Playwright for user flows
-- **HashRouter compatibility**: Tests use `MemoryRouter` or wait for `/#/` URLs
-- **MSW**: Mock Service Worker for API mocking
-
-### Mobile
-- **Widget tests**: Flutter test framework
-- **Integration tests**: Full app flow tests
-- **Golden tests**: Not currently implemented
-
-## Deployment
-
-- **Production**: Deployed to Vercel (frontend + serverless backend) at https://pharmafleet-olive.vercel.app
-- **Database**: Supabase PostgreSQL with PgBouncer pooling
-- **Storage**: Supabase Storage for proof of delivery images
-- **Mobile**: APK distributed via Google Play Store or enterprise distribution
-
-### Vercel Deployment Notes
-- Push to `main` triggers automatic deployment
-- Backend entry point: `backend/api/index.py` (exposes FastAPI `app` directly)
-- Environment variables must be set in Vercel dashboard (DATABASE_URL, SECRET_KEY, REDIS_URL, SUPABASE_*)
-- After adding new model fields, run migrations on production database manually
-
-## Common Workflows
-
-### Adding a New API Endpoint
-1. Create model in `backend/app/models/`
-2. Create schema in `backend/app/schemas/`
-3. Create endpoint in `backend/app/api/v1/endpoints/`
-4. Register router in `backend/app/api/v1/api.py`
-5. Run migration: `alembic revision --autogenerate -m "description"`
-6. Apply: `alembic upgrade head`
-
-### Adding a New Frontend Page
-1. Create page component in `frontend/src/pages/`
-2. Add route in `frontend/src/App.tsx`
-3. Create API service function in `frontend/src/services/`
-4. Add navigation link in `frontend/src/components/layout/`
-5. Update TypeScript types in `frontend/src/types/`
-
-### Adding a New Mobile Feature
-1. Create feature folder in `mobile/driver_app/lib/features/`
-2. Implement data layer (repository)
-3. Implement domain layer (use cases)
-4. Implement presentation layer (BLoC + screens)
-5. Register in dependency injection (`config/di.dart`)
-
-## Git Workflow
-
-- **Main branch**: `main` (production)
-- **Development branch**: `develop` (staging)
-- **Feature branches**: `feature/description`
-- **Bug fixes**: `fix/description`
-- **Commit convention**: Conventional Commits (`feat:`, `fix:`, `docs:`, etc.)
-
-## Important Notes
-
-- **Excel import**: Orders are imported from Microsoft Dynamics 365 exports; no direct integration
-- **Manual assignment**: No auto-assignment algorithms; managers prefer manual control
-- **Kuwait-specific**: UI designed for Kuwait geography, bilingual (English/Arabic)
-- **Offline critical**: Drivers work in areas with poor connectivity; offline mode is essential
-- **Security**: Never commit `.env` files, API keys, or service account credentials
-- **Batch operations**: Bulk assign, cancel, and delete are in `orders.py` - batch routes must come BEFORE `/{order_id}` routes to avoid shadowing
-- **Auto-archive**: Orders automatically archive when status becomes DELIVERED
-
-## Common Gotchas
-
-### Backend: SQLAlchemy Relationship Loading
-When fetching models with relationships, you must use eager loading or relationships will be `None`:
-
-```python
-# Wrong - relationships not loaded
-driver = await db.get(Driver, driver_id)
-driver.user  # None!
-
-# Correct - use selectinload for async relationships
-from sqlalchemy.orm import selectinload
-
-result = await db.execute(
-    select(Driver)
-    .where(Driver.id == driver_id)
-    .options(selectinload(Driver.user), selectinload(Driver.warehouse))
-)
-driver = result.scalars().first()
-```
-
-### Backend: Pydantic Serialization with ORM Objects
-When returning ORM objects through Pydantic schemas with `from_attributes=True`, bidirectional relationships can trigger lazy loading which fails in async context. Use explicit schema construction:
-
-```python
-# Wrong - passing ORM object triggers lazy loading of user.driver_profile
-return DriverSchema(
-    id=driver.id,
-    user=current_user,  # ORM object - Pydantic may access all attributes
-)
-
-# Correct - construct schema explicitly with only needed fields
-user_schema = UserSchema(
-    id=current_user.id,
-    email=current_user.email,
-    full_name=current_user.full_name,
-    # ... only include fields defined in schema
-)
-return DriverSchema(id=driver.id, user=user_schema)
-```
-
-Models use `lazy='raise'` on relationships to fail-fast if lazy loading is attempted.
-
-### Frontend: Adding shadcn/ui Components
-shadcn/ui components require their Radix UI primitives:
-
-```bash
-# Install the Radix primitive first
-npm install @radix-ui/react-switch
-# Then create component in frontend/src/components/ui/switch.tsx
-```
-
-Available components that may need installation: `switch`, `dialog`, `dropdown-menu`, `select`, `tabs`, `toast`
-
-### Frontend: File Upload with FormData
-For multipart uploads, unset the Content-Type header to let Axios set the boundary:
-
-```typescript
-const response = await api.post('/orders/import', formData, {
-  headers: { 'Content-Type': undefined }
-});
-```
-
-### Backend: FastAPI Route Ordering
-Parameterized routes like `/{order_id}` will shadow static routes if placed first:
-
-```python
-# Correct order - specific routes first
-@router.post("/batch-cancel")  # Must come before /{order_id}
-@router.post("/batch-assign")
-@router.post("/{order_id}/assign")  # Parameterized routes last
-```
-
-### Mobile: Hot Reload vs Full Rebuild
-After changing widget structure or adding new parameters, `flutter hot reload` may not apply changes properly:
-
-```bash
-# For UI-only changes
-r  # Hot reload (in flutter run terminal)
-
-# For structural changes (new widgets, changed constructors)
-flutter clean && flutter run
-```
-
-### Mobile: Location API Endpoint
-The mobile app uses `/api/v1/drivers/location` (singular) for POSTing location updates, while the frontend fetches all locations from `/api/v1/drivers/locations` (plural).
-
-### Frontend: Google Maps Marker Components
-The `@vis.gl/react-google-maps` library's `Marker` component doesn't support `Pin` as a child (that requires `AdvancedMarker` with a Map ID). Use simple Markers with SVG data URLs for icons instead:
-
-```typescript
-const icon = 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`<svg>...</svg>`);
-<Marker position={pos} icon={icon} />
-```
-
-### Default Map Coordinates
-All map components should default to Kuwait City center, not San Francisco:
-```
-lat: 29.3759, lng: 47.9774  // Kuwait City
-```
-
-### Driver Vehicle Types
-Drivers have a `vehicle_type` field ('car' or 'motorcycle') that determines map marker icons. The type is parsed from the Excel "Vehichle" column during seeding:
-- 🚗 emoji → 'car' (default)
-- 🏍️ emoji → 'motorcycle'
-
-### Bulk Operations Performance
-Batch endpoints (`/batch-delete`, `/batch-assign`, `/batch-cancel`) use optimized bulk queries instead of individual operations. When modifying these, use `delete(Model).where(Model.id.in_(ids))` pattern instead of looping with `db.delete()`.

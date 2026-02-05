@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { driverService } from '@/services/driverService';
-import { orderService } from '@/services/orderService';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,6 +15,7 @@ export default function DriverDetailsPage() {
     const navigate = useNavigate();
     const driverId = Number(id);
     const [editDialogOpen, setEditDialogOpen] = useState(false);
+    const [orderPage, setOrderPage] = useState(1);
 
     const { data: driver, isLoading: isLoadingDriver } = useQuery({
         queryKey: ['driver', driverId],
@@ -24,9 +24,10 @@ export default function DriverDetailsPage() {
     });
 
     const { data: ordersData, isLoading: isLoadingOrders } = useQuery({
-        queryKey: ['orders', 'driver', driverId],
-        queryFn: () => orderService.getAll({ driver_id: driverId, limit: 5 }),
-        enabled: !!driverId
+        queryKey: ['driver-orders', driverId, orderPage],
+        queryFn: () => driverService.getDriverOrders(driverId, { page: orderPage, size: 10 }),
+        enabled: !!driverId,
+        placeholderData: keepPreviousData,
     });
 
     if (isLoadingDriver) return <div className="p-8">Loading driver profile...</div>;
@@ -100,7 +101,7 @@ export default function DriverDetailsPage() {
                     <CardHeader className="flex flex-row items-center justify-between">
                          <CardTitle className="flex items-center gap-2 text-base">
                             <Calendar className="h-4 w-4 text-emerald-600" />
-                            Recent Deliveries
+                            Driver Orders
                         </CardTitle>
                         <Button variant="ghost" size="sm" className="text-xs" onClick={() => navigate(`/orders?driver_id=${driverId}`)}>
                             View All
@@ -118,9 +119,9 @@ export default function DriverDetailsPage() {
                             </TableHeader>
                             <TableBody>
                                 {isLoadingOrders ? (
-                                    <TableRow><TableCell colSpan={4}>Loading history...</TableCell></TableRow>
+                                    <TableRow><TableCell colSpan={4}>Loading orders...</TableCell></TableRow>
                                 ) : ordersData?.items?.length === 0 ? (
-                                    <TableRow><TableCell colSpan={4} className="text-center italic text-muted-foreground">No recent orders</TableCell></TableRow>
+                                    <TableRow><TableCell colSpan={4} className="text-center italic text-muted-foreground">No orders found</TableCell></TableRow>
                                 ) : (
                                     ordersData?.items?.map(order => (
                                         <TableRow key={order.id} className="cursor-pointer hover:bg-muted" onClick={() => navigate(`/orders/${order.id}`)}>
@@ -141,6 +142,39 @@ export default function DriverDetailsPage() {
                                 )}
                             </TableBody>
                         </Table>
+                        {/* Pagination Controls */}
+                        {ordersData && ordersData.pages > 1 && (
+                            <div className="flex items-center justify-between pt-4 border-t border-border mt-4">
+                                <p className="text-xs text-muted-foreground">
+                                    Total {ordersData.total} orders
+                                </p>
+                                <div className="flex items-center space-x-4">
+                                    <span className="text-xs font-medium text-muted-foreground">
+                                        Page {orderPage} of {ordersData.pages}
+                                    </span>
+                                    <div className="flex gap-2">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-9 rounded-lg"
+                                            onClick={() => setOrderPage((old) => Math.max(old - 1, 1))}
+                                            disabled={orderPage === 1}
+                                        >
+                                            Previous
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-9 rounded-lg"
+                                            onClick={() => setOrderPage((old) => (ordersData.pages && old < ordersData.pages ? old + 1 : old))}
+                                            disabled={orderPage === ordersData.pages}
+                                        >
+                                            Next
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
             </div>

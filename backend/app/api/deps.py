@@ -27,6 +27,12 @@ async def get_current_user(
             token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
         )
         token_data = payload.get("sub")
+        if not token_data:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
 
         # Check if token is blacklisted
         from app.services.auth import auth_service
@@ -175,3 +181,39 @@ async def get_user_warehouse_ids(
         return None  # Allow access to all warehouses for now
 
     return []  # Default: no access
+
+
+async def verify_order_warehouse_access(
+    order_warehouse_id: int, user: User, db: AsyncSession
+) -> None:
+    """
+    Verify the current user has access to the order's warehouse.
+    Raises 403 if the user does not have access.
+    Super admins always have access.
+    """
+    warehouse_ids = await get_user_warehouse_ids(user, db)
+    if warehouse_ids is None:
+        return  # Super admin or unrestricted role
+    if order_warehouse_id not in warehouse_ids:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to orders in this warehouse",
+        )
+
+
+async def verify_orders_warehouse_access(
+    order_warehouse_ids: list[int], user: User, db: AsyncSession
+) -> None:
+    """
+    Verify the current user has access to all given warehouse IDs (for batch ops).
+    Raises 403 if any warehouse is not accessible.
+    """
+    warehouse_ids = await get_user_warehouse_ids(user, db)
+    if warehouse_ids is None:
+        return  # Super admin or unrestricted role
+    unauthorized = set(order_warehouse_ids) - set(warehouse_ids)
+    if unauthorized:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to orders in some of the selected warehouses",
+        )

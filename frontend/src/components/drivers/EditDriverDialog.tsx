@@ -36,6 +36,7 @@ export function EditDriverDialog({ driver, open, onOpenChange }: EditDriverDialo
 
   const [formData, setFormData] = useState({
     vehicle_info: driver.vehicle_info || '',
+    vehicle_type: driver.vehicle_type || 'car',
     biometric_id: driver.biometric_id || '',
     warehouse_id: driver.warehouse_id?.toString() || '',
     is_available: driver.is_available ?? true,
@@ -46,6 +47,7 @@ export function EditDriverDialog({ driver, open, onOpenChange }: EditDriverDialo
     if (open && driver) {
       setFormData({
         vehicle_info: driver.vehicle_info || '',
+        vehicle_type: driver.vehicle_type || 'car',
         biometric_id: driver.biometric_id || '',
         warehouse_id: driver.warehouse_id?.toString() || '',
         is_available: driver.is_available ?? true,
@@ -67,6 +69,7 @@ export function EditDriverDialog({ driver, open, onOpenChange }: EditDriverDialo
     mutationFn: () => {
       const payload = {
         vehicle_info: formData.vehicle_info || null,
+        vehicle_type: formData.vehicle_type || null,
         biometric_id: formData.biometric_id || null,
         warehouse_id: formData.warehouse_id ? parseInt(formData.warehouse_id) : null,
         is_available: formData.is_available,
@@ -144,6 +147,21 @@ export function EditDriverDialog({ driver, open, onOpenChange }: EditDriverDialo
                   className="bg-muted border-border focus:bg-background h-11 rounded-xl"
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="vehicle_type" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Vehicle Type
+              </Label>
+              <select
+                id="vehicle_type"
+                value={formData.vehicle_type}
+                onChange={(e) => handleChange('vehicle_type', e.target.value)}
+                className="flex h-11 w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm focus:bg-background focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+              >
+                <option value="car">Car</option>
+                <option value="motorcycle">Motorcycle</option>
+              </select>
             </div>
 
             <div className="space-y-2">

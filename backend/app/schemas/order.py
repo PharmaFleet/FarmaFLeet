@@ -48,7 +48,7 @@ class OrderBase(BaseModel):
 
 
 class OrderCreate(OrderBase):
-    pass
+    notes: Optional[str] = None
 
 
 class OrderUpdate(BaseModel):
@@ -65,6 +65,10 @@ class OrderInDBBase(OrderBase):
     updated_at: datetime
     is_archived: bool = False
     delivered_at: Optional[datetime] = None
+    assigned_at: Optional[datetime] = None
+    picked_up_at: Optional[datetime] = None
+    notes: Optional[str] = None
+    sales_taker: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
 
 

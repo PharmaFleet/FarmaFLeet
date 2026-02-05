@@ -1,6 +1,8 @@
 import { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { orderService } from '@/services/orderService';
+import { api } from '@/lib/axios';
+import { Warehouse } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -19,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
 
 interface CreateOrderDialogProps {
@@ -38,6 +41,15 @@ export function CreateOrderDialog({ open, onOpenChange }: CreateOrderDialogProps
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  const { data: warehouses } = useQuery({
+    queryKey: ['warehouses'],
+    queryFn: async () => {
+      const response = await api.get('/warehouses');
+      return response.data as Warehouse[];
+    },
+    enabled: open,
+  });
+
   const [formData, setFormData] = useState({
       sales_order_number: '',
       customer_name: '',
@@ -45,7 +57,8 @@ export function CreateOrderDialog({ open, onOpenChange }: CreateOrderDialogProps
       customer_address: '',
       total_amount: '0',
       payment_method: 'CASH',
-      warehouse_id: '1'
+      warehouse_id: '',
+      notes: '',
   });
 
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
@@ -122,7 +135,8 @@ export function CreateOrderDialog({ open, onOpenChange }: CreateOrderDialogProps
         },
         total_amount: parseFloat(formData.total_amount),
         payment_method: formData.payment_method,
-        warehouse_id: parseInt(formData.warehouse_id)
+        warehouse_id: parseInt(formData.warehouse_id),
+        notes: formData.notes.trim() || undefined,
       };
       
       if (!payload.sales_order_number || !payload.customer_info.name) {
@@ -145,7 +159,8 @@ export function CreateOrderDialog({ open, onOpenChange }: CreateOrderDialogProps
           customer_address: '',
           total_amount: '0',
           payment_method: 'CASH',
-          warehouse_id: '1'
+          warehouse_id: '',
+          notes: '',
       });
     },
     onError: (error: any) => {
@@ -326,8 +341,8 @@ export function CreateOrderDialog({ open, onOpenChange }: CreateOrderDialogProps
                 </div>
                 <div className="space-y-2">
                     <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Payment</Label>
-                    <Select 
-                        value={formData.payment_method} 
+                    <Select
+                        value={formData.payment_method}
                         onValueChange={(val) => handleChange('payment_method', val)}
                     >
                         <SelectTrigger className="bg-slate-50 border-slate-200 h-11 rounded-xl">
@@ -340,6 +355,41 @@ export function CreateOrderDialog({ open, onOpenChange }: CreateOrderDialogProps
                         </SelectContent>
                     </Select>
                 </div>
+            </div>
+
+            <div className="space-y-2">
+                <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Branch / Warehouse <span className="text-red-500">*</span>
+                </Label>
+                <Select
+                    value={formData.warehouse_id}
+                    onValueChange={(val) => handleChange('warehouse_id', val)}
+                >
+                    <SelectTrigger className="bg-muted border-border h-11 rounded-xl">
+                        <SelectValue placeholder="Select warehouse" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl border-border shadow-xl">
+                        {warehouses?.map((wh) => (
+                            <SelectItem key={wh.id} value={String(wh.id)}>
+                                {wh.code} - {wh.name}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
+
+            <div className="space-y-2">
+                <Label htmlFor="notes" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Notes (Optional)
+                </Label>
+                <Textarea
+                    id="notes"
+                    placeholder="Add any special delivery instructions..."
+                    value={formData.notes}
+                    onChange={(e) => handleChange('notes', e.target.value)}
+                    rows={2}
+                    className="bg-muted border-border focus:bg-background rounded-xl"
+                />
             </div>
 
             <DialogFooter className="pt-4">

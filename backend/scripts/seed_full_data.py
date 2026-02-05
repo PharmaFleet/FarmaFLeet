@@ -1,6 +1,6 @@
 import asyncio
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy import select
 from app.db.session import SessionLocal
 from app.models.user import User, UserRole
@@ -129,7 +129,7 @@ async def seed_data():
                     warehouse_id=wh_id,
                     driver_id=drv_id,
                     status=status,
-                    created_at=datetime.utcnow() - timedelta(days=random.randint(0, 5)),
+                    created_at=datetime.now(timezone.utc) - timedelta(days=random.randint(0, 5)),
                 )
                 db.add(order)
                 await db.commit()
@@ -147,7 +147,7 @@ async def seed_data():
                         transaction_id=f"TXN-{random.randint(100000, 999999)}"
                         if random.choice([True, False])
                         else None,
-                        verified_at=datetime.utcnow() if is_verified else None,
+                        verified_at=datetime.now(timezone.utc) if is_verified else None,
                         verified_by_id=1
                         if is_verified
                         else None,  # Assuming admin id 1 exists

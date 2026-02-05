@@ -22,6 +22,7 @@ class OrderDetailsScreen extends StatefulWidget {
 
 class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
   late Future<OrderEntity> _orderFuture;
+  OrderEntity? _order;
 
   @override
   void initState() {
@@ -31,14 +32,21 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
 
   void _loadOrder() {
     final id = int.tryParse(widget.orderId) ?? 0;
-    _orderFuture = di.sl<OrderRepository>().getOrderDetails(id);
+    _orderFuture = di.sl<OrderRepository>().getOrderDetails(id).then((order) {
+      if (mounted) {
+        setState(() {
+          _order = order;
+        });
+      }
+      return order;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Order #${widget.orderId}"),
+        title: Text(_order?.salesOrderNumber ?? "Order #${widget.orderId}"),
       ),
       body: FutureBuilder<OrderEntity>(
         future: _orderFuture,
@@ -208,8 +216,24 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     // Defines available actions based on status
     final status = order.status.toLowerCase();
 
-    if (status == 'delivered' || status == 'cancelled' || status == 'rejected') {
-       return const SizedBox.shrink(); // No actions for completed orders
+    if (status == 'cancelled' || status == 'rejected' || status == 'returned') {
+       return const SizedBox.shrink();
+    }
+
+    if (status == 'delivered') {
+      return SizedBox(
+        width: double.infinity,
+        child: OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: Colors.orange[700],
+            side: BorderSide(color: Colors.orange[300]!),
+            padding: EdgeInsets.symmetric(vertical: 16.h),
+          ),
+          onPressed: () => _showReturnDialog(context, order),
+          icon: const Icon(Icons.assignment_return),
+          label: const Text("Return Order"),
+        ),
+      );
     }
 
     return Column(
@@ -390,6 +414,75 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
         );
       }
     }
+  }
+
+  Future<void> _showReturnDialog(BuildContext context, OrderEntity order) async {
+    final reasonController = TextEditingController();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text("Return Order"),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text("Please enter the reason for returning this order."),
+              SizedBox(height: 12.h),
+              TextField(
+                controller: reasonController,
+                decoration: const InputDecoration(
+                  labelText: "Return Reason",
+                  hintText: "Enter reason...",
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 3,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text("Cancel"),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.orange[700]),
+              onPressed: () {
+                if (reasonController.text.trim().isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Please enter a reason")),
+                  );
+                  return;
+                }
+                Navigator.pop(dialogContext, true);
+              },
+              child: const Text("Return Order"),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed == true && reasonController.text.trim().isNotEmpty) {
+      try {
+        await di.sl<OrderRepository>().returnOrder(order.id, reasonController.text.trim());
+        setState(() {
+          _loadOrder();
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Order marked as returned")),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Failed to return order: $e")),
+          );
+        }
+      }
+    }
+    reasonController.dispose();
   }
 
   Future<void> _updateStatus(OrderEntity order, String newStatus) async {

@@ -16,4 +16,8 @@ abstract class AuthRepository {
 
   /// Updates the user's FCM token.
   Future<void> updateFcmToken(String token);
+
+  /// Attempts to refresh the access token using the stored refresh token.
+  /// Returns true if refresh succeeded, false otherwise.
+  Future<bool> refreshToken();
 }

@@ -50,6 +50,18 @@ class Order(Base):
         DateTime(timezone=True), nullable=True, index=True
     )
 
+    # Status transition timestamps
+    assigned_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
+    picked_up_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    # Additional fields
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    sales_taker: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+
     # Relationships
     warehouse = relationship("Warehouse", back_populates="orders")
     driver = relationship("Driver", back_populates="orders")

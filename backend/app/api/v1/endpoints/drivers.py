@@ -3,8 +3,8 @@ from __future__ import annotations
 import json
 import logging
 import math
-from datetime import datetime, timedelta
-from typing import Any, List, Optional, Union
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, List, Optional, Union
 
 from fastapi import (
     APIRouter,
@@ -14,12 +14,11 @@ from fastapi import (
     Query,
     WebSocket,
     WebSocketDisconnect,
-    status,
 )
 from geoalchemy2.elements import WKTElement
 from sqlalchemy import desc, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload, joinedload
+from sqlalchemy.orm import selectinload
 import redis.asyncio as aioredis
 
 from app.api import deps
@@ -259,11 +258,11 @@ async def update_driver_me_status(
 
     driver.is_available = is_available
     if is_available:
-        driver.last_online_at = datetime.utcnow()
+        driver.last_online_at = datetime.now(timezone.utc)
     db.add(driver)
     await db.commit()
     await db.refresh(driver)
-    print(
+    logger.info(
         f"Driver {driver.id} status updated to {is_available}, last_online_at: {driver.last_online_at}"
     )
 
@@ -311,7 +310,7 @@ async def update_fcm_token(
     token: str = Body(..., embed=True),
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
-) -> Any:
+) -> Dict[str, str]:
     """
     Update current user's FCM token.
     """
@@ -376,14 +375,22 @@ async def create_driver(
     db_obj = Driver(
         user_id=user_id,
         vehicle_info=driver_in.vehicle_info,
+        vehicle_type=driver_in.vehicle_type,
         biometric_id=driver_in.biometric_id,
+        code=driver_in.code or driver_in.biometric_id,
         warehouse_id=driver_in.warehouse_id,
         is_available=driver_in.is_available,
     )
     db.add(db_obj)
     await db.commit()
-    await db.refresh(db_obj)
-    return db_obj
+
+    # Re-fetch with eager loading for relationships
+    result = await db.execute(
+        select(Driver)
+        .where(Driver.id == db_obj.id)
+        .options(selectinload(Driver.user), selectinload(Driver.warehouse))
+    )
+    return result.scalars().first()
 
 
 @router.post("/location", response_model=DriverLocationSchema)
@@ -411,7 +418,7 @@ async def update_location(
 
     # Check for shift limit (12 hours)
     if driver.is_available and driver.last_online_at:
-        shift_duration = datetime.utcnow() - driver.last_online_at
+        shift_duration = datetime.now(timezone.utc) - driver.last_online_at
         if shift_duration > timedelta(hours=12):
             # We should probably only notify once or throttle this.
             # For now, we rely on the mobile app to handle duplicate alerts or user to toggle offline.
@@ -449,7 +456,7 @@ async def update_location(
 async def get_driver_locations(
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
-) -> Any:
+) -> List[Dict[str, Any]]:
     """
     Get latest location of all online drivers.
     """
@@ -521,7 +528,7 @@ async def read_driver_stats(
     driver_id: int,
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
-) -> Any:
+) -> Dict[str, Any]:
     """
     Get driver statistics.
     Returns orders_assigned, orders_delivered, last_order_assigned_at, online_duration_minutes.
@@ -554,7 +561,7 @@ async def read_driver_stats(
     # Calculate online duration (time since last_online_at if available and driver is online)
     online_duration_minutes = None
     if driver.is_available and driver.last_online_at:
-        duration = datetime.utcnow() - driver.last_online_at
+        duration = datetime.now(timezone.utc) - driver.last_online_at
         online_duration_minutes = int(duration.total_seconds() / 60)
 
     return {
@@ -583,7 +590,7 @@ async def update_driver(
     if not driver:
         raise HTTPException(status_code=404, detail="Driver not found")
 
-    update_data = driver_in.dict(exclude_unset=True)
+    update_data = driver_in.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(driver, field, value)
 
@@ -617,7 +624,7 @@ async def update_driver_status(
 
     driver.is_available = is_available
     if is_available:
-        driver.last_online_at = datetime.utcnow()
+        driver.last_online_at = datetime.now(timezone.utc)
     db.add(driver)
     await db.commit()
 
@@ -630,24 +637,54 @@ async def update_driver_status(
     return result.scalars().first()
 
 
-@router.get("/{driver_id}/orders", response_model=List[OrderSchema])
+@router.get("/{driver_id}/orders")
 async def read_driver_orders(
     driver_id: int,
     status_filter: Optional[str] = None,
+    page: int = Query(1, ge=1),
+    size: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
-) -> Any:
+) -> Dict[str, Any]:
     """
-    Get orders assigned to a driver.
+    Get orders assigned to a driver with pagination.
     """
-    query = select(Order).where(Order.driver_id == driver_id)
+    base_query = select(Order).where(Order.driver_id == driver_id)
 
     if status_filter:
-        query = query.where(Order.status == status_filter)
+        base_query = base_query.where(Order.status == status_filter)
+
+    # Count total
+    count_query = select(func.count()).select_from(base_query.subquery())
+    total_res = await db.execute(count_query)
+    total = total_res.scalar_one()
+
+    # Fetch page
+    skip = (page - 1) * size
+    query = (
+        base_query
+        .options(
+            selectinload(Order.status_history),
+            selectinload(Order.proof_of_delivery),
+            selectinload(Order.warehouse),
+        )
+        .order_by(desc(Order.updated_at))
+        .offset(skip)
+        .limit(size)
+    )
 
     result = await db.execute(query)
     orders = result.scalars().all()
-    return orders
+
+    pages = math.ceil(total / size) if total > 0 else 1
+
+    return {
+        "items": orders,
+        "total": total,
+        "page": page,
+        "size": size,
+        "pages": pages,
+    }
 
 
 @router.get("/{driver_id}/delivery-history", response_model=List[OrderSchema])
@@ -690,7 +727,7 @@ async def read_driver_location_history(
     limit: int = 100,
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
-) -> Any:
+) -> List[Dict[str, Any]]:
     """
     Get driver location history.
     """
@@ -718,7 +755,7 @@ async def delete_driver(
     driver_id: int,
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_admin_user),
-) -> Any:
+) -> Dict[str, str]:
     """
     Delete a driver.
     Admin only. Cannot delete drivers with active (non-delivered/non-cancelled) orders.
@@ -750,25 +787,6 @@ async def delete_driver(
     await db.delete(driver)
     await db.commit()
     return {"msg": f"Driver {driver_id} deleted successfully"}
-
-
-class ConnectionManager:
-    def __init__(self):
-        self.active_connections: List[WebSocket] = []
-
-    async def connect(self, websocket: WebSocket):
-        await websocket.accept()
-        self.active_connections.append(websocket)
-
-    def disconnect(self, websocket: WebSocket):
-        self.active_connections.remove(websocket)
-
-    async def broadcast(self, message: str):
-        for connection in self.active_connections:
-            await connection.send_text(message)
-
-
-manager = ConnectionManager()
 
 
 @router.websocket("/ws/location-updates")

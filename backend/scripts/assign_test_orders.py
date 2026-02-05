@@ -1,6 +1,6 @@
 import asyncio
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
@@ -103,7 +103,7 @@ async def assign_test_orders():
                 # Update existing order to belong to this driver
                 existing_order.driver_id = driver.id
                 existing_order.status = data["status"]
-                existing_order.updated_at = datetime.utcnow()
+                existing_order.updated_at = datetime.now(timezone.utc)
                 session.add(existing_order)
                 print(f"Updated existing order {data['number']}")
             else:
@@ -116,7 +116,7 @@ async def assign_test_orders():
                     warehouse_id=warehouse_id,
                     status=data["status"],
                     driver_id=driver.id,
-                    created_at=datetime.utcnow(),
+                    created_at=datetime.now(timezone.utc),
                 )
                 session.add(new_order)
                 print(f"Created new order {data['number']}")

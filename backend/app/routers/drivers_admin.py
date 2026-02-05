@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import math
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, List, Optional
 
 from fastapi import (
@@ -111,7 +111,7 @@ async def get_drivers_with_locations(
     - Active orders count per driver
     """
     # Calculate time threshold
-    time_threshold = datetime.utcnow() - timedelta(hours=hours_since_update)
+    time_threshold = datetime.now(timezone.utc) - timedelta(hours=hours_since_update)
 
     # Build base query for latest location per driver
     # Using a subquery to get the most recent location for each driver

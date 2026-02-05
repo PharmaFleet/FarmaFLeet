@@ -30,13 +30,20 @@ class AuthRepositoryImpl implements AuthRepository {
       );
 
       final accessToken = response.data['access_token'];
+      final refreshToken = response.data['refresh_token'];
       if (accessToken != null) {
-        debugPrint('[AuthRepo] Saving token: ${accessToken.toString().substring(0, 20)}...');
+        debugPrint('[AuthRepo] Saving access token (${accessToken.toString().length} chars)');
         await _storage.write(key: AppConstants.tokenKey, value: accessToken);
 
         // Verify token was saved
         final savedToken = await _storage.read(key: AppConstants.tokenKey);
-        debugPrint('[AuthRepo] Token saved successfully: ${savedToken != null}');
+        debugPrint('[AuthRepo] Access token saved successfully: ${savedToken != null}');
+
+        // Store refresh token if provided
+        if (refreshToken != null) {
+          debugPrint('[AuthRepo] Saving refresh token (${refreshToken.toString().length} chars)');
+          await _storage.write(key: AppConstants.refreshTokenKey, value: refreshToken);
+        }
 
         return accessToken;
       } else {
@@ -75,6 +82,7 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<void> logout() async {
     await _storage.delete(key: AppConstants.tokenKey);
+    await _storage.delete(key: AppConstants.refreshTokenKey);
   }
 
   @override
@@ -100,6 +108,47 @@ class AuthRepositoryImpl implements AuthRepository {
       // Log error but don't propagate to avoid crashing the flow
       // In production, this should use a proper logging framework
       debugPrint('Error updating FCM token: $e');
+    }
+  }
+
+  @override
+  Future<bool> refreshToken() async {
+    try {
+      final storedRefreshToken = await _storage.read(key: AppConstants.refreshTokenKey);
+      if (storedRefreshToken == null) {
+        debugPrint('[AuthRepo] No refresh token stored, cannot refresh');
+        return false;
+      }
+
+      debugPrint('[AuthRepo] Attempting token refresh...');
+      final response = await _dio.post(
+        AppConstants.refreshEndpoint,
+        data: {'refresh_token': storedRefreshToken},
+      );
+
+      final newAccessToken = response.data['access_token'];
+      final newRefreshToken = response.data['refresh_token'];
+
+      if (newAccessToken != null) {
+        await _storage.write(key: AppConstants.tokenKey, value: newAccessToken);
+        debugPrint('[AuthRepo] Token refreshed successfully (${newAccessToken.toString().length} chars)');
+
+        // Update refresh token if a new one was returned
+        if (newRefreshToken != null) {
+          await _storage.write(key: AppConstants.refreshTokenKey, value: newRefreshToken);
+        }
+
+        return true;
+      }
+
+      debugPrint('[AuthRepo] Refresh response missing access_token');
+      return false;
+    } on DioException catch (e) {
+      debugPrint('[AuthRepo] Token refresh failed: ${e.response?.statusCode} ${e.message}');
+      return false;
+    } catch (e) {
+      debugPrint('[AuthRepo] Token refresh error: $e');
+      return false;
     }
   }
 }

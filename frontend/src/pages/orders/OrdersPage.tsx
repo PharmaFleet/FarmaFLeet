@@ -1,6 +1,8 @@
 import { useState, useRef } from 'react';
 import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { orderService } from '@/services/orderService';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { useColumnResize } from '@/hooks/useColumnResize';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -26,9 +28,13 @@ import { CreateOrderDialog } from '@/components/orders/CreateOrderDialog';
 import { BatchAssignDriverDialog } from '@/components/orders/BatchAssignDriverDialog';
 import { BatchCancelDialog } from '@/components/orders/BatchCancelDialog';
 import { BatchDeleteDialog } from '@/components/orders/BatchDeleteDialog';
-import { MoreHorizontal, Plus, Download, Truck, Search, AlertOctagon, Users, XCircle, Trash2, ChevronDown } from 'lucide-react';
+import { CancelOrderDialog } from '@/components/orders/CancelOrderDialog';
+import { ReturnOrderDialog } from '@/components/orders/ReturnOrderDialog';
+import { BatchReturnDialog } from '@/components/orders/BatchReturnDialog';
+import { MoreHorizontal, Plus, Download, Truck, Search, AlertOctagon, Users, XCircle, Trash2, ChevronDown, Filter, X, RotateCcw } from 'lucide-react';
 import { OrderStatus } from '@/types';
 import { useToast } from '@/components/ui/use-toast';
+import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useNavigate } from 'react-router-dom';
@@ -40,6 +46,7 @@ export default function OrdersPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(10);
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search, 300);
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'ALL'>('ALL');
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -55,34 +62,88 @@ export default function OrdersPage() {
   const [batchAssignOpen, setBatchAssignOpen] = useState(false);
   const [batchCancelOpen, setBatchCancelOpen] = useState(false);
   const [batchDeleteOpen, setBatchDeleteOpen] = useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [cancelOrderId, setCancelOrderId] = useState<number | null>(null);
+  const [returnDialogOpen, setReturnDialogOpen] = useState(false);
+  const [returnOrderId, setReturnOrderId] = useState<number | null>(null);
+  const [batchReturnOpen, setBatchReturnOpen] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
+  const [sortBy, setSortBy] = useState<string | undefined>(undefined);
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
+  // Advanced filters
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState<Record<string, string>>({});
+  const debouncedFilters = useDebouncedValue(filters, 500);
+  const activeFilterCount = Object.values(filters).filter(v => v.trim()).length;
+
+  const handleSort = (column: string) => {
+    if (sortBy === column) {
+      setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(column);
+      setSortOrder('desc');
+    }
+    setPage(1);
+  };
+
+  const { widths: colWidths, onMouseDown: onColResize } = useColumnResize();
+
+  const ResizeHandle = ({ column }: { column: string }) => (
+    <div
+      className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-emerald-400 active:bg-emerald-500 z-10"
+      onMouseDown={(e) => onColResize(column, e)}
+    />
+  );
+
+  const SortableHeader = ({ column, children, className, width, resizeColumn }: {
+    column: string; children: React.ReactNode; className?: string;
+    width?: number; resizeColumn?: string;
+  }) => (
+    <TableHead
+      className={cn("cursor-pointer select-none hover:bg-muted/80 transition-colors relative", className)}
+      onClick={() => handleSort(column)}
+      style={width ? { width: `${width}px` } : undefined}
+    >
+      <div className="flex items-center gap-1">
+        {children}
+        {sortBy === column && <span className="text-xs">{sortOrder === 'asc' ? '▲' : '▼'}</span>}
+      </div>
+      {resizeColumn && <ResizeHandle column={resizeColumn} />}
+    </TableHead>
+  );
 
   const { data, isLoading } = useQuery({
-    queryKey: ['orders', page, pageSize, search, statusFilter, showArchived],
+    queryKey: ['orders', page, pageSize, debouncedSearch, statusFilter, showArchived, sortBy, sortOrder, debouncedFilters],
     queryFn: () => orderService.getAll({
         page,
         limit: pageSize,
-        search: search || undefined,
+        search: debouncedSearch || undefined,
         status: statusFilter === 'ALL' ? undefined : statusFilter,
-        include_archived: showArchived
+        include_archived: showArchived,
+        sort_by: sortBy,
+        sort_order: sortOrder,
+        ...Object.fromEntries(
+            Object.entries(debouncedFilters).filter(([_, v]) => v.trim())
+        ),
     }),
     placeholderData: keepPreviousData,
   });
 
   // Mutations with Optimistic Updates
   const cancelMutation = useMutation({
-    mutationFn: (id: number) => orderService.cancelOrder(id),
+    mutationFn: ({ id, reason }: { id: number; reason?: string }) => orderService.cancelOrder(id, reason),
     // Optimistic update: immediately show cancelled status
-    onMutate: async (id: number) => {
+    onMutate: async ({ id }: { id: number; reason?: string }) => {
       // Cancel any outgoing refetches
       await queryClient.cancelQueries({ queryKey: ['orders'] });
 
       // Snapshot the previous value
-      const previousOrders = queryClient.getQueryData(['orders', page, pageSize, search, statusFilter, showArchived]);
+      const previousOrders = queryClient.getQueryData(['orders', page, pageSize, debouncedSearch, statusFilter, showArchived, sortBy, sortOrder, debouncedFilters]);
 
       // Optimistically update to the new value
       queryClient.setQueryData(
-        ['orders', page, pageSize, search, statusFilter, showArchived],
+        ['orders', page, pageSize, debouncedSearch, statusFilter, showArchived, sortBy, sortOrder, debouncedFilters],
         (old: { items: Array<{ id: number; status: string }>; total: number; pages: number } | undefined) => {
           if (!old) return old;
           return {
@@ -104,11 +165,12 @@ export default function OrdersPage() {
       // Roll back on error
       if (context?.previousOrders) {
         queryClient.setQueryData(
-          ['orders', page, pageSize, search, statusFilter, showArchived],
+          ['orders', page, pageSize, debouncedSearch, statusFilter, showArchived, sortBy, sortOrder, debouncedFilters],
           context.previousOrders
         );
       }
-      toast({ title: "Failed to cancel order", variant: "destructive" });
+      const errMsg = (_err as any)?.response?.data?.detail || "Failed to cancel order";
+      toast({ title: errMsg, variant: "destructive" });
     },
     onSettled: () => {
       // Refetch to ensure server state is synced
@@ -129,13 +191,25 @@ export default function OrdersPage() {
 
   const importMutation = useMutation({
     mutationFn: (file: File) => orderService.importExcel(file),
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
-      toast({ title: "Orders imported successfully" });
+      const created = data?.created ?? 0;
+      const errors = data?.errors ?? [];
+      if (created > 0 && errors.length === 0) {
+        toast({ title: `${created} orders imported successfully` });
+      } else if (created > 0 && errors.length > 0) {
+        toast({ title: `${created} orders imported`, description: `${errors.length} rows had errors`, variant: "default" });
+      } else if (created === 0 && errors.length > 0) {
+        const sample = errors.slice(0, 3).map((e: any) => `Row ${e.row}: ${e.error}`).join('; ');
+        toast({ title: "No orders imported", description: `${errors.length} errors. ${sample}`, variant: "destructive" });
+      } else {
+        toast({ title: "No orders imported", description: "File was empty or all orders already exist", variant: "destructive" });
+      }
       if (fileInputRef.current) fileInputRef.current.value = '';
     },
-    onError: () => {
-      toast({ title: "Import failed", description: "Could not import orders.", variant: "destructive" });
+    onError: (error: any) => {
+      const detail = error?.response?.data?.detail || "Could not import orders. Check file format.";
+      toast({ title: "Import failed", description: detail, variant: "destructive" });
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   });
@@ -148,9 +222,40 @@ export default function OrdersPage() {
   };
 
   const handleCancelOrder = (id: number) => {
-    if (confirm("Are you sure you want to cancel this order?")) {
-      cancelMutation.mutate(id);
-    }
+    setCancelOrderId(id);
+    setCancelDialogOpen(true);
+  };
+
+  const handleCancelConfirm = (id: number, reason?: string) => {
+    cancelMutation.mutate({ id, reason }, {
+      onSuccess: () => {
+        setCancelDialogOpen(false);
+        setCancelOrderId(null);
+      },
+    });
+  };
+
+  const returnMutation = useMutation({
+    mutationFn: ({ id, reason }: { id: number; reason: string }) => orderService.returnOrder(id, reason),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      setReturnDialogOpen(false);
+      setReturnOrderId(null);
+      toast({ title: "Order marked as returned" });
+    },
+    onError: (_err) => {
+      const errMsg = (_err as any)?.response?.data?.detail || "Failed to return order";
+      toast({ title: errMsg, variant: "destructive" });
+    },
+  });
+
+  const handleReturnOrder = (id: number) => {
+    setReturnOrderId(id);
+    setReturnDialogOpen(true);
+  };
+
+  const handleReturnConfirm = (id: number, reason: string) => {
+    returnMutation.mutate({ id, reason });
   };
 
   const handleDeleteOrder = (id: number) => {
@@ -189,6 +294,7 @@ export default function OrdersPage() {
     { value: OrderStatus.PICKED_UP, label: 'Picked Up' },
     { value: OrderStatus.OUT_FOR_DELIVERY, label: 'Out for Delivery' },
     { value: OrderStatus.DELIVERED, label: 'Delivered' },
+    { value: OrderStatus.RETURNED, label: 'Returned' },
     { value: OrderStatus.CANCELLED, label: 'Cancelled' },
   ];
 
@@ -229,6 +335,35 @@ export default function OrdersPage() {
         onSuccess={() => setSelectedOrders(new Set())}
       />
 
+      <CancelOrderDialog
+        orderId={cancelOrderId}
+        open={cancelDialogOpen}
+        onOpenChange={(open) => {
+          setCancelDialogOpen(open);
+          if (!open) setCancelOrderId(null);
+        }}
+        onConfirm={handleCancelConfirm}
+        isPending={cancelMutation.isPending}
+      />
+
+      <ReturnOrderDialog
+        orderId={returnOrderId}
+        open={returnDialogOpen}
+        onOpenChange={(open) => {
+          setReturnDialogOpen(open);
+          if (!open) setReturnOrderId(null);
+        }}
+        onConfirm={handleReturnConfirm}
+        isPending={returnMutation.isPending}
+      />
+
+      <BatchReturnDialog
+        orderIds={Array.from(selectedOrders)}
+        open={batchReturnOpen}
+        onOpenChange={setBatchReturnOpen}
+        onSuccess={() => setSelectedOrders(new Set())}
+      />
+
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
         <div>
            <h2 className="text-4xl font-extrabold tracking-tight text-foreground">Orders</h2>
@@ -238,6 +373,19 @@ export default function OrdersPage() {
             <Button variant="outline" className="shadow-sm border-border" onClick={() => fileInputRef.current?.click()} disabled={importMutation.isPending}>
                 <Download className="mr-2 h-4 w-4 text-emerald-600" />
                 {importMutation.isPending ? 'Importing...' : 'Import'}
+            </Button>
+            <Button variant="outline" className="shadow-sm border-border" onClick={() => orderService.exportOrders({
+              status: statusFilter === 'ALL' ? undefined : statusFilter,
+              search: debouncedSearch || undefined,
+              include_archived: showArchived,
+              sort_by: sortBy,
+              sort_order: sortOrder,
+              ...Object.fromEntries(
+                Object.entries(debouncedFilters).filter(([_, v]) => v.trim())
+              ),
+            })}>
+                <Download className="mr-2 h-4 w-4 text-blue-600" />
+                Export
             </Button>
             <Button className="bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-600/20" onClick={() => setCreateOpen(true)}>
                 <Plus className="mr-2 h-4 w-4" />
@@ -277,6 +425,15 @@ export default function OrdersPage() {
             >
               <XCircle className="mr-2 h-4 w-4" />
               Cancel
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-orange-300 text-orange-700 hover:bg-orange-50 hover:border-orange-400"
+              onClick={() => setBatchReturnOpen(true)}
+            >
+              <RotateCcw className="mr-2 h-4 w-4" />
+              Return
             </Button>
             {isAdmin && (
               <Button
@@ -336,6 +493,25 @@ export default function OrdersPage() {
                 />
             </div>
             <Button
+              variant={showFilters ? "default" : "outline"}
+              size="sm"
+              onClick={() => setShowFilters(!showFilters)}
+              className={cn(
+                "transition-all",
+                showFilters
+                  ? "bg-blue-500 hover:bg-blue-600 text-white"
+                  : "border-border hover:border-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950"
+              )}
+            >
+              <Filter className="mr-1.5 h-3.5 w-3.5" />
+              Filters
+              {activeFilterCount > 0 && (
+                <Badge className="ml-1.5 h-5 w-5 rounded-full p-0 flex items-center justify-center text-[10px] bg-white text-blue-600">
+                  {activeFilterCount}
+                </Badge>
+              )}
+            </Button>
+            <Button
               variant={showArchived ? "default" : "outline"}
               size="sm"
               onClick={() => setShowArchived(!showArchived)}
@@ -350,25 +526,170 @@ export default function OrdersPage() {
             </Button>
         </div>
 
+        {/* Advanced Filters */}
+        {showFilters && (
+            <div className="border-t border-border bg-muted/30 p-6 space-y-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div>
+                        <label className="text-xs text-muted-foreground font-medium mb-1 block">Customer Name</label>
+                        <Input
+                            placeholder="Filter by name..."
+                            value={filters.customer_name || ''}
+                            onChange={(e) => setFilters(f => ({ ...f, customer_name: e.target.value }))}
+                            className="h-8 text-sm"
+                        />
+                    </div>
+                    <div>
+                        <label className="text-xs text-muted-foreground font-medium mb-1 block">Customer Phone</label>
+                        <Input
+                            placeholder="Filter by phone..."
+                            value={filters.customer_phone || ''}
+                            onChange={(e) => setFilters(f => ({ ...f, customer_phone: e.target.value }))}
+                            className="h-8 text-sm"
+                        />
+                    </div>
+                    <div>
+                        <label className="text-xs text-muted-foreground font-medium mb-1 block">Address</label>
+                        <Input
+                            placeholder="Filter by address..."
+                            value={filters.customer_address || ''}
+                            onChange={(e) => setFilters(f => ({ ...f, customer_address: e.target.value }))}
+                            className="h-8 text-sm"
+                        />
+                    </div>
+                    <div>
+                        <label className="text-xs text-muted-foreground font-medium mb-1 block">Order Number</label>
+                        <Input
+                            placeholder="Filter by SO#..."
+                            value={filters.order_number || ''}
+                            onChange={(e) => setFilters(f => ({ ...f, order_number: e.target.value }))}
+                            className="h-8 text-sm"
+                        />
+                    </div>
+                    <div>
+                        <label className="text-xs text-muted-foreground font-medium mb-1 block">Driver Name</label>
+                        <Input
+                            placeholder="Filter by driver..."
+                            value={filters.driver_name || ''}
+                            onChange={(e) => setFilters(f => ({ ...f, driver_name: e.target.value }))}
+                            className="h-8 text-sm"
+                        />
+                    </div>
+                    <div>
+                        <label className="text-xs text-muted-foreground font-medium mb-1 block">Driver Code</label>
+                        <Input
+                            placeholder="Filter by code..."
+                            value={filters.driver_code || ''}
+                            onChange={(e) => setFilters(f => ({ ...f, driver_code: e.target.value }))}
+                            className="h-8 text-sm"
+                        />
+                    </div>
+                    <div>
+                        <label className="text-xs text-muted-foreground font-medium mb-1 block">Sales Taker</label>
+                        <Input
+                            placeholder="Filter by sales taker..."
+                            value={filters.sales_taker || ''}
+                            onChange={(e) => setFilters(f => ({ ...f, sales_taker: e.target.value }))}
+                            className="h-8 text-sm"
+                        />
+                    </div>
+                    <div>
+                        <label className="text-xs text-muted-foreground font-medium mb-1 block">Payment Method</label>
+                        <Input
+                            placeholder="Filter by payment..."
+                            value={filters.payment_method || ''}
+                            onChange={(e) => setFilters(f => ({ ...f, payment_method: e.target.value }))}
+                            className="h-8 text-sm"
+                        />
+                    </div>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div>
+                        <label className="text-xs text-muted-foreground font-medium mb-1 block">Date From</label>
+                        <Input
+                            type="date"
+                            value={filters.date_from || ''}
+                            onChange={(e) => setFilters(f => ({ ...f, date_from: e.target.value }))}
+                            className="h-8 text-sm"
+                        />
+                    </div>
+                    <div>
+                        <label className="text-xs text-muted-foreground font-medium mb-1 block">Date To</label>
+                        <Input
+                            type="date"
+                            value={filters.date_to || ''}
+                            onChange={(e) => setFilters(f => ({ ...f, date_to: e.target.value }))}
+                            className="h-8 text-sm"
+                        />
+                    </div>
+                    <div>
+                        <label className="text-xs text-muted-foreground font-medium mb-1 block">Date Column</label>
+                        <select
+                            value={filters.date_field || 'created_at'}
+                            onChange={(e) => setFilters(f => ({ ...f, date_field: e.target.value }))}
+                            className="h-8 text-sm w-full rounded-md border border-input bg-background px-3 py-1"
+                        >
+                            <option value="created_at">Created At</option>
+                            <option value="assigned_at">Assigned At</option>
+                            <option value="picked_up_at">Picked Up At</option>
+                            <option value="delivered_at">Delivered At</option>
+                        </select>
+                    </div>
+                    <div className="flex items-end">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                                setFilters({});
+                                setPage(1);
+                            }}
+                            className="text-muted-foreground hover:text-foreground"
+                        >
+                            <X className="mr-1 h-3 w-3" />
+                            Clear All Filters
+                        </Button>
+                    </div>
+                </div>
+            </div>
+        )}
+
         <div className="overflow-x-auto">
-            <Table>
+            <Table style={{ tableLayout: 'fixed' }}>
               <TableHeader className="bg-muted/50">
                 <TableRow className="hover:bg-transparent border-b">
-                  <TableHead className="w-[50px]">
-                    <Checkbox 
+                  <TableHead className="relative" style={{ width: `${colWidths.checkbox}px` }}>
+                    <Checkbox
                       checked={isAllSelected}
                       onCheckedChange={handleSelectAll}
                       aria-label="Select all orders"
                     />
                   </TableHead>
-                  <TableHead className="w-[140px]">Order #</TableHead>
-                  <TableHead>Customer</TableHead>
-                  <TableHead className="min-w-[200px]">Address</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Warehouse</TableHead>
-                  <TableHead>Driver</TableHead>
-                  <TableHead className="text-right pr-8">Amount</TableHead>
-                  <TableHead className="w-[80px]"></TableHead>
+                  <SortableHeader column="sales_order_number" width={colWidths.order_number} resizeColumn="order_number">Order #</SortableHeader>
+                  <SortableHeader column="customer_name" width={colWidths.customer} resizeColumn="customer">Customer</SortableHeader>
+                  <TableHead className="relative" style={{ width: `${colWidths.address}px` }}>
+                    Address
+                    <ResizeHandle column="address" />
+                  </TableHead>
+                  <SortableHeader column="status" width={colWidths.status} resizeColumn="status">Status</SortableHeader>
+                  <SortableHeader column="warehouse_code" width={colWidths.warehouse} resizeColumn="warehouse">Warehouse</SortableHeader>
+                  <SortableHeader column="driver_name" width={colWidths.driver} resizeColumn="driver">Driver</SortableHeader>
+                  <TableHead className="relative" style={{ width: `${colWidths.driver_mobile}px` }}>
+                    Driver Mobile
+                    <ResizeHandle column="driver_mobile" />
+                  </TableHead>
+                  <SortableHeader column="driver_code" width={colWidths.driver_code} resizeColumn="driver_code">Driver Code</SortableHeader>
+                  <SortableHeader column="payment_method" width={colWidths.payment} resizeColumn="payment">Payment</SortableHeader>
+                  <SortableHeader column="sales_taker" width={colWidths.sales_taker} resizeColumn="sales_taker">Sales Taker</SortableHeader>
+                  <SortableHeader column="total_amount" className="text-right pr-8" width={colWidths.amount} resizeColumn="amount">Amount</SortableHeader>
+                  <SortableHeader column="created_at" width={colWidths.created} resizeColumn="created">Created</SortableHeader>
+                  <SortableHeader column="assigned_at" width={colWidths.assigned} resizeColumn="assigned">Assigned</SortableHeader>
+                  <SortableHeader column="picked_up_at" width={colWidths.picked_up} resizeColumn="picked_up">Picked Up</SortableHeader>
+                  <SortableHeader column="delivered_at" width={colWidths.delivered} resizeColumn="delivered">Delivered</SortableHeader>
+                  <TableHead className="relative" style={{ width: `${colWidths.delivery_time}px` }}>
+                    Delivery Time
+                    <ResizeHandle column="delivery_time" />
+                  </TableHead>
+                  <TableHead style={{ width: `${colWidths.actions}px` }}></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -388,7 +709,7 @@ export default function OrdersPage() {
                     ))
                 ) : data?.items?.length === 0 ? (
                     <TableRow>
-                        <TableCell colSpan={9} className="h-40 text-center text-muted-foreground italic">
+                        <TableCell colSpan={18} className="h-40 text-center text-muted-foreground italic">
                             No orders found matching your criteria.
                         </TableCell>
                     </TableRow>
@@ -423,7 +744,7 @@ export default function OrdersPage() {
                             </TableCell>
                             <TableCell>
                                 <div
-                                    className="max-w-[200px] text-sm text-muted-foreground truncate"
+                                    className="text-sm text-muted-foreground truncate"
                                     title={order.customer_info?.address || 'No address'}
                                 >
                                     {order.customer_info?.address || <span className="text-muted-foreground/60 italic">No address</span>}
@@ -434,8 +755,9 @@ export default function OrdersPage() {
                                     className={cn(
                                         "font-medium px-2.5 py-0.5 rounded-full border-0 shadow-sm",
                                         order.status === OrderStatus.DELIVERED ? "bg-emerald-100 text-emerald-800" : 
-                                        order.status === OrderStatus.CANCELLED ? "bg-rose-100 text-rose-800" : 
-                                        order.status === OrderStatus.FAILED || order.status === OrderStatus.REJECTED ? "bg-amber-100 text-amber-800" : 
+                                        order.status === OrderStatus.CANCELLED ? "bg-rose-100 text-rose-800" :
+                                        order.status === OrderStatus.RETURNED ? "bg-orange-100 text-orange-800" :
+                                        order.status === OrderStatus.FAILED || order.status === OrderStatus.REJECTED ? "bg-amber-100 text-amber-800" :
                                         "bg-muted text-muted-foreground"
                                     )}
                                 >
@@ -455,8 +777,42 @@ export default function OrdersPage() {
                                     </span>
                                 </div>
                             </TableCell>
+                            <TableCell className="text-sm text-muted-foreground font-mono">
+                                {order.driver?.user?.phone || '-'}
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground font-mono">
+                                {order.driver?.code || '-'}
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                                {order.payment_method || '-'}
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                                {order.sales_taker || '-'}
+                            </TableCell>
                             <TableCell className="text-right pr-8">
                                 <span className="font-bold text-foreground">{order.total_amount.toFixed(3)} KWD</span>
+                            </TableCell>
+                            <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                                {order.created_at ? format(new Date(order.created_at), 'dd/MM HH:mm') : '-'}
+                            </TableCell>
+                            <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                                {order.assigned_at ? format(new Date(order.assigned_at), 'dd/MM HH:mm') : '-'}
+                            </TableCell>
+                            <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                                {order.picked_up_at ? format(new Date(order.picked_up_at), 'dd/MM HH:mm') : '-'}
+                            </TableCell>
+                            <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                                {order.delivered_at ? format(new Date(order.delivered_at), 'dd/MM HH:mm') : '-'}
+                            </TableCell>
+                            <TableCell className="text-xs text-muted-foreground whitespace-nowrap font-mono">
+                                {(() => {
+                                    if (!order.picked_up_at || !order.delivered_at) return '-';
+                                    const diffMs = new Date(order.delivered_at).getTime() - new Date(order.picked_up_at).getTime();
+                                    if (diffMs < 0) return '-';
+                                    const h = Math.floor(diffMs / 3600000);
+                                    const m = Math.floor((diffMs % 3600000) / 60000);
+                                    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+                                })()}
                             </TableCell>
                             <TableCell>
                                 <DropdownMenu>
@@ -470,13 +826,21 @@ export default function OrdersPage() {
                                         <DropdownMenuItem onClick={() => navigate(`/orders/${order.id}`)}>View Details</DropdownMenuItem>
                                         <DropdownMenuItem onClick={() => handleAssignClick(order.id, order.driver_id)}>Assign Driver</DropdownMenuItem>
                                         <DropdownMenuSeparator />
-                                        <DropdownMenuItem 
-                                          className="text-amber-600" 
+                                        <DropdownMenuItem
+                                          className="text-amber-600"
                                           onClick={() => handleCancelOrder(order.id)}
                                           disabled={order.status === OrderStatus.DELIVERED || order.status === OrderStatus.CANCELLED}
                                         >
                                           <XCircle className="mr-2 h-4 w-4" />
                                           Cancel Order
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                          className="text-orange-600"
+                                          onClick={() => handleReturnOrder(order.id)}
+                                          disabled={order.status !== OrderStatus.DELIVERED}
+                                        >
+                                          <RotateCcw className="mr-2 h-4 w-4" />
+                                          Return Order
                                         </DropdownMenuItem>
                                         {isAdmin && (
                                           <DropdownMenuItem 

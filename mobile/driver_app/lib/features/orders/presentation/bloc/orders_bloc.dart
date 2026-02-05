@@ -66,6 +66,15 @@ class BatchDeliveryRequested extends OrdersEvent {
   List<Object?> get props => [orderIds, proofs];
 }
 
+class ReturnOrderRequested extends OrdersEvent {
+  final int orderId;
+  final String reason;
+  const ReturnOrderRequested(this.orderId, this.reason);
+
+  @override
+  List<Object?> get props => [orderId, reason];
+}
+
 // States
 abstract class OrdersState extends Equatable {
   const OrdersState();
@@ -148,6 +157,29 @@ class BatchDeliveryFailure extends OrdersState {
   List<Object> get props => [message];
 }
 
+// Return Order States
+class ReturnOrderInProgress extends OrdersState {
+  final int orderId;
+  const ReturnOrderInProgress(this.orderId);
+  @override
+  List<Object> get props => [orderId];
+}
+
+class ReturnOrderSuccess extends OrdersState {
+  final int orderId;
+  const ReturnOrderSuccess(this.orderId);
+  @override
+  List<Object> get props => [orderId];
+}
+
+class ReturnOrderFailure extends OrdersState {
+  final int orderId;
+  final String message;
+  const ReturnOrderFailure(this.orderId, this.message);
+  @override
+  List<Object> get props => [orderId, message];
+}
+
 // Bloc
 class OrdersBloc extends Bloc<OrdersEvent, OrdersState> {
   final OrderRepository repository;
@@ -158,6 +190,7 @@ class OrdersBloc extends Bloc<OrdersEvent, OrdersState> {
     on<OrderStatusUpdateRequested>(_onOrderStatusUpdateRequested);
     on<BatchPickupRequested>(_onBatchPickupRequested);
     on<BatchDeliveryRequested>(_onBatchDeliveryRequested);
+    on<ReturnOrderRequested>(_onReturnOrderRequested);
   }
 
   Future<void> _onFetchOrders(FetchOrders event, Emitter<OrdersState> emit) async {
@@ -256,6 +289,20 @@ class OrdersBloc extends Bloc<OrdersEvent, OrdersState> {
       emit(BatchDeliverySuccess(count));
     } catch (e) {
       emit(BatchDeliveryFailure(e.toString()));
+    }
+  }
+
+  Future<void> _onReturnOrderRequested(
+    ReturnOrderRequested event,
+    Emitter<OrdersState> emit,
+  ) async {
+    emit(ReturnOrderInProgress(event.orderId));
+
+    try {
+      await repository.returnOrder(event.orderId, event.reason);
+      emit(ReturnOrderSuccess(event.orderId));
+    } catch (e) {
+      emit(ReturnOrderFailure(event.orderId, e.toString()));
     }
   }
 }

@@ -6,7 +6,10 @@ import firebase_admin
 from firebase_admin import credentials, messaging
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.notification import Notification
-from datetime import datetime
+from datetime import datetime, timezone
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class NotificationService:
@@ -20,13 +23,13 @@ class NotificationService:
                     cred_dict = json.loads(cred_json)
                     cred = credentials.Certificate(cred_dict)
                     firebase_admin.initialize_app(cred)
-                    print("[FCM] Firebase initialized successfully.")
+                    logger.info("[FCM] Firebase initialized successfully.")
                 else:
-                    print(
+                    logger.warning(
                         "[FCM] FIREBASE_CREDENTIALS_JSON not found. Running in mock mode."
                     )
         except Exception as e:
-            print(f"[FCM] Failed to initialize Firebase: {e}")
+            logger.error(f"[FCM] Failed to initialize Firebase: {e}")
 
     async def send_to_topic(
         self, topic: str, title: str, body: str, data: Optional[Dict[str, Any]] = None
@@ -34,7 +37,7 @@ class NotificationService:
         """Send a message to a topic."""
         try:
             if not firebase_admin._apps:
-                print(f"[MOCK FCM] Sending to topic {topic}: {title} - {body}")
+                logger.debug(f"[MOCK FCM] Sending to topic {topic}: {title} - {body}")
                 return "mock-message-id"
 
             message = messaging.Message(
@@ -45,7 +48,7 @@ class NotificationService:
             response = messaging.send(message)
             return response
         except Exception as e:
-            print(f"[FCM Error] send_to_topic: {e}")
+            logger.error(f"[FCM Error] send_to_topic: {e}")
             return None
 
     async def send_to_token(
@@ -54,7 +57,7 @@ class NotificationService:
         """Send a message to a specific device token."""
         try:
             if not firebase_admin._apps:
-                print(f"[MOCK FCM] Sending to token {token[:10]}...: {title} - {body}")
+                logger.debug(f"[MOCK FCM] Sending to token {token[:10]}...: {title} - {body}")
                 return "mock-message-id"
 
             message = messaging.Message(
@@ -65,7 +68,7 @@ class NotificationService:
             response = messaging.send(message)
             return response
         except Exception as e:
-            print(f"[FCM Error] send_to_token: {e}")
+            logger.error(f"[FCM Error] send_to_token: {e}")
             return None
 
     async def send_multicast(
@@ -78,7 +81,7 @@ class NotificationService:
         """Send a message to multiple device tokens."""
         try:
             if not firebase_admin._apps:
-                print(f"[MOCK FCM] Sending to {len(tokens)} tokens: {title} - {body}")
+                logger.debug(f"[MOCK FCM] Sending to {len(tokens)} tokens: {title} - {body}")
                 return "mock-batch-response-id"
 
             message = messaging.MulticastMessage(
@@ -89,7 +92,7 @@ class NotificationService:
             response = messaging.send_multicast(message)
             return response
         except Exception as e:
-            print(f"[FCM Error] send_multicast: {e}")
+            logger.error(f"[FCM Error] send_multicast: {e}")
             return None
 
     async def notify_driver_new_orders(
@@ -105,8 +108,8 @@ class NotificationService:
             title=title,
             body=body,
             data={"type": "new_orders", "count": str(count)},
-            created_at=datetime.utcnow(),
-            sent_at=datetime.utcnow() if token else None,
+            created_at=datetime.now(timezone.utc),
+            sent_at=datetime.now(timezone.utc) if token else None,
         )
         db.add(notif)
         # Note: caller should commit, but we can flush if needed.
@@ -118,7 +121,7 @@ class NotificationService:
                 token, title, body, data={"type": "new_orders", "count": str(count)}
             )
         else:
-            print(f"No token for user {user_id}, skipping push notification.")
+            logger.info(f"No token for user {user_id}, skipping push notification.")
 
     async def notify_driver_order_delivered(
         self, db: AsyncSession, user_id: int, order_id: int, token: Optional[str] = None
@@ -132,8 +135,8 @@ class NotificationService:
             title=title,
             body=body,
             data={"type": "order_delivered", "order_id": str(order_id)},
-            created_at=datetime.utcnow(),
-            sent_at=datetime.utcnow() if token else None,
+            created_at=datetime.now(timezone.utc),
+            sent_at=datetime.now(timezone.utc) if token else None,
         )
         db.add(notif)
 
@@ -166,8 +169,8 @@ class NotificationService:
                 "order_id": str(order_id),
                 "amount": str(amount),
             },
-            created_at=datetime.utcnow(),
-            sent_at=datetime.utcnow() if token else None,
+            created_at=datetime.now(timezone.utc),
+            sent_at=datetime.now(timezone.utc) if token else None,
         )
         db.add(notif)
 
@@ -215,8 +218,8 @@ class NotificationService:
                 "order_id": str(order_id),
                 "order_number": order_number,
             },
-            created_at=datetime.utcnow(),
-            sent_at=datetime.utcnow() if token else None,
+            created_at=datetime.now(timezone.utc),
+            sent_at=datetime.now(timezone.utc) if token else None,
         )
         db.add(notif)
 
@@ -253,8 +256,8 @@ class NotificationService:
                 "order_id": str(order_id),
                 "order_number": order_number,
             },
-            created_at=datetime.utcnow(),
-            sent_at=datetime.utcnow() if token else None,
+            created_at=datetime.now(timezone.utc),
+            sent_at=datetime.now(timezone.utc) if token else None,
         )
         db.add(notif)
 
@@ -306,7 +309,7 @@ class NotificationService:
                     "driver_name": driver_name,
                     "assigned_by": assigned_by_name,
                 },
-                created_at=datetime.utcnow(),
+                created_at=datetime.now(timezone.utc),
             )
             db.add(notif)
 

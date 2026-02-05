@@ -60,6 +60,16 @@ export const orderService = {
     return response.data;
   },
 
+  returnOrder: async (orderId: number, reason: string) => {
+    const response = await api.post(`/orders/${orderId}/return`, { reason });
+    return response.data;
+  },
+
+  batchReturn: async (orderIds: number[], reason: string) => {
+    const response = await api.post('/orders/batch-return', { order_ids: orderIds, reason });
+    return response.data;
+  },
+
   deleteOrder: async (orderId: number) => {
     const response = await api.delete(`/orders/${orderId}`);
     return response.data;
@@ -73,5 +83,21 @@ export const orderService = {
   unarchiveOrder: async (orderId: number) => {
     const response = await api.post(`/orders/${orderId}/unarchive`);
     return response.data;
-  }
+  },
+
+  exportOrders: async (params?: Record<string, any>) => {
+    const response = await api.post('/orders/export', null, {
+      params,
+      responseType: 'blob',
+    });
+    // Trigger download
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'orders.xlsx');
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  },
 };

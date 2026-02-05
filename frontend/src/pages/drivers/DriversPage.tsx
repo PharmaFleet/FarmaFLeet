@@ -26,6 +26,7 @@ import { AddDriverDialog } from '@/components/drivers/AddDriverDialog';
 import { EditDriverDialog } from '@/components/drivers/EditDriverDialog';
 import { cn } from '@/lib/utils';
 import { Driver } from '@/types';
+import { VehicleIcon } from '@/components/shared/VehicleIcon';
 
 import { 
   Select, 
@@ -165,7 +166,10 @@ export default function DriversPage() {
                     data?.items?.map((driver) => (
                         <TableRow key={driver.id} className="group hover:bg-emerald-50/30 transition-colors">
                             <TableCell className="font-semibold text-foreground">
-                                {driver.user?.full_name || 'Unknown Driver'}
+                                <div className="flex items-center gap-2">
+                                    <VehicleIcon vehicleType={driver.vehicle_type} size={16} />
+                                    {driver.user?.full_name || 'Unknown Driver'}
+                                </div>
                             </TableCell>
                             <TableCell>
                                 <Badge 

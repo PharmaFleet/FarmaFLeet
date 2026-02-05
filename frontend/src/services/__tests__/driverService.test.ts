@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { driverService } from '@/services/driverService';
 import { api } from '@/lib/axios';
-import { Driver, PaginatedResponse } from '@/types';
+import { Driver, Order, PaginatedResponse, OrderStatus } from '@/types';
 
 // Mock the axios instance
 vi.mock('@/lib/axios', () => ({
@@ -227,6 +227,199 @@ describe('driverService', () => {
 
       // Act & Assert
       await expect(driverService.getById(driverId)).rejects.toThrow('Invalid driver ID');
+    });
+  });
+
+  describe('getDriverOrders', () => {
+    const mockOrdersResponse: PaginatedResponse<Order> = {
+      items: [
+        {
+          id: 101,
+          sales_order_number: 'SO-101',
+          customer_info: { name: 'Alice', phone: '+96511111111', address: '10 Block A' },
+          payment_method: 'cash',
+          total_amount: 12.500,
+          warehouse_id: 1,
+          driver_id: 1,
+          status: OrderStatus.DELIVERED,
+          created_at: '2026-02-01T08:00:00Z',
+          updated_at: '2026-02-01T10:00:00Z',
+        },
+        {
+          id: 102,
+          sales_order_number: 'SO-102',
+          customer_info: { name: 'Bob', phone: '+96522222222', address: '20 Block B' },
+          payment_method: 'card',
+          total_amount: 8.750,
+          warehouse_id: 1,
+          driver_id: 1,
+          status: OrderStatus.ASSIGNED,
+          created_at: '2026-02-02T09:00:00Z',
+          updated_at: '2026-02-02T09:00:00Z',
+        },
+      ],
+      total: 25,
+      page: 1,
+      size: 10,
+      pages: 3,
+    };
+
+    it('should fetch driver orders with default params', async () => {
+      // Arrange
+      const driverId = 1;
+      vi.mocked(api.get).mockResolvedValue({ data: mockOrdersResponse });
+
+      // Act
+      const result = await driverService.getDriverOrders(driverId);
+
+      // Assert
+      expect(api.get).toHaveBeenCalledWith(`/drivers/${driverId}/orders`, { params: undefined });
+      expect(result).toEqual(mockOrdersResponse);
+    });
+
+    it('should fetch driver orders with pagination params', async () => {
+      // Arrange
+      const driverId = 1;
+      const params = { page: 2, size: 10 };
+      vi.mocked(api.get).mockResolvedValue({ data: mockOrdersResponse });
+
+      // Act
+      const result = await driverService.getDriverOrders(driverId, params);
+
+      // Assert
+      expect(api.get).toHaveBeenCalledWith(`/drivers/${driverId}/orders`, { params });
+      expect(result).toEqual(mockOrdersResponse);
+    });
+
+    it('should fetch driver orders with status filter', async () => {
+      // Arrange
+      const driverId = 1;
+      const params = { page: 1, size: 10, status_filter: 'delivered' };
+      vi.mocked(api.get).mockResolvedValue({ data: mockOrdersResponse });
+
+      // Act
+      const result = await driverService.getDriverOrders(driverId, params);
+
+      // Assert
+      expect(api.get).toHaveBeenCalledWith(`/drivers/${driverId}/orders`, { params });
+    });
+
+    it('should return correct pagination metadata', async () => {
+      // Arrange
+      const driverId = 1;
+      vi.mocked(api.get).mockResolvedValue({ data: mockOrdersResponse });
+
+      // Act
+      const result = await driverService.getDriverOrders(driverId, { page: 1, size: 10 });
+
+      // Assert
+      expect(result.total).toBe(25);
+      expect(result.page).toBe(1);
+      expect(result.size).toBe(10);
+      expect(result.pages).toBe(3);
+      expect(result.items).toHaveLength(2);
+    });
+
+    it('should handle empty orders list', async () => {
+      // Arrange
+      const driverId = 99;
+      const emptyResponse: PaginatedResponse<Order> = {
+        items: [],
+        total: 0,
+        page: 1,
+        size: 10,
+        pages: 0,
+      };
+      vi.mocked(api.get).mockResolvedValue({ data: emptyResponse });
+
+      // Act
+      const result = await driverService.getDriverOrders(driverId, { page: 1, size: 10 });
+
+      // Assert
+      expect(result.items).toEqual([]);
+      expect(result.total).toBe(0);
+      expect(result.pages).toBe(0);
+    });
+
+    it('should handle API errors', async () => {
+      // Arrange
+      const driverId = 1;
+      const error = new Error('Failed to fetch driver orders');
+      vi.mocked(api.get).mockRejectedValue(error);
+
+      // Act & Assert
+      await expect(driverService.getDriverOrders(driverId, { page: 1, size: 10 }))
+        .rejects.toThrow('Failed to fetch driver orders');
+    });
+
+    it('should handle driver not found', async () => {
+      // Arrange
+      const driverId = 999;
+      const error = new Error('Driver not found');
+      (error as any).response = { status: 404 };
+      vi.mocked(api.get).mockRejectedValue(error);
+
+      // Act & Assert
+      await expect(driverService.getDriverOrders(driverId))
+        .rejects.toThrow('Driver not found');
+    });
+
+    it('should handle network timeout', async () => {
+      // Arrange
+      const driverId = 1;
+      const timeoutError = new Error('Request timeout');
+      timeoutError.name = 'TimeoutError';
+      vi.mocked(api.get).mockRejectedValue(timeoutError);
+
+      // Act & Assert
+      await expect(driverService.getDriverOrders(driverId, { page: 1, size: 10 }))
+        .rejects.toThrow('Request timeout');
+    });
+
+    it('should handle last page correctly', async () => {
+      // Arrange
+      const driverId = 1;
+      const lastPageResponse: PaginatedResponse<Order> = {
+        items: [
+          {
+            id: 125,
+            sales_order_number: 'SO-125',
+            customer_info: { name: 'Zara', phone: '+96599999999', address: '99 Last St' },
+            payment_method: 'cash',
+            total_amount: 5.000,
+            warehouse_id: 1,
+            driver_id: 1,
+            status: OrderStatus.PENDING,
+            created_at: '2026-02-05T10:00:00Z',
+            updated_at: '2026-02-05T10:00:00Z',
+          },
+        ],
+        total: 25,
+        page: 3,
+        size: 10,
+        pages: 3,
+      };
+      vi.mocked(api.get).mockResolvedValue({ data: lastPageResponse });
+
+      // Act
+      const result = await driverService.getDriverOrders(driverId, { page: 3, size: 10 });
+
+      // Assert
+      expect(result.page).toBe(3);
+      expect(result.pages).toBe(3);
+      expect(result.items).toHaveLength(1);
+    });
+
+    it('should pass correct URL with driver ID', async () => {
+      // Arrange
+      const driverId = 42;
+      vi.mocked(api.get).mockResolvedValue({ data: { items: [], total: 0, page: 1, size: 10, pages: 0 } });
+
+      // Act
+      await driverService.getDriverOrders(driverId);
+
+      // Assert
+      expect(api.get).toHaveBeenCalledWith('/drivers/42/orders', { params: undefined });
     });
   });
 
