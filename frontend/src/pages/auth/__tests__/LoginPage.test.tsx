@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import LoginPage from '@/pages/auth/LoginPage';
-import { useAuthStore } from '@/store/useAuthStore';
+import { useAuthStore } from '@/stores/useAuthStore';
 import { api } from '@/lib/axios';
 import { User } from '@/types';
 
@@ -15,7 +15,7 @@ vi.mock('react-router-dom', async () => {
   };
 });
 
-vi.mock('@/store/useAuthStore');
+vi.mock('@/stores/useAuthStore');
 vi.mock('@/lib/axios');
 
 // Mock lucide-react icons

@@ -70,6 +70,19 @@ backend/progress.txt
 # Logs and temp files
 logs_result.json
 *log.txt
+*.log
 NUL
 firebase-service-account.json
 firebase_deployment_value.txt
+
+# Backend output/debug files
+backend/*_resp.json
+backend/*_result*.txt
+backend/error_trace.txt
+backend/DEPLOY_*
+
+# Error screenshots
+*.jpg
+
+# Root lock file (real one is in frontend/)
+/package-lock.json

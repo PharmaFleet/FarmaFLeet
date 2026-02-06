@@ -36,7 +36,7 @@ import { OrderStatus } from '@/types';
 import { useToast } from '@/components/ui/use-toast';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { useAuthStore } from '@/store/useAuthStore';
+import { useAuthStore } from '@/stores/useAuthStore';
 import { useNavigate } from 'react-router-dom';
 
 const PAGE_SIZE_OPTIONS = [10, 50, 100, 1000] as const;

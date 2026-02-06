@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { useAuthStore } from '@/store/useAuthStore';
+import { useAuthStore } from '@/stores/useAuthStore';
 import { PaginatedResponse } from '@/types';
 
 // Retrieve API URL from env, default to local if not set

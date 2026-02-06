@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 
 // Mock zustand store
-vi.mock('@/store/useAuthStore', () => ({
+vi.mock('@/stores/useAuthStore', () => ({
   useAuthStore: () => ({
     user: null,
     token: null,

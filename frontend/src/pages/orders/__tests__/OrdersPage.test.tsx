@@ -136,7 +136,7 @@ vi.mock('@/components/ui/use-toast', () => ({
 }));
 
 // Mock useAuthStore - must match zustand selector pattern
-vi.mock('@/store/useAuthStore', () => ({
+vi.mock('@/stores/useAuthStore', () => ({
   useAuthStore: vi.fn((selector: any) => {
     const state = {
       user: { id: 1, email: 'admin@test.com', full_name: 'Admin', is_active: true, role: 'super_admin' },

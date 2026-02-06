@@ -9,7 +9,7 @@ import {
   LogOut
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useAuthStore } from '@/store/useAuthStore';
+import { useAuthStore } from '@/stores/useAuthStore';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },

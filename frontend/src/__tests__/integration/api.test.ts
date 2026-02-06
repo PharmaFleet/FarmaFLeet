@@ -4,7 +4,7 @@ import { orderService } from '@/services/orderService';
 import { driverService } from '@/services/driverService';
 import { authService, LoginRequest } from '@/services/authService';
 import { Order, Driver, PaginatedResponse } from '@/types';
-import { useAuthStore } from '@/store/useAuthStore';
+import { useAuthStore } from '@/stores/useAuthStore';
 
 // Setup MSW server - use 'warn' to log unhandled requests without failing
 beforeAll(() => server.listen({ onUnhandledRequest: 'warn' }));

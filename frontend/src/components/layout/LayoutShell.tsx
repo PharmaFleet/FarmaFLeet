@@ -1,7 +1,7 @@
 import { Outlet, Navigate } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
-import { useAuthStore } from '@/store/useAuthStore';
+import { useAuthStore } from '@/stores/useAuthStore';
 import { Toaster } from '@/components/ui/toaster';
 
 export function LayoutShell() {
