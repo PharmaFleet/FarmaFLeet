@@ -20,7 +20,7 @@ class OrderModel extends OrderEntity {
       customerInfo: json['customer_info'] ?? {},
       paymentMethod: json['payment_method'] ?? 'Unknown',
       totalAmount: (json['total_amount'] as num?)?.toDouble() ?? 0.0,
-      status: json['status'] ?? 'PENDING',
+      status: json['status'] ?? 'pending',
       createdAt: DateTime.parse(json['created_at']),
       updatedAt: DateTime.parse(json['updated_at']),
       warehouseId: json['warehouse_id'],

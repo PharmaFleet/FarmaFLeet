@@ -77,7 +77,7 @@ class _DeliveryCompletionScreenState extends State<DeliveryCompletionScreen> {
     context.read<OrdersBloc>().add(
       OrderStatusUpdateRequested(
         widget.orderId,
-        'DELIVERED',
+        'delivered',
         notes: _notesController.text.isNotEmpty ? _notesController.text : null,
         photo: _photo,
         signature: _signature,

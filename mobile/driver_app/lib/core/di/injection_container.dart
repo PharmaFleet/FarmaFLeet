@@ -18,7 +18,7 @@ import '../../features/orders/presentation/bloc/orders_bloc.dart';
 import '../../features/profile/data/repositories/profile_repository.dart';
 import '../../features/profile/presentation/bloc/profile_bloc.dart';
 import '../api/api_client.dart';
-import '../constants/api_constants.dart';
+import '../constants/app_constants.dart';
 import '../models/location_model.dart';
 import '../network/dio_client.dart';
 import '../services/location_service.dart';
@@ -58,7 +58,7 @@ Future<void> init() async {
 
   // Location & API
   sl.registerLazySingleton(() => ApiClient(
-        baseUrl: ApiConstants.baseUrl,
+        baseUrl: AppConstants.baseUrl,
         secureStorage: sl(),
       ));
 

@@ -253,18 +253,18 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       }).toList();
 
       final completedOrders = todayOrders.where((order) =>
-        order.status == 'DELIVERED'
+        order.status == 'delivered'
       ).length;
 
       final activeDeliveries = orders.where((order) =>
-        order.status == 'ASSIGNED' ||
-        order.status == 'PICKED_UP' ||
-        order.status == 'IN_TRANSIT'
+        order.status == 'assigned' ||
+        order.status == 'picked_up' ||
+        order.status == 'in_transit'
       ).length;
 
       // Calculate earnings (sum of delivered orders)
       final earnings = orders
-          .where((order) => order.status == 'DELIVERED')
+          .where((order) => order.status == 'delivered')
           .fold<double>(0.0, (sum, order) => sum + order.totalAmount);
 
       // Rating would typically come from a separate service
@@ -304,7 +304,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       ));
 
       // Add other activity items based on order status
-      if (order.status == 'DELIVERED') {
+      if (order.status == 'delivered') {
         activities.add(ActivityItem(
           id: '${order.id}_delivered',
           title: 'Order Delivered',

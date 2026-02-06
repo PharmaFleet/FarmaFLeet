@@ -2,7 +2,7 @@ import '../entities/order_entity.dart';
 
 abstract class OrderRepository {
   /// Fetches the list of orders assigned to the driver
-  /// Optional [statusFilter] can be 'PENDING', 'DELIVERED', etc.
+  /// Optional [statusFilter] can be 'pending', 'delivered', etc.
   Future<List<OrderEntity>> getOrders({String? statusFilter});
 
   /// Fetches a single order's details

@@ -24,7 +24,7 @@ class AuthService {
     final data = {'username': username, 'password': password};
 
     final response = await _dio.post(
-      '/login/access-token', // Relative to ApiConstants.baseUrl
+      '/login/access-token', // Relative to AppConstants.baseUrl
       data: data,
       options: Options(contentType: Headers.formUrlEncodedContentType),
     );

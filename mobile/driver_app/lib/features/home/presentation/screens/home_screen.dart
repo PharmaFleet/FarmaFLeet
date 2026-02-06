@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:driver_app/core/di/injection_container.dart' as di;
 import 'package:driver_app/core/services/location_service.dart';
+import 'package:driver_app/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:driver_app/features/home/presentation/bloc/home_bloc.dart';
 import 'package:driver_app/features/home/presentation/screens/daily_summary_screen.dart';
 import 'package:driver_app/features/notifications/domain/repositories/notification_repository.dart';
@@ -131,8 +132,11 @@ class _HomeScreenState extends State<HomeScreen> {
         }
         return;
       }
-      // TODO: Get actual driver ID from auth state
-      await widget.locationService.startTracking('current_driver');
+      final authState = context.read<AuthBloc>().state;
+      final driverId = authState is AuthAuthenticated
+          ? authState.user.id.toString()
+          : 'unknown_driver';
+      await widget.locationService.startTracking(driverId);
     } else {
       // Going offline
       await widget.locationService.stopTracking();
@@ -183,8 +187,13 @@ class _HomeScreenState extends State<HomeScreen> {
               }
 
               if (state is HomeLoaded) {
+                final authState = context.read<AuthBloc>().state;
+                final driverName = authState is AuthAuthenticated
+                    ? (authState.user.fullName ?? 'Driver')
+                    : 'Driver';
                 return _HomeContentView(
                   state: state,
+                  driverName: driverName,
                   onOnlineStatusChanged: _toggleOnlineStatus,
                   onRefresh: _refreshData,
                   hasLocationPermission: _hasLocationPermission,
@@ -263,6 +272,7 @@ class _ErrorView extends StatelessWidget {
 
 class _HomeContentView extends StatelessWidget {
   final HomeLoaded state;
+  final String driverName;
   final Function(bool) onOnlineStatusChanged;
   final VoidCallback onRefresh;
   final bool hasLocationPermission;
@@ -271,6 +281,7 @@ class _HomeContentView extends StatelessWidget {
 
   const _HomeContentView({
     required this.state,
+    required this.driverName,
     required this.onOnlineStatusChanged,
     required this.onRefresh,
     required this.hasLocationPermission,
@@ -289,6 +300,7 @@ class _HomeContentView extends StatelessWidget {
         children: [
           // Header with user info and online status
           _HeaderSection(
+            driverName: driverName,
             isOnline: state.isOnline,
             onOnlineStatusChanged: onOnlineStatusChanged,
             unreadNotificationCount: unreadNotificationCount,
@@ -327,12 +339,14 @@ class _HomeContentView extends StatelessWidget {
 }
 
 class _HeaderSection extends StatelessWidget {
+  final String driverName;
   final bool isOnline;
   final Function(bool) onOnlineStatusChanged;
   final int unreadNotificationCount;
   final VoidCallback onNotificationTapped;
 
   const _HeaderSection({
+    required this.driverName,
     required this.isOnline,
     required this.onOnlineStatusChanged,
     required this.unreadNotificationCount,
@@ -360,7 +374,7 @@ class _HeaderSection extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Driver', // TODO: Get actual name
+                  driverName,
                   style: AppTextStyles.titleMedium,
                 ),
                 Row(

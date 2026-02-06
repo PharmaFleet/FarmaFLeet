@@ -3,8 +3,8 @@ class AppConstants {
 
   // Network & API
   // Production URL
-  static const String baseUrl = 'https://pharmafleet-olive.vercel.app/api/v1'; 
-  
+  static const String baseUrl = 'https://pharmafleet-olive.vercel.app/api/v1';
+
   // Storage Keys
   static const String tokenKey = 'auth_token';
   static const String refreshTokenKey = 'refresh_token';
@@ -13,8 +13,18 @@ class AppConstants {
   // API Endpoints
   static const String loginEndpoint = '/login/access-token';
   static const String profileEndpoint = '/users/me';
-  static const String logoutEndpoint = "/auth/logout";
-  static const String refreshEndpoint = "/auth/refresh";
-  static const String updateStatusEndpoint = "/drivers/me/status";
-  static const String updateLocationEndpoint = "/drivers/location";
+  static const String logoutEndpoint = '/auth/logout';
+  static const String refreshEndpoint = '/auth/refresh';
+  static const String updateStatusEndpoint = '/drivers/me/status';
+  static const String updateLocationEndpoint = '/drivers/location';
+
+  // Order Endpoints
+  static const String myOrdersEndpoint = '/drivers/me/orders';
+  static const String orderStatusEndpoint = '/orders'; // base, append /{id}/status
+  static const String batchPickupEndpoint = '/orders/batch-pickup';
+  static const String batchDeliveryEndpoint = '/orders/batch-delivery';
+
+  // Upload & POD
+  static const String uploadEndpoint = '/upload';
+  static const String proofOfDeliveryEndpoint = '/orders'; // base, append /{id}/proof-of-delivery-url
 }

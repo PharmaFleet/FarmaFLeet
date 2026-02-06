@@ -183,8 +183,7 @@ class LocationService {
 
     // BATTERY OPTIMIZATION: Skip updates if accuracy is poor (> 100m)
     // Poor accuracy means GPS is struggling, which drains battery
-    // DEBUG: increased to 5000m for emulator
-    if (position.accuracy > 5000.0) {
+    if (position.accuracy > 100.0) {
       _logger.d('Skipping update - poor accuracy: ${position.accuracy}m');
       return;
     }

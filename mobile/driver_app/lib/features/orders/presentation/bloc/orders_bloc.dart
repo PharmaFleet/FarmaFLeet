@@ -233,10 +233,17 @@ class OrdersBloc extends Bloc<OrdersEvent, OrdersState> {
 
         // Upload signature if provided
         if (event.signature != null) {
-          final tempDir = await getTemporaryDirectory();
-          final signatureFile = File('${tempDir.path}/signature_${event.orderId}.png');
-          await signatureFile.writeAsBytes(event.signature!);
-          signatureUrl = await repository.uploadFile(signatureFile.path);
+          File? signatureFile;
+          try {
+            final tempDir = await getTemporaryDirectory();
+            signatureFile = File('${tempDir.path}/signature_${event.orderId}.png');
+            await signatureFile.writeAsBytes(event.signature!);
+            signatureUrl = await repository.uploadFile(signatureFile.path);
+          } finally {
+            if (signatureFile != null && await signatureFile.exists()) {
+              await signatureFile.delete();
+            }
+          }
         }
 
         // Submit proof of delivery if we have files

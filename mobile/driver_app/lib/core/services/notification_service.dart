@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:driver_app/core/di/injection_container.dart' as di;
+import 'package:driver_app/features/auth/domain/repositories/auth_repository.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
@@ -99,13 +101,18 @@ class NotificationService {
   Future<String?> getFCMToken() async {
     try {
       _fcmToken = await _messaging.getToken();
-      debugPrint('FCM Token: $_fcmToken');
+      debugPrint('FCM Token obtained (${_fcmToken?.length ?? 0} chars)');
 
       // Listen for token refresh
-      _messaging.onTokenRefresh.listen((newToken) {
+      _messaging.onTokenRefresh.listen((newToken) async {
         _fcmToken = newToken;
-        debugPrint('FCM Token refreshed: $_fcmToken');
-        // TODO: Send new token to backend
+        debugPrint('FCM Token refreshed (${newToken.length} chars)');
+        try {
+          final authRepo = di.sl<AuthRepository>();
+          await authRepo.updateFcmToken(newToken);
+        } catch (e) {
+          debugPrint('Failed to sync refreshed FCM token: $e');
+        }
       });
 
       return _fcmToken;

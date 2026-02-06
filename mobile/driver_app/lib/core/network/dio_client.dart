@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:driver_app/core/constants/api_constants.dart';
+import 'package:driver_app/core/constants/app_constants.dart';
 import 'package:driver_app/core/services/token_storage_service.dart';
 import 'package:flutter/foundation.dart';
 
@@ -13,7 +13,7 @@ class DioClient {
   DioClient(this._tokenService)
     : _dio = Dio(
         BaseOptions(
-          baseUrl: ApiConstants.baseUrl,
+          baseUrl: AppConstants.baseUrl,
           connectTimeout: const Duration(seconds: 15),
           receiveTimeout: const Duration(seconds: 15),
           headers: {'Content-Type': 'application/json'},
@@ -65,7 +65,7 @@ class DioClient {
               if (refreshToken != null) {
                 // Use a separate Dio instance to avoid interceptor loops
                 final refreshDio = Dio(BaseOptions(
-                  baseUrl: ApiConstants.baseUrl,
+                  baseUrl: AppConstants.baseUrl,
                   connectTimeout: const Duration(seconds: 10),
                   receiveTimeout: const Duration(seconds: 10),
                   headers: {'Content-Type': 'application/json'},
