@@ -1038,7 +1038,7 @@ async def batch_return_orders(
 # ==========================================
 
 
-@router.post("/{order_id}/assign")
+@router.post("/{order_id}/assign", response_model=OrderSchema)
 async def assign_order(
     order_id: int,
     driver_id: int = Body(..., embed=True),
