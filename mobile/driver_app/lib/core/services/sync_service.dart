@@ -18,7 +18,7 @@ class SyncService {
   final OrderRepository? _orderRepository;
   final Logger _logger = Logger();
 
-  StreamSubscription<ConnectivityResult>? _connectivitySubscription;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
   bool _isSyncing = false;
   Timer? _retryTimer;
 
@@ -33,9 +33,10 @@ class SyncService {
 
   void startMonitoring() {
     _connectivitySubscription = Connectivity().onConnectivityChanged.listen((
-      result,
+      results,
     ) {
-      final hasConnection = result != ConnectivityResult.none;
+      final hasConnection =
+          results.isNotEmpty && !results.contains(ConnectivityResult.none);
       if (hasConnection && !_isSyncing) {
         syncPendingActions();
       }
@@ -61,8 +62,8 @@ class SyncService {
   }
 
   Future<bool> hasConnection() async {
-    final result = await Connectivity().checkConnectivity();
-    return result != ConnectivityResult.none;
+    final results = await Connectivity().checkConnectivity();
+    return results.isNotEmpty && !results.contains(ConnectivityResult.none);
   }
 
   Future<void> syncPendingActions() async {
@@ -359,13 +360,15 @@ class SyncService {
   /// Gets information about pending actions for debugging/UI
   List<Map<String, dynamic>> getPendingActionsInfo() {
     final actions = _localDb.getPendingSyncActions();
-    return actions.map((action) => {
-      'id': action.id,
-      'type': action.type,
-      'orderId': action.orderId,
-      'retryCount': action.retryCount,
-      'canRetry': action.canRetry,
-      'createdAt': action.createdAt.toIso8601String(),
+    return actions.map((action) {
+      return {
+        'id': action.id,
+        'type': action.type,
+        'orderId': action.orderId,
+        'retryCount': action.retryCount,
+        'canRetry': action.canRetry,
+        'createdAt': action.createdAt.toIso8601String(),
+      };
     }).toList();
   }
 }
