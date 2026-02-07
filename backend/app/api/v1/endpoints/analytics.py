@@ -122,6 +122,23 @@ async def get_recent_activities(
             "data": {"type": "payment_collected", "order_id": payment.order_id},
         })
 
+    # 3. Recent Payment Verifications
+    verified_payments_query = (
+        select(PaymentCollection)
+        .where(PaymentCollection.verified_at.is_not(None))
+        .order_by(desc(PaymentCollection.verified_at))
+        .limit(limit)
+    )
+    res_verified = await db.execute(verified_payments_query)
+    for payment in res_verified.scalars():
+        activities.append({
+            "id": f"pay_verified_{payment.id}",
+            "title": "Payment Verified",
+            "body": f"KWD {payment.amount:.3f} verified for Order #{payment.order_id}",
+            "created_at": to_utc_iso(payment.verified_at),
+            "data": {"type": "payment_verified", "order_id": payment.order_id},
+        })
+
     # Sort by date and return top N (ISO strings sort correctly alphabetically)
     try:
         activities.sort(key=lambda x: x["created_at"] or "", reverse=True)

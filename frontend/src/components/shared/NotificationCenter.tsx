@@ -8,7 +8,7 @@ import {
     DropdownMenuLabel, 
     DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
-import { Bell, Package, Truck, Info, CheckCircle2 } from 'lucide-react';
+import { Bell, Package, Truck, Info, CheckCircle2, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
@@ -73,12 +73,20 @@ export default function NotificationCenter() {
       }
   });
 
-  // Mark all as read (Optimistic update locally effectively, but backend loop usually better)
-  // Since we don't have a "mark all" endpoint yet, we might iterate or skipping for now.
-  // Actually, UI has "Mark all as read". I should probably implement the endpoint or loop.
-  // For now let's just loop locally or disable if not critical. 
-  // Let's implement individual click to read first.
-  
+  // Clear all notifications
+  const clearAllMutation = useMutation({
+      mutationFn: async () => {
+          await axios.delete('/notifications/clear');
+      },
+      onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      }
+  });
+
+  const handleClearAll = () => {
+      clearAllMutation.mutate();
+  };
+
   const handleMarkAsRead = (id: number) => {
       markReadMutation.mutate(id);
   };
@@ -97,11 +105,28 @@ export default function NotificationCenter() {
         </DropdownMenuTrigger>
         <DropdownMenuContent className="w-80 p-0 border-none shadow-2xl rounded-2xl overflow-hidden bg-card mt-2" align="end">
             <DropdownMenuLabel className="p-5 bg-muted/50 border-b border-border">
-                <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-black text-foreground">Notifications</p>
-                    <p className="text-[11px] font-medium text-muted-foreground">
-                        {unreadCount > 0 ? `You have ${unreadCount} unread messages` : 'Up to date!'}
-                    </p>
+                <div className="flex items-center justify-between">
+                    <div className="flex flex-col space-y-1">
+                        <p className="text-sm font-black text-foreground">Notifications</p>
+                        <p className="text-[11px] font-medium text-muted-foreground">
+                            {unreadCount > 0 ? `You have ${unreadCount} unread messages` : 'Up to date!'}
+                        </p>
+                    </div>
+                    {notifications.length > 0 && (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 px-2 text-xs text-muted-foreground hover:text-destructive"
+                            onClick={(e) => {
+                                e.preventDefault();
+                                handleClearAll();
+                            }}
+                            disabled={clearAllMutation.isPending}
+                        >
+                            <Trash2 className="h-3.5 w-3.5 mr-1" />
+                            Clear
+                        </Button>
+                    )}
                 </div>
             </DropdownMenuLabel>
             

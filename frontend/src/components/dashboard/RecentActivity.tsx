@@ -11,6 +11,7 @@ const activityIcons: Record<string, { icon: any; color: string; bg: string }> = 
   cancelled: { icon: Ban, color: 'text-slate-500', bg: 'bg-slate-50' },
   rejected: { icon: XCircle, color: 'text-red-500', bg: 'bg-red-50' },
   payment_collected: { icon: CreditCard, color: 'text-green-600', bg: 'bg-green-50' },
+  payment_verified: { icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50' },
 };
 
 export function RecentActivity() {
@@ -40,7 +41,7 @@ export function RecentActivity() {
   }
 
   return (
-    <div className="h-[300px] overflow-y-auto space-y-3 pr-2">
+    <div className="h-[300px] overflow-y-auto space-y-3 p-4">
       {notifications.map((notification: any) => {
         // Get icon config based on activity type
         const activityType = notification.data?.type || 'assigned';

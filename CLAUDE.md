@@ -206,12 +206,15 @@ All batch error responses use the standard format: `{"order_id": <id>, "error": 
 
 ### Backend: Service Layer
 
-Order-related business logic is split into service modules in `backend/app/services/`:
+Business logic is split into service modules in `backend/app/services/`:
 - `order_assignment.py` - Driver assignment and unassignment
 - `order_status.py` - Status transitions and validation
 - `order_query.py` - Query building and filtering with warehouse scoping
 - `proof_of_delivery.py` - POD handling and Supabase storage upload
 - `notification.py` - FCM push notification sending via Firebase Admin SDK
+- `auth.py` - Authentication helpers and token management
+- `storage.py` - Supabase storage operations
+- `excel.py` - Excel import parsing and validation
 
 ### Mobile: Offline-First + Token Refresh
 
