@@ -1099,12 +1099,28 @@ async def update_order_status(
 ) -> Any:
     """
     Update order status.
+    Drivers can update orders assigned to them.
+    Other roles require warehouse access.
     """
+    from app.models.user import UserRole
+
     order = await db.get(Order, order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    await deps.verify_order_warehouse_access(order.warehouse_id, current_user, db)
+    # For drivers, check if they're assigned to this order
+    if current_user.role == UserRole.DRIVER:
+        driver_result = await db.execute(
+            select(Driver).where(Driver.user_id == current_user.id)
+        )
+        driver = driver_result.scalars().first()
+        if not driver or order.driver_id != driver.id:
+            raise HTTPException(
+                status_code=403, detail="Order is not assigned to you"
+            )
+    else:
+        # For other roles, check warehouse access
+        await deps.verify_order_warehouse_access(order.warehouse_id, current_user, db)
 
     history = order_status_service.apply_status(order, status, notes)
     db.add(history)
