@@ -17,7 +17,7 @@ class Driver(Base):
     vehicle_info: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     vehicle_type: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # "car" or "motorcycle"
     is_available: Mapped[bool] = mapped_column(Boolean, default=True)
-    last_online_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    last_online_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Relationships
     # Use lazy='raise' to prevent accidental lazy loading in async context
