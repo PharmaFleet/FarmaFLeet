@@ -204,6 +204,15 @@ for order_id in request.order_ids:
 
 All batch error responses use the standard format: `{"order_id": <id>, "error": "<message>"}`.
 
+### Backend: Service Layer
+
+Order-related business logic is split into service modules in `backend/app/services/`:
+- `order_assignment.py` - Driver assignment and unassignment
+- `order_status.py` - Status transitions and validation
+- `order_query.py` - Query building and filtering with warehouse scoping
+- `proof_of_delivery.py` - POD handling and Supabase storage upload
+- `notification.py` - FCM push notification sending via Firebase Admin SDK
+
 ### Mobile: Offline-First + Token Refresh
 
 - Hive for local persistence, queued actions sync when online via `/sync` endpoints
@@ -211,6 +220,22 @@ All batch error responses use the standard format: `{"order_id": <id>, "error": 
 - Background location tracking continues when app is backgrounded
 - 3-tab order structure: Assigned → Active (picked_up/in_transit/out_for_delivery) → History
 - **Token refresh flow**: On 401, `DioClient` attempts `POST /auth/refresh` before logout. Uses a separate Dio instance for the refresh call to avoid interceptor loops. `_isRefreshing` flag prevents concurrent refresh attempts.
+
+## API Documentation
+
+See `docs/api/` for complete API reference:
+- `README.md` - API overview, quick start, response formats
+- `AUTHENTICATION.md` - Login flow, token refresh, rate limits, role permissions
+- `ERROR_CODES.md` - All error codes with client handling examples
+- `PharmaFleet.postman_collection.json` - Importable Postman collection with all endpoints
+
+## Scheduled Jobs (Cron)
+
+Vercel cron jobs configured in `vercel.json`:
+- `/api/v1/cron/auto-archive` - Archives delivered orders older than 24h (daily at 2 AM UTC)
+- `/api/v1/cron/cleanup-old-locations` - Deletes driver location records older than 7 days (daily at 3 AM UTC)
+
+Cron endpoints require `CRON_SECRET` environment variable in Authorization header. Endpoint logic in `backend/app/api/v1/endpoints/cron.py`.
 
 ## Database
 
@@ -313,6 +338,14 @@ Optimistic update `queryClient.setQueryData` keys MUST exactly match the `useQue
 
 Never log token content. Log length only: `debugPrint('Token attached (${token.length} chars)')`
 
+### Frontend: shadcn/ui Select Empty Values
+
+When using Select with an empty string as a "no selection" option:
+```tsx
+<SelectItem value="">No driver (assign later)</SelectItem>
+```
+The empty string is a valid value that clears the selection. Don't use `null` or `undefined`.
+
 ## Environment Variables
 
 ### Backend (.env)
@@ -323,6 +356,8 @@ SUPABASE_URL=<url>
 SUPABASE_ANON_KEY=<key>
 SUPABASE_SERVICE_ROLE_KEY=<key>
 REDIS_URL=redis://localhost:6379/0
+FIREBASE_CREDENTIALS=<base64-encoded service account JSON>
+CRON_SECRET=<secret-for-cron-endpoints>
 ```
 
 ### Frontend (.env)

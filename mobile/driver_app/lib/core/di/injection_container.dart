@@ -22,6 +22,7 @@ import '../constants/app_constants.dart';
 import '../models/location_model.dart';
 import '../network/dio_client.dart';
 import '../services/location_service.dart';
+import '../services/navigation_service.dart';
 import '../services/notification_service.dart';
 import '../services/token_storage_service.dart';
 
@@ -54,6 +55,7 @@ Future<void> init() async {
 
   // Services
   sl.registerLazySingleton(() => TokenStorageService(storage: sl()));
+  sl.registerLazySingleton(() => NavigationService());
   sl.registerLazySingleton(() => NotificationService());
 
   // Location & API

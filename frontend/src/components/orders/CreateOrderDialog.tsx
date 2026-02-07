@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { orderService } from '@/services/orderService';
 import { api } from '@/lib/axios';
-import { Warehouse } from '@/types';
+import { Driver, Warehouse } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -41,6 +41,18 @@ export function CreateOrderDialog({ open, onOpenChange }: CreateOrderDialogProps
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  const [formData, setFormData] = useState({
+      sales_order_number: '',
+      customer_name: '',
+      customer_phone: '',
+      customer_address: '',
+      total_amount: '0',
+      payment_method: 'CASH',
+      warehouse_id: '',
+      driver_id: '',
+      notes: '',
+  });
+
   const { data: warehouses } = useQuery({
     queryKey: ['warehouses'],
     queryFn: async () => {
@@ -50,15 +62,17 @@ export function CreateOrderDialog({ open, onOpenChange }: CreateOrderDialogProps
     enabled: open,
   });
 
-  const [formData, setFormData] = useState({
-      sales_order_number: '',
-      customer_name: '',
-      customer_phone: '',
-      customer_address: '',
-      total_amount: '0',
-      payment_method: 'CASH',
-      warehouse_id: '',
-      notes: '',
+  const { data: drivers } = useQuery({
+    queryKey: ['drivers', formData.warehouse_id],
+    queryFn: async () => {
+      const params: Record<string, unknown> = { size: 100, active_only: true };
+      if (formData.warehouse_id) {
+        params.warehouse_id = parseInt(formData.warehouse_id);
+      }
+      const response = await api.get('/drivers', { params });
+      return response.data?.items || response.data || [];
+    },
+    enabled: open && !!formData.warehouse_id,
   });
 
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
@@ -125,7 +139,7 @@ export function CreateOrderDialog({ open, onOpenChange }: CreateOrderDialogProps
   };
 
   const createMutation = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       const payload = {
         sales_order_number: formData.sales_order_number,
         customer_info: {
@@ -138,18 +152,28 @@ export function CreateOrderDialog({ open, onOpenChange }: CreateOrderDialogProps
         warehouse_id: parseInt(formData.warehouse_id),
         notes: formData.notes.trim() || undefined,
       };
-      
+
       if (!payload.sales_order_number || !payload.customer_info.name) {
           throw new Error("Missing required fields");
       }
-      
-      return orderService.create(payload);
+
+      // Step 1: Create the order
+      const order = await orderService.create(payload);
+
+      // Step 2: Assign driver if selected
+      if (formData.driver_id) {
+        await orderService.assignDriver(order.id, parseInt(formData.driver_id));
+      }
+
+      return order;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
       toast({
         title: "Order created",
-        description: "The order has been successfully created.",
+        description: formData.driver_id
+          ? "The order has been created and assigned to the driver."
+          : "The order has been successfully created.",
       });
       onOpenChange(false);
       setFormData({
@@ -160,6 +184,7 @@ export function CreateOrderDialog({ open, onOpenChange }: CreateOrderDialogProps
           total_amount: '0',
           payment_method: 'CASH',
           warehouse_id: '',
+          driver_id: '',
           notes: '',
       });
     },
@@ -180,7 +205,7 @@ export function CreateOrderDialog({ open, onOpenChange }: CreateOrderDialogProps
     let hasErrors = false;
 
     (Object.keys(formData) as Array<keyof typeof formData>).forEach((field) => {
-      if (field !== 'payment_method' && field !== 'warehouse_id') {
+      if (field !== 'payment_method' && field !== 'warehouse_id' && field !== 'driver_id' && field !== 'notes') {
         const error = validateField(field, formData[field]);
         if (error) {
           errors[field as keyof ValidationErrors] = error;
@@ -363,7 +388,11 @@ export function CreateOrderDialog({ open, onOpenChange }: CreateOrderDialogProps
                 </Label>
                 <Select
                     value={formData.warehouse_id}
-                    onValueChange={(val) => handleChange('warehouse_id', val)}
+                    onValueChange={(val) => {
+                      handleChange('warehouse_id', val);
+                      // Reset driver when warehouse changes
+                      handleChange('driver_id', '');
+                    }}
                 >
                     <SelectTrigger className="bg-muted border-border h-11 rounded-xl">
                         <SelectValue placeholder="Select warehouse" />
@@ -377,6 +406,31 @@ export function CreateOrderDialog({ open, onOpenChange }: CreateOrderDialogProps
                     </SelectContent>
                 </Select>
             </div>
+
+            {formData.warehouse_id && (
+              <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    Assign Driver (Optional)
+                  </Label>
+                  <Select
+                      value={formData.driver_id}
+                      onValueChange={(val) => handleChange('driver_id', val)}
+                  >
+                      <SelectTrigger className="bg-muted border-border h-11 rounded-xl">
+                          <SelectValue placeholder="Select driver (optional)" />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl border-border shadow-xl">
+                          <SelectItem value="">No driver (assign later)</SelectItem>
+                          {drivers?.map((driver: Driver) => (
+                              <SelectItem key={driver.id} value={String(driver.id)}>
+                                  {driver.user?.full_name || 'Unknown'}
+                                  {driver.code ? ` (${driver.code})` : ''}
+                              </SelectItem>
+                          ))}
+                      </SelectContent>
+                  </Select>
+              </div>
+            )}
 
             <div className="space-y-2">
                 <Label htmlFor="notes" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">

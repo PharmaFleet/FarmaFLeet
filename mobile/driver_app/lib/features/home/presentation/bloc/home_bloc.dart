@@ -242,43 +242,19 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
 
   Future<HomeStats> _loadStats() async {
     try {
-      final orders = await _orderService.getMyOrders();
-      final now = DateTime.now();
-      final today = DateTime(now.year, now.month, now.day);
-      final tomorrow = today.add(const Duration(days: 1));
-
-      // Calculate today's stats
-      final todayOrders = orders.where((order) {
-        return order.createdAt.isAfter(today) && order.createdAt.isBefore(tomorrow);
-      }).toList();
-
-      final completedOrders = todayOrders.where((order) =>
-        order.status == 'delivered'
-      ).length;
-
-      final activeDeliveries = orders.where((order) =>
-        order.status == 'assigned' ||
-        order.status == 'picked_up' ||
-        order.status == 'in_transit'
-      ).length;
-
-      // Calculate earnings (sum of delivered orders)
-      final earnings = orders
-          .where((order) => order.status == 'delivered')
-          .fold<double>(0.0, (sum, order) => sum + order.totalAmount);
-
-      // Rating would typically come from a separate service
-      const rating = 4.8; // Placeholder
+      // Fetch stats from backend API
+      final driverStats = await _orderService.getDriverStats();
 
       return HomeStats(
-        todayOrders: todayOrders.length,
-        completedOrders: completedOrders,
-        earnings: earnings,
-        rating: rating,
-        activeDeliveries: activeDeliveries,
+        todayOrders: driverStats.todayDeliveries,
+        completedOrders: driverStats.totalDeliveries,
+        earnings: driverStats.todayEarnings,
+        rating: driverStats.averageRating,
+        activeDeliveries: driverStats.activeOrders,
       );
     } catch (e) {
       // Return default stats on error
+      debugPrint('Failed to load driver stats: $e');
       return const HomeStats(
         todayOrders: 0,
         completedOrders: 0,
@@ -293,23 +269,26 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     final activities = <ActivityItem>[];
 
     for (final order in orders) {
-      // Order assigned activity
+      // Order assigned activity - use assignedAt if available, fallback to createdAt
+      final assignedTimestamp = order.assignedAt ?? order.createdAt;
       activities.add(ActivityItem(
         id: '${order.id}_assigned',
         title: 'New Order Assigned',
         description: 'Order #${order.salesOrderNumber ?? order.id} has been assigned to you',
-        timestamp: order.createdAt,
+        timestamp: assignedTimestamp,
         type: ActivityType.orderAssigned,
         data: {'orderId': order.id, 'orderNumber': order.salesOrderNumber ?? '${order.id}'},
       ));
 
       // Add other activity items based on order status
       if (order.status == 'delivered') {
+        // Use deliveredAt if available, fallback to updatedAt
+        final deliveredTimestamp = order.deliveredAt ?? order.updatedAt;
         activities.add(ActivityItem(
           id: '${order.id}_delivered',
           title: 'Order Delivered',
           description: 'Order #${order.salesOrderNumber ?? order.id} has been delivered successfully',
-          timestamp: order.createdAt, // Would use actual delivery time in real app
+          timestamp: deliveredTimestamp,
           type: ActivityType.orderDelivered,
           data: {'orderId': order.id, 'orderNumber': order.salesOrderNumber ?? '${order.id}'},
         ));

@@ -61,4 +61,19 @@ class AppConfig {
 
   /// Returns a debug-friendly name for the current environment
   static String get environmentName => _envString.toUpperCase();
+
+  /// Sentry DSN for error monitoring (empty string disables Sentry)
+  static const String sentryDsn = String.fromEnvironment('SENTRY_DSN', defaultValue: '');
+
+  /// Sentry environment name
+  static String get sentryEnvironment {
+    switch (environment) {
+      case Environment.dev:
+        return 'development';
+      case Environment.staging:
+        return 'staging';
+      case Environment.prod:
+        return 'production';
+    }
+  }
 }

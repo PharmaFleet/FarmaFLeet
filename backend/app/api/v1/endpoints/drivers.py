@@ -240,6 +240,88 @@ async def read_driver_me_orders(
     return orders
 
 
+@router.get("/me/stats")
+async def read_driver_me_stats(
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+) -> Dict[str, Any]:
+    """
+    Get current driver's statistics including deliveries, earnings, and performance.
+    Returns:
+    - total_deliveries: Total number of delivered orders
+    - today_deliveries: Deliveries completed today
+    - total_earnings: Total earnings from all delivered orders (commission-based)
+    - today_earnings: Today's earnings
+    - average_rating: Driver rating (placeholder - not yet implemented)
+    - on_time_rate: Percentage of on-time deliveries (placeholder - not yet implemented)
+    - active_orders: Current number of active orders
+    """
+    result = await db.execute(select(Driver).where(Driver.user_id == current_user.id))
+    driver = result.scalars().first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver profile not found")
+
+    now = datetime.now(timezone.utc)
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # Total delivered orders
+    total_deliveries_result = await db.execute(
+        select(func.count(Order.id)).where(
+            Order.driver_id == driver.id,
+            Order.status == OrderStatus.DELIVERED,
+        )
+    )
+    total_deliveries = total_deliveries_result.scalar_one()
+
+    # Today's deliveries (orders delivered today based on delivered_at)
+    today_deliveries_result = await db.execute(
+        select(func.count(Order.id)).where(
+            Order.driver_id == driver.id,
+            Order.status == OrderStatus.DELIVERED,
+            Order.delivered_at >= today_start,
+        )
+    )
+    today_deliveries = today_deliveries_result.scalar_one()
+
+    # Total earnings - using a fixed commission rate of 1.0 KWD per delivery
+    # In a real system, this would be configurable or stored per-order
+    commission_per_delivery = 1.0
+    total_earnings = total_deliveries * commission_per_delivery
+
+    # Today's earnings
+    today_earnings = today_deliveries * commission_per_delivery
+
+    # Active orders (assigned, picked_up, in_transit, out_for_delivery)
+    active_orders_result = await db.execute(
+        select(func.count(Order.id)).where(
+            Order.driver_id == driver.id,
+            Order.status.in_([
+                OrderStatus.ASSIGNED,
+                OrderStatus.PICKED_UP,
+                OrderStatus.IN_TRANSIT,
+                OrderStatus.OUT_FOR_DELIVERY,
+            ]),
+        )
+    )
+    active_orders = active_orders_result.scalar_one()
+
+    # Placeholder values for rating and on-time rate
+    # These would need additional data tracking to calculate properly
+    average_rating = 5.0  # Default perfect rating
+    on_time_rate = 100.0  # Percentage
+
+    return {
+        "driver_id": driver.id,
+        "total_deliveries": total_deliveries,
+        "today_deliveries": today_deliveries,
+        "total_earnings": total_earnings,
+        "today_earnings": today_earnings,
+        "average_rating": average_rating,
+        "on_time_rate": on_time_rate,
+        "active_orders": active_orders,
+    }
+
+
 @router.patch("/me/status", response_model=DriverSchema)
 async def update_driver_me_status(
     is_available: bool = Body(..., embed=True),

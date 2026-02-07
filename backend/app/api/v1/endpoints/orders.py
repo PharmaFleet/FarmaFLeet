@@ -1,5 +1,4 @@
 from datetime import datetime, timedelta, timezone
-import uuid
 from typing import Any, List, Optional, Dict
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Body
 from pydantic import BaseModel
@@ -22,6 +21,10 @@ from app.schemas.order import (
 )
 from app.services.excel import excel_service
 from app.services.notification import notification_service
+from app.services import order_assignment as assignment_service
+from app.services.order_status import order_status_service
+from app.services.proof_of_delivery import pod_service
+from app.core.exceptions import DriverNotFoundException, DriverNotAvailableException
 import pandas as pd
 import logging
 
@@ -108,31 +111,38 @@ async def read_orders(
             # User requested a warehouse they don't have access to
             raise HTTPException(
                 status_code=403,
-                detail="You don't have access to orders from this warehouse"
+                detail="You don't have access to orders from this warehouse",
             )
     if driver_id:
         filters.append(Order.driver_id == driver_id)
 
     # Field-specific text filters (AND logic - each narrows results)
     if customer_name:
-        filters.append(cast(Order.customer_info["name"], String).ilike(f"%{customer_name}%"))
+        filters.append(
+            cast(Order.customer_info["name"], String).ilike(f"%{customer_name}%")
+        )
     if customer_phone:
-        filters.append(cast(Order.customer_info["phone"], String).ilike(f"%{customer_phone}%"))
+        filters.append(
+            cast(Order.customer_info["phone"], String).ilike(f"%{customer_phone}%")
+        )
     if customer_address:
-        filters.append(cast(Order.customer_info["address"], String).ilike(f"%{customer_address}%"))
+        filters.append(
+            cast(Order.customer_info["address"], String).ilike(f"%{customer_address}%")
+        )
     if order_number:
         filters.append(Order.sales_order_number.ilike(f"%{order_number}%"))
     if driver_name:
         driver_name_subq = (
             select(Driver.id)
             .join(User, Driver.user_id == User.id)
-            .where(Driver.id == Order.driver_id, User.full_name.ilike(f"%{driver_name}%"))
+            .where(
+                Driver.id == Order.driver_id, User.full_name.ilike(f"%{driver_name}%")
+            )
         )
         filters.append(exists(driver_name_subq))
     if driver_code:
-        driver_code_subq = (
-            select(Driver.id)
-            .where(Driver.id == Order.driver_id, Driver.code.ilike(f"%{driver_code}%"))
+        driver_code_subq = select(Driver.id).where(
+            Driver.id == Order.driver_id, Driver.code.ilike(f"%{driver_code}%")
         )
         filters.append(exists(driver_code_subq))
     if sales_taker:
@@ -201,11 +211,9 @@ async def read_orders(
         )
         search_conditions.append(exists(driver_subq))
 
-        wh_subq = (
-            select(Warehouse.id).where(
-                Warehouse.id == Order.warehouse_id,
-                Warehouse.code.ilike(search_filter),
-            )
+        wh_subq = select(Warehouse.id).where(
+            Warehouse.id == Order.warehouse_id,
+            Warehouse.code.ilike(search_filter),
         )
         search_conditions.append(exists(wh_subq))
 
@@ -343,8 +351,7 @@ async def read_order(
 
         if not has_warehouse_access and not is_assigned_driver:
             raise HTTPException(
-                status_code=403,
-                detail="You don't have access to this order"
+                status_code=403, detail="You don't have access to this order"
             )
 
     return order
@@ -408,12 +415,14 @@ async def import_orders(
             raise HTTPException(status_code=400, detail="Uploaded file is empty")
 
         try:
-            data = excel_service.parse_file(io.BytesIO(contents), filename=file.filename or "")
+            data = excel_service.parse_file(
+                io.BytesIO(contents), filename=file.filename or ""
+            )
         except Exception as e:
             raise HTTPException(
                 status_code=400,
                 detail=f"Could not parse file '{file.filename}'. "
-                       f"Supported formats: .xlsx, .xls, .csv, HTML tables. Error: {str(e)}"
+                f"Supported formats: .xlsx, .xls, .csv, HTML tables. Error: {str(e)}",
             )
 
         created_count = 0
@@ -427,7 +436,9 @@ async def import_orders(
 
         # Find main warehouse (WH01) as fallback for unknown codes
         main_warehouse = next((wh for wh in all_warehouses if wh.code == "WH01"), None)
-        default_warehouse = main_warehouse or (all_warehouses[0] if all_warehouses else None)
+        default_warehouse = main_warehouse or (
+            all_warehouses[0] if all_warehouses else None
+        )
 
         for i, row in enumerate(data):
             try:
@@ -464,9 +475,8 @@ async def import_orders(
                 total_amount = float(amount_raw) if not pd.isna(amount_raw) else 0.0
 
                 # Extract payment method - prefer "Retail payment method" from MS Dynamics
-                retail_payment_raw = (
-                    row.get("Retail payment method")
-                    or row.get("retail payment method")
+                retail_payment_raw = row.get("Retail payment method") or row.get(
+                    "retail payment method"
                 )
                 payment_method_raw = (
                     retail_payment_raw
@@ -487,8 +497,7 @@ async def import_orders(
 
                 # Extract customer account
                 customer_account = clean_value(
-                    row.get("Customer account")
-                    or row.get("Customer Account")
+                    row.get("Customer account") or row.get("Customer Account")
                 )
 
                 # Extract warehouse code from Excel and map to warehouse ID
@@ -602,15 +611,9 @@ async def auto_archive_orders(
         .where(
             or_(
                 # New logic: delivered_at is set and more than 24 hours ago
-                and_(
-                    Order.delivered_at.isnot(None),
-                    Order.delivered_at < cutoff_24h
-                ),
+                and_(Order.delivered_at.isnot(None), Order.delivered_at < cutoff_24h),
                 # Legacy fallback: no delivered_at, use updated_at > 7 days
-                and_(
-                    Order.delivered_at.is_(None),
-                    Order.updated_at < cutoff_7d
-                )
+                and_(Order.delivered_at.is_(None), Order.updated_at < cutoff_7d),
             )
         )
     )
@@ -658,9 +661,7 @@ async def batch_cancel_orders(
     warehouse_ids = await deps.get_user_warehouse_ids(current_user, db)
 
     # Bulk fetch all orders in a single query
-    result = await db.execute(
-        select(Order).where(Order.id.in_(request.order_ids))
-    )
+    result = await db.execute(select(Order).where(Order.id.in_(request.order_ids)))
     orders_map = {order.id: order for order in result.scalars().all()}
 
     for order_id in request.order_ids:
@@ -670,23 +671,27 @@ async def batch_cancel_orders(
             continue
 
         if warehouse_ids is not None and order.warehouse_id not in warehouse_ids:
-            errors.append({"order_id": order_id, "error": "No access to this warehouse"})
+            errors.append(
+                {"order_id": order_id, "error": "No access to this warehouse"}
+            )
             continue
 
         if order.status == OrderStatus.DELIVERED:
-            errors.append({"order_id": order_id, "error": "Cannot cancel a delivered order"})
+            errors.append(
+                {"order_id": order_id, "error": "Cannot cancel a delivered order"}
+            )
             continue
 
         if order.status == OrderStatus.CANCELLED:
             errors.append({"order_id": order_id, "error": "Order is already cancelled"})
             continue
 
-        order.status = OrderStatus.CANCELLED
-        history = OrderStatusHistory(
-            order_id=order.id,
-            status=OrderStatus.CANCELLED,
-            notes=f"Batch cancelled: {request.reason}" if request.reason else "Batch cancelled",
+        notes = (
+            f"Batch cancelled: {request.reason}"
+            if request.reason
+            else "Batch cancelled"
         )
+        history = order_status_service.apply_status(order, OrderStatus.CANCELLED, notes)
         db.add(history)
         db.add(order)
         cancelled_count += 1
@@ -730,16 +735,18 @@ async def batch_delete_orders(
         )
         # Delete order status history
         await db.execute(
-            delete(OrderStatusHistory).where(OrderStatusHistory.order_id.in_(existing_ids))
+            delete(OrderStatusHistory).where(
+                OrderStatusHistory.order_id.in_(existing_ids)
+            )
         )
         # Delete payment collections
         await db.execute(
-            delete(PaymentCollection).where(PaymentCollection.order_id.in_(existing_ids))
+            delete(PaymentCollection).where(
+                PaymentCollection.order_id.in_(existing_ids)
+            )
         )
         # Finally delete the orders themselves
-        await db.execute(
-            delete(Order).where(Order.id.in_(existing_ids))
-        )
+        await db.execute(delete(Order).where(Order.id.in_(existing_ids)))
 
     await db.commit()
     return {"deleted": len(existing_ids), "errors": errors}
@@ -764,10 +771,7 @@ async def batch_pickup_orders(
 
     # Verify user is a driver
     if current_user.role != UserRole.DRIVER:
-        raise HTTPException(
-            status_code=403,
-            detail="Only drivers can pickup orders"
-        )
+        raise HTTPException(status_code=403, detail="Only drivers can pickup orders")
 
     # Get driver profile
     driver_result = await db.execute(
@@ -781,9 +785,7 @@ async def batch_pickup_orders(
     errors: List[Dict[str, Any]] = []
 
     # Bulk fetch all orders to avoid N+1 queries
-    result = await db.execute(
-        select(Order).where(Order.id.in_(request.order_ids))
-    )
+    result = await db.execute(select(Order).where(Order.id.in_(request.order_ids)))
     orders_map: Dict[int, Order] = {order.id: order for order in result.scalars().all()}
 
     for order_id in request.order_ids:
@@ -793,26 +795,23 @@ async def batch_pickup_orders(
             continue
 
         if order.driver_id != driver.id:
-            errors.append({
-                "order_id": order_id,
-                "error": "Order is not assigned to you"
-            })
+            errors.append(
+                {"order_id": order_id, "error": "Order is not assigned to you"}
+            )
             continue
 
         if order.status != OrderStatus.ASSIGNED:
-            errors.append({
-                "order_id": order_id,
-                "error": f"Order must be in ASSIGNED status, currently: {order.status}"
-            })
+            errors.append(
+                {
+                    "order_id": order_id,
+                    "error": f"Order must be in ASSIGNED status, currently: {order.status}",
+                }
+            )
             continue
 
         # Update order status to PICKED_UP
-        order.status = OrderStatus.PICKED_UP
-        order.picked_up_at = datetime.now(timezone.utc)
-        history = OrderStatusHistory(
-            order_id=order.id,
-            status=OrderStatus.PICKED_UP,
-            notes="Batch picked up by driver",
+        history = order_status_service.apply_status(
+            order, OrderStatus.PICKED_UP, "Batch picked up by driver"
         )
         db.add(history)
         db.add(order)
@@ -824,7 +823,9 @@ async def batch_pickup_orders(
 
 class BatchDeliveryRequest(BaseModel):
     order_ids: List[int]
-    proofs: Optional[List[Dict[str, Any]]] = None  # [{order_id, photo_url?, signature_url?}]
+    proofs: Optional[List[Dict[str, Any]]] = (
+        None  # [{order_id, photo_url?, signature_url?}]
+    )
 
 
 @router.post("/batch-delivery")
@@ -843,10 +844,7 @@ async def batch_delivery_orders(
 
     # Verify user is a driver
     if current_user.role != UserRole.DRIVER:
-        raise HTTPException(
-            status_code=403,
-            detail="Only drivers can deliver orders"
-        )
+        raise HTTPException(status_code=403, detail="Only drivers can deliver orders")
 
     # Get driver profile
     driver_result = await db.execute(
@@ -873,7 +871,8 @@ async def batch_delivery_orders(
 
     # Bulk fetch all orders with POD to avoid N+1 queries
     result = await db.execute(
-        select(Order).where(Order.id.in_(request.order_ids))
+        select(Order)
+        .where(Order.id.in_(request.order_ids))
         .options(selectinload(Order.proof_of_delivery))
     )
     orders_map: Dict[int, Order] = {order.id: order for order in result.scalars().all()}
@@ -886,29 +885,24 @@ async def batch_delivery_orders(
             continue
 
         if order.driver_id != driver.id:
-            errors.append({
-                "order_id": order_id,
-                "error": "Order is not assigned to you"
-            })
+            errors.append(
+                {"order_id": order_id, "error": "Order is not assigned to you"}
+            )
             continue
 
         if order.status not in valid_statuses:
-            errors.append({
-                "order_id": order_id,
-                "error": f"Order must be in PICKED_UP, IN_TRANSIT, or OUT_FOR_DELIVERY status, currently: {order.status}"
-            })
+            errors.append(
+                {
+                    "order_id": order_id,
+                    "error": f"Order must be in PICKED_UP, IN_TRANSIT, or OUT_FOR_DELIVERY status, currently: {order.status}",
+                }
+            )
             continue
 
         # Update order status to DELIVERED
-        order.status = OrderStatus.DELIVERED
-        order.delivered_at = datetime.now(timezone.utc)
         # Don't set is_archived immediately - will be done by 24h buffer logic
-
-        # Create status history
-        history = OrderStatusHistory(
-            order_id=order.id,
-            status=OrderStatus.DELIVERED,
-            notes="Batch delivered by driver",
+        history = order_status_service.apply_status(
+            order, OrderStatus.DELIVERED, "Batch delivered by driver"
         )
         db.add(history)
 
@@ -951,93 +945,16 @@ async def batch_assign_orders(
     """
     Batch assign orders.
     """
-    count = 0
-    driver_notifications: Dict[int, Dict[str, Any]] = {}  # driver_id -> {token, user_id, count}
     warehouse_ids = await deps.get_user_warehouse_ids(current_user, db)
 
-    # Collect all unique IDs for bulk fetching
-    order_ids: List[int] = [a.get("order_id") for a in assignments if a.get("order_id")]
-    driver_ids: List[int] = list(set(a.get("driver_id") for a in assignments if a.get("driver_id")))
-
-    # Bulk fetch orders to avoid N+1 queries
-    orders_result = await db.execute(select(Order).where(Order.id.in_(order_ids)))
-    orders_map: Dict[int, Order] = {o.id: o for o in orders_result.scalars().all()}
-
-    # Bulk fetch drivers with eager loading to avoid N+1 queries
-    drivers_result = await db.execute(
-        select(Driver).where(Driver.id.in_(driver_ids))
-        .options(selectinload(Driver.user), selectinload(Driver.warehouse))
+    result = await assignment_service.batch_assign_orders(
+        db=db,
+        assignments=assignments,
+        assigned_by=current_user,
+        user_warehouse_ids=warehouse_ids,
     )
-    drivers_map: Dict[int, Driver] = {d.id: d for d in drivers_result.scalars().all()}
-
-    for assign in assignments:
-        order_id: int = assign.get("order_id")
-        driver_id: int = assign.get("driver_id")
-        if not order_id or not driver_id:
-            continue
-
-        order = orders_map.get(order_id)
-        driver = drivers_map.get(driver_id)
-
-        if order and driver:
-            if warehouse_ids is not None and order.warehouse_id not in warehouse_ids:
-                continue
-            order.driver_id = driver.id
-            order.status = OrderStatus.ASSIGNED
-            order.assigned_at = datetime.now(timezone.utc)
-            history = OrderStatusHistory(
-                order_id=order.id,
-                status=OrderStatus.ASSIGNED,
-                notes=f"Batch assigned to driver {driver.user_id}",
-            )
-            db.add(history)
-            db.add(order)
-            count += 1
-
-            # Store for notification
-            if driver.user.fcm_token:
-                if driver_id not in driver_notifications:
-                    driver_notifications[driver_id] = {
-                        "token": driver.user.fcm_token,
-                        "user_id": driver.user_id,
-                        "count": 0,
-                    }
-                driver_notifications[driver_id]["count"] += 1
-
-    await db.flush()
-
-    # Send notifications to drivers
-    for drv_id, data in driver_notifications.items():
-        if data["count"] > 0:
-            await notification_service.notify_driver_new_orders(
-                db, data["user_id"], data["count"], data["token"]
-            )
-
-    # Notify admin users about batch assignment
-    if count > 0:
-        from app.models.user import User as UserModel, UserRole
-        from app.models.notification import Notification
-
-        admin_roles = [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_MANAGER, UserRole.DISPATCHER]
-        stmt = select(UserModel).where(UserModel.role.in_(admin_roles), UserModel.is_active.is_(True))
-        result = await db.execute(stmt)
-        admin_users = result.scalars().all()
-
-        title = "Batch Assignment"
-        body = f"{count} orders assigned by {current_user.full_name or current_user.email}"
-
-        for user in admin_users:
-            notif = Notification(
-                user_id=user.id,
-                title=title,
-                body=body,
-                data={"type": "order", "count": str(count)},
-                created_at=datetime.now(timezone.utc),
-            )
-            db.add(notif)
-
     await db.commit()
-    return {"assigned": count}
+    return result
 
 
 class BatchReturnRequest(BaseModel):
@@ -1062,7 +979,8 @@ async def batch_return_orders(
 
     # Bulk fetch all orders with driver info to avoid N+1 queries
     result = await db.execute(
-        select(Order).where(Order.id.in_(request.order_ids))
+        select(Order)
+        .where(Order.id.in_(request.order_ids))
         .options(selectinload(Order.driver).selectinload(Driver.user))
     )
     orders_map: Dict[int, Order] = {order.id: order for order in result.scalars().all()}
@@ -1074,18 +992,22 @@ async def batch_return_orders(
             continue
 
         if warehouse_ids is not None and order.warehouse_id not in warehouse_ids:
-            errors.append({"order_id": order_id, "error": "No access to this warehouse"})
+            errors.append(
+                {"order_id": order_id, "error": "No access to this warehouse"}
+            )
             continue
 
         if order.status != OrderStatus.DELIVERED:
-            errors.append({"order_id": order_id, "error": f"Only delivered orders can be returned, currently: {order.status}"})
+            errors.append(
+                {
+                    "order_id": order_id,
+                    "error": f"Only delivered orders can be returned, currently: {order.status}",
+                }
+            )
             continue
 
-        order.status = OrderStatus.RETURNED
-        history = OrderStatusHistory(
-            order_id=order.id,
-            status=OrderStatus.RETURNED,
-            notes=f"Return reason: {request.reason}",
+        history = order_status_service.apply_status(
+            order, OrderStatus.RETURNED, f"Return reason: {request.reason}"
         )
         db.add(history)
         db.add(order)
@@ -1095,6 +1017,7 @@ async def batch_return_orders(
         if order.driver and order.driver.user and order.driver.user.fcm_token:
             try:
                 from app.models.notification import Notification
+
                 notif = Notification(
                     user_id=order.driver.user_id,
                     title="Order Returned",
@@ -1137,57 +1060,18 @@ async def assign_order(
 
     await deps.verify_order_warehouse_access(order.warehouse_id, current_user, db)
 
-    # Store previous driver for reassignment notification
-    previous_driver = order.driver
-    previous_driver_user = previous_driver.user if previous_driver else None
-    is_reassignment = previous_driver is not None and previous_driver.id != driver_id
-
-    stmt = (
-        select(Driver).where(Driver.id == driver_id).options(selectinload(Driver.user))
-    )
-    result = await db.execute(stmt)
-    driver = result.scalars().first()
-    if not driver:
-        raise HTTPException(status_code=404, detail="Driver not found")
-
-    order.driver_id = driver.id
-    order.status = OrderStatus.ASSIGNED
-    order.assigned_at = datetime.now(timezone.utc)
-
-    history = OrderStatusHistory(
-        order_id=order.id,
-        status=OrderStatus.ASSIGNED,
-        notes=f"Assigned to driver {driver.user_id}" + (" (reassigned)" if is_reassignment else ""),
-    )
-    db.add(history)
-    db.add(order)
-    await db.flush()
-
-    # Notify new driver
-    if driver.user.fcm_token:
-        await notification_service.notify_driver_new_orders(
-            db, driver.user_id, 1, driver.user.fcm_token
-        )
-
-    # Notify previous driver about reassignment
-    if is_reassignment and previous_driver_user:
-        await notification_service.notify_driver_order_reassigned(
+    try:
+        await assignment_service.assign_order(
             db=db,
-            user_id=previous_driver_user.id,
-            order_id=order.id,
-            order_number=order.sales_order_number,
-            token=previous_driver_user.fcm_token,
+            order=order,
+            driver_id=driver_id,
+            assigned_by=current_user,
         )
-
-    # Notify admin users about the assignment
-    await notification_service.notify_admins_order_assigned(
-        db=db,
-        order_id=order.id,
-        order_number=order.sales_order_number or f"#{order.id}",
-        driver_name=driver.user.full_name or driver.user.email,
-        assigned_by_name=current_user.full_name or current_user.email,
-    )
-    await db.commit()
+        await db.commit()
+    except DriverNotFoundException as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except DriverNotAvailableException as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
     # Re-fetch with eager loading for response
     query = (
@@ -1222,16 +1106,7 @@ async def update_order_status(
 
     await deps.verify_order_warehouse_access(order.warehouse_id, current_user, db)
 
-    order.status = status
-    # Set status transition timestamps
-    if status == OrderStatus.ASSIGNED:
-        order.assigned_at = datetime.now(timezone.utc)
-    elif status == OrderStatus.PICKED_UP:
-        order.picked_up_at = datetime.now(timezone.utc)
-    elif status == OrderStatus.DELIVERED:
-        order.delivered_at = datetime.now(timezone.utc)
-
-    history = OrderStatusHistory(order_id=order.id, status=status, notes=notes)
+    history = order_status_service.apply_status(order, status, notes)
     db.add(history)
     db.add(order)
     await db.commit()
@@ -1267,8 +1142,6 @@ async def upload_proof_of_delivery(
     Upload proof of delivery (photo and optional signature).
     Saved to Supabase Storage.
     """
-    from app.services.storage import storage_service
-
     # Check order exists and user has access
     query = (
         select(Order)
@@ -1284,38 +1157,25 @@ async def upload_proof_of_delivery(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    # Upload Photo to Supabase
+    # Upload photo to Supabase via POD service
     photo_contents = await photo.read()
-    photo_filename = f"orders/{order_id}/photo_{uuid.uuid4()}.jpg"
-    photo_url = await storage_service.upload_file(
-        file_content=photo_contents,
-        file_name=photo_filename,
+    photo_url = await pod_service.upload_photo(
+        order_id=order_id,
+        photo_content=photo_contents,
         content_type=photo.content_type or "image/jpeg",
     )
 
     if not photo_url:
         raise HTTPException(status_code=500, detail="Failed to upload photo to storage")
 
-    if order.proof_of_delivery:
-        order.proof_of_delivery.signature_url = signature
-        order.proof_of_delivery.photo_url = photo_url
-        order.proof_of_delivery.timestamp = datetime.now(timezone.utc)
-    else:
-        pod = ProofOfDelivery(
-            order_id=order.id,
-            signature_url=signature,
-            photo_url=photo_url,
-        )
-        db.add(pod)
-
-    order.status = OrderStatus.DELIVERED
-    order.delivered_at = datetime.now(timezone.utc)  # Set delivery time for 24h archive buffer
-    history = OrderStatusHistory(
-        order_id=order.id,
-        status=OrderStatus.DELIVERED,
+    # Complete delivery with POD
+    await pod_service.complete_delivery(
+        db=db,
+        order=order,
+        photo_url=photo_url,
+        signature_url=signature,
         notes="Proof of delivery uploaded via mobile app",
     )
-    db.add(history)
 
     await db.commit()
 
@@ -1328,42 +1188,9 @@ async def upload_proof_of_delivery(
     result = await db.execute(query)
     order = result.scalars().first()
 
-    # Trigger notifications (wrapped in try-except to not fail the whole request)
+    # Trigger post-delivery notifications (wrapped in try-except)
     try:
-        if order and order.driver and order.driver.user and order.driver.user.fcm_token:
-            await notification_service.notify_driver_order_delivered(
-                db, order.driver.user_id, order.id, order.driver.user.fcm_token
-            )
-
-            # Payment collection - check if payment already exists
-            if (
-                order.payment_method
-                and order.payment_method.upper() in ["CASH", "COD"]
-                and order.total_amount > 0
-            ):
-                # Check if payment already exists
-                existing_payment = await db.execute(
-                    select(PaymentCollection).where(PaymentCollection.order_id == order.id)
-                )
-                if not existing_payment.scalars().first():
-                    from app.models.financial import PaymentMethod
-                    method_enum = PaymentMethod(order.payment_method.upper())
-                    payment = PaymentCollection(
-                        order_id=order.id,
-                        driver_id=order.driver_id,
-                        amount=order.total_amount,
-                        method=method_enum,
-                        collected_at=datetime.now(timezone.utc),
-                    )
-                    db.add(payment)
-
-                    await notification_service.notify_driver_payment_collected(
-                        db,
-                        order.driver.user_id,
-                        order.id,
-                        order.total_amount,
-                        order.driver.user.fcm_token,
-                    )
+        await pod_service.process_post_delivery(db, order)
     except Exception as e:
         logger.error(f"Error in POD notifications: {e}")
         # Continue - POD was submitted successfully, don't fail on notification errors
@@ -1403,80 +1230,27 @@ async def submit_proof_of_delivery_url(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    if order.proof_of_delivery:
-        order.proof_of_delivery.signature_url = pod_data.signature_url
-        order.proof_of_delivery.photo_url = pod_data.photo_url
-        order.proof_of_delivery.timestamp = datetime.now(timezone.utc)
-    else:
-        pod = ProofOfDelivery(
-            order_id=order.id,
-            signature_url=pod_data.signature_url,
-            photo_url=pod_data.photo_url,
-        )
-        db.add(pod)
-
-    order.status = OrderStatus.DELIVERED
-    order.delivered_at = datetime.now(timezone.utc)  # Set delivery time for 24h archive buffer
-    history = OrderStatusHistory(
-        order_id=order.id,
-        status=OrderStatus.DELIVERED,
+    # Complete delivery with POD using pre-uploaded URLs
+    await pod_service.complete_delivery(
+        db=db,
+        order=order,
+        photo_url=pod_data.photo_url,
+        signature_url=pod_data.signature_url,
         notes="Proof of delivery submitted via mobile app",
     )
-    db.add(history)
 
     await db.commit()
 
-    # Re-fetch order for notification
-    query = (
-        select(Order)
-        .where(Order.id == order.id)
-        .options(selectinload(Order.driver).selectinload(Driver.user))
-    )
-    result = await db.execute(query)
-    order = result.scalars().first()
-
-    # Trigger notifications (wrapped in try-except to not fail the whole request)
+    # Process post-delivery actions (notifications, payment collection)
     try:
-        if order and order.driver and order.driver.user and order.driver.user.fcm_token:
-            await notification_service.notify_driver_order_delivered(
-                db, order.driver.user_id, order.id, order.driver.user.fcm_token
-            )
-
-            # Payment collection - check if payment already exists
-            if (
-                order.payment_method
-                and order.payment_method.upper() in ["CASH", "COD"]
-                and order.total_amount > 0
-            ):
-                # Check if payment already exists
-                existing_payment = await db.execute(
-                    select(PaymentCollection).where(PaymentCollection.order_id == order.id)
-                )
-                if not existing_payment.scalars().first():
-                    from app.models.financial import PaymentMethod
-                    method_enum = PaymentMethod(order.payment_method.upper())
-                    payment = PaymentCollection(
-                        order_id=order.id,
-                        driver_id=order.driver_id,
-                        amount=order.total_amount,
-                        method=method_enum,
-                        collected_at=datetime.now(timezone.utc),
-                    )
-                    db.add(payment)
-
-                    await notification_service.notify_driver_payment_collected(
-                        db,
-                        order.driver.user_id,
-                        order.id,
-                        order.total_amount,
-                        order.driver.user.fcm_token,
-                    )
+        await pod_service.process_post_delivery(db, order)
+        await db.commit()
     except Exception as e:
-        logger.error(f"Error in POD notifications: {e}")
-        # Continue - POD was submitted successfully, don't fail on notification errors
-
-    await db.commit()
-    return {"msg": "Proof of delivery submitted successfully", "photo_url": pod_data.photo_url}
+        logger.error(f"Error in POD post-delivery processing: {e}")
+    return {
+        "msg": "Proof of delivery submitted successfully",
+        "photo_url": pod_data.photo_url,
+    }
 
 
 @router.post("/export")
@@ -1530,23 +1304,31 @@ async def export_orders(
 
     # Field-specific filters
     if customer_name:
-        filters.append(cast(Order.customer_info["name"], String).ilike(f"%{customer_name}%"))
+        filters.append(
+            cast(Order.customer_info["name"], String).ilike(f"%{customer_name}%")
+        )
     if customer_phone:
-        filters.append(cast(Order.customer_info["phone"], String).ilike(f"%{customer_phone}%"))
+        filters.append(
+            cast(Order.customer_info["phone"], String).ilike(f"%{customer_phone}%")
+        )
     if customer_address:
-        filters.append(cast(Order.customer_info["address"], String).ilike(f"%{customer_address}%"))
+        filters.append(
+            cast(Order.customer_info["address"], String).ilike(f"%{customer_address}%")
+        )
     if order_number:
         filters.append(Order.sales_order_number.ilike(f"%{order_number}%"))
     if driver_name:
         dn_subq = (
-            select(Driver.id).join(User, Driver.user_id == User.id)
-            .where(Driver.id == Order.driver_id, User.full_name.ilike(f"%{driver_name}%"))
+            select(Driver.id)
+            .join(User, Driver.user_id == User.id)
+            .where(
+                Driver.id == Order.driver_id, User.full_name.ilike(f"%{driver_name}%")
+            )
         )
         filters.append(exists(dn_subq))
     if driver_code:
-        dc_subq = (
-            select(Driver.id)
-            .where(Driver.id == Order.driver_id, Driver.code.ilike(f"%{driver_code}%"))
+        dc_subq = select(Driver.id).where(
+            Driver.id == Order.driver_id, Driver.code.ilike(f"%{driver_code}%")
         )
         filters.append(exists(dc_subq))
     if sales_taker:
@@ -1582,7 +1364,9 @@ async def export_orders(
                 pass
         if date_to:
             try:
-                to_dt = datetime.fromisoformat(date_to).replace(hour=23, minute=59, second=59)
+                to_dt = datetime.fromisoformat(date_to).replace(
+                    hour=23, minute=59, second=59
+                )
                 filters.append(date_col <= to_dt)
             except ValueError:
                 pass
@@ -1606,27 +1390,49 @@ async def export_orders(
                 minutes = (total_seconds % 3600) // 60
                 delivery_time = f"{hours:02d}:{minutes:02d}"
 
-        data.append({
-            "Order #": o.sales_order_number,
-            "Status": o.status,
-            "Customer Name": o.customer_info.get("name", "") if o.customer_info else "",
-            "Customer Phone": o.customer_info.get("phone", "") if o.customer_info else "",
-            "Customer Address": o.customer_info.get("address", "") if o.customer_info else "",
-            "Customer Area": o.customer_info.get("area", "") if o.customer_info else "",
-            "Amount": o.total_amount,
-            "Payment Method": o.payment_method,
-            "Warehouse": o.warehouse.code if o.warehouse else "",
-            "Driver Name": o.driver.user.full_name if o.driver and o.driver.user else "",
-            "Driver Phone": o.driver.user.phone if o.driver and o.driver.user else "",
-            "Driver Code": o.driver.code if o.driver else "",
-            "Sales Taker": o.sales_taker or "",
-            "Created": o.created_at.strftime("%Y-%m-%d %H:%M") if o.created_at else "",
-            "Assigned": o.assigned_at.strftime("%Y-%m-%d %H:%M") if o.assigned_at else "",
-            "Picked Up": o.picked_up_at.strftime("%Y-%m-%d %H:%M") if o.picked_up_at else "",
-            "Delivered": o.delivered_at.strftime("%Y-%m-%d %H:%M") if o.delivered_at else "",
-            "Delivery Time": delivery_time,
-            "Notes": o.notes or "",
-        })
+        data.append(
+            {
+                "Order #": o.sales_order_number,
+                "Status": o.status,
+                "Customer Name": (
+                    o.customer_info.get("name", "") if o.customer_info else ""
+                ),
+                "Customer Phone": (
+                    o.customer_info.get("phone", "") if o.customer_info else ""
+                ),
+                "Customer Address": (
+                    o.customer_info.get("address", "") if o.customer_info else ""
+                ),
+                "Customer Area": (
+                    o.customer_info.get("area", "") if o.customer_info else ""
+                ),
+                "Amount": o.total_amount,
+                "Payment Method": o.payment_method,
+                "Warehouse": o.warehouse.code if o.warehouse else "",
+                "Driver Name": (
+                    o.driver.user.full_name if o.driver and o.driver.user else ""
+                ),
+                "Driver Phone": (
+                    o.driver.user.phone if o.driver and o.driver.user else ""
+                ),
+                "Driver Code": o.driver.code if o.driver else "",
+                "Sales Taker": o.sales_taker or "",
+                "Created": (
+                    o.created_at.strftime("%Y-%m-%d %H:%M") if o.created_at else ""
+                ),
+                "Assigned": (
+                    o.assigned_at.strftime("%Y-%m-%d %H:%M") if o.assigned_at else ""
+                ),
+                "Picked Up": (
+                    o.picked_up_at.strftime("%Y-%m-%d %H:%M") if o.picked_up_at else ""
+                ),
+                "Delivered": (
+                    o.delivered_at.strftime("%Y-%m-%d %H:%M") if o.delivered_at else ""
+                ),
+                "Delivery Time": delivery_time,
+                "Notes": o.notes or "",
+            }
+        )
 
     df = pd.DataFrame(data)
     stream = io.BytesIO()
@@ -1653,26 +1459,21 @@ async def reassign_order(
 
 
 @router.post("/{order_id}/unassign")
-async def unassign_order(
+async def unassign_order_endpoint(
     order_id: int,
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
+    """
+    Unassign an order from its driver.
+    """
     order = await db.get(Order, order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
     await deps.verify_order_warehouse_access(order.warehouse_id, current_user, db)
 
-    order.driver_id = None
-    order.status = OrderStatus.PENDING
-    order.assigned_at = None
-
-    history = OrderStatusHistory(
-        order_id=order.id, status=OrderStatus.PENDING, notes="Unassigned by manager"
-    )
-    db.add(history)
-    db.add(order)
+    await assignment_service.unassign_order(db, order)
     await db.commit()
     return {"msg": "Order unassigned"}
 
@@ -1688,10 +1489,8 @@ async def reject_order(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    order.status = OrderStatus.REJECTED
-
-    history = OrderStatusHistory(
-        order_id=order.id, status=OrderStatus.REJECTED, notes=f"Rejected: {reason}"
+    history = order_status_service.apply_status(
+        order, OrderStatus.REJECTED, f"Rejected: {reason}"
     )
     db.add(history)
     db.add(order)
@@ -1728,13 +1527,8 @@ async def cancel_order(
     previous_driver = order.driver
     previous_driver_user = previous_driver.user if previous_driver else None
 
-    order.status = OrderStatus.CANCELLED
-
-    history = OrderStatusHistory(
-        order_id=order.id,
-        status=OrderStatus.CANCELLED,
-        notes=f"Cancelled: {reason}" if reason else "Order cancelled",
-    )
+    notes = f"Cancelled: {reason}" if reason else "Order cancelled"
+    history = order_status_service.apply_status(order, OrderStatus.CANCELLED, notes)
     db.add(history)
     db.add(order)
 
@@ -1777,14 +1571,11 @@ async def return_order(
     if order.status != OrderStatus.DELIVERED:
         raise HTTPException(
             status_code=400,
-            detail=f"Only delivered orders can be returned. Current status: {order.status}"
+            detail=f"Only delivered orders can be returned. Current status: {order.status}",
         )
 
-    order.status = OrderStatus.RETURNED
-    history = OrderStatusHistory(
-        order_id=order.id,
-        status=OrderStatus.RETURNED,
-        notes=f"Return reason: {reason}",
+    history = order_status_service.apply_status(
+        order, OrderStatus.RETURNED, f"Return reason: {reason}"
     )
     db.add(history)
     db.add(order)
@@ -1793,6 +1584,7 @@ async def return_order(
     if order.driver and order.driver.user and order.driver.user.fcm_token:
         try:
             from app.models.notification import Notification
+
             notif = Notification(
                 user_id=order.driver.user_id,
                 title="Order Returned",
@@ -1870,5 +1662,3 @@ async def unarchive_order(
     db.add(order)
     await db.commit()
     return {"msg": f"Order {order_id} restored from archive"}
-
-

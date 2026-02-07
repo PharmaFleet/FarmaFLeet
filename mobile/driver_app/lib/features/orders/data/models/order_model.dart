@@ -11,6 +11,9 @@ class OrderModel extends OrderEntity {
     required super.createdAt,
     required super.updatedAt,
     required super.warehouseId,
+    super.assignedAt,
+    super.pickedUpAt,
+    super.deliveredAt,
   });
 
   factory OrderModel.fromJson(Map<String, dynamic> json) {
@@ -24,6 +27,15 @@ class OrderModel extends OrderEntity {
       createdAt: DateTime.parse(json['created_at']),
       updatedAt: DateTime.parse(json['updated_at']),
       warehouseId: json['warehouse_id'],
+      assignedAt: json['assigned_at'] != null
+          ? DateTime.parse(json['assigned_at'])
+          : null,
+      pickedUpAt: json['picked_up_at'] != null
+          ? DateTime.parse(json['picked_up_at'])
+          : null,
+      deliveredAt: json['delivered_at'] != null
+          ? DateTime.parse(json['delivered_at'])
+          : null,
     );
   }
 
@@ -38,6 +50,9 @@ class OrderModel extends OrderEntity {
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
       'warehouse_id': warehouseId,
+      if (assignedAt != null) 'assigned_at': assignedAt!.toIso8601String(),
+      if (pickedUpAt != null) 'picked_up_at': pickedUpAt!.toIso8601String(),
+      if (deliveredAt != null) 'delivered_at': deliveredAt!.toIso8601String(),
     };
   }
 }

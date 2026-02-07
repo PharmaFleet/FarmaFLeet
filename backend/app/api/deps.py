@@ -1,8 +1,10 @@
 from typing import Generator, List
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
 from pydantic import ValidationError
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -10,6 +12,11 @@ from app.core.config import settings
 from app.core.logging import logger
 from app.db.session import SessionLocal
 from app.models.user import User
+
+
+# Initialize rate limiter
+limiter = Limiter(key_func=get_remote_address)
+
 
 reusable_oauth2 = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login")
 
@@ -217,3 +224,23 @@ async def verify_orders_warehouse_access(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have access to orders in some of the selected warehouses",
         )
+
+
+# Rate limit decorators for specific endpoints
+# These are used with slowapi's @limiter.limit decorator on endpoints
+#
+# Rate limits:
+# - /auth/login: 5 requests per minute
+# - /orders/import: 10 requests per 5 minutes
+# - /orders/export: 5 requests per minute
+#
+# Usage in endpoints:
+#   from app.api.deps import limiter
+#   @router.post("/import")
+#   @limiter.limit("10/5minutes")
+#   async def import_orders(request: Request, ...):
+
+# Rate limit strings for easy reference
+RATE_LIMIT_LOGIN = "5/minute"
+RATE_LIMIT_IMPORT = "10/5minutes"
+RATE_LIMIT_EXPORT = "5/minute"

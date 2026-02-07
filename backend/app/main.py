@@ -1,17 +1,31 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 from starlette.middleware.cors import CORSMiddleware
 import os
+import sentry_sdk
 
 from app.api.v1.api import api_router
+from app.api.deps import limiter
 from app.core.config import settings
+from app.core.exceptions import PharmaFleetException
 from app.core.logging import setup_logging
 from app.api.middleware import RequestLoggingMiddleware, RateLimitMiddleware
 from app.routers.websocket import start_redis_listener
 
 # Setup logging
 setup_logging()
+
+# Initialize Sentry error monitoring
+if settings.SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=settings.SENTRY_DSN,
+        environment=settings.ENVIRONMENT,
+        traces_sample_rate=0.1,  # 10% of requests for performance monitoring
+    )
 
 tags_metadata = [
     {"name": "login", "description": "Operations with authentication logic."},
@@ -35,6 +49,10 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Add slowapi rate limiter state and exception handler
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(RateLimitMiddleware, limit=1000, window=60)
 
@@ -57,6 +75,14 @@ if settings.BACKEND_CORS_ORIGINS:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+@app.exception_handler(PharmaFleetException)
+async def pharmafleet_exception_handler(request: Request, exc: PharmaFleetException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"error_code": exc.error_code, "message": exc.message},
+    )
+
 
 @app.get("/health")
 async def health_check():

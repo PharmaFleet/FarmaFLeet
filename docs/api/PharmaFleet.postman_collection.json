@@ -1,0 +1,1541 @@
+{
+  "info": {
+    "_postman_id": "pharmafleet-api-collection",
+    "name": "PharmaFleet API",
+    "description": "Complete API collection for PharmaFleet Delivery Management System.\n\nBase URL: {{base_url}}\nProduction: {{prod_url}}\n\nSee docs/api/README.md for full documentation.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Auto-refresh token if expired (optional)",
+          "// This runs before every request"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "description": "Authentication endpoints for login, logout, and token management",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    pm.environment.set('access_token', json.access_token);",
+                  "    pm.environment.set('refresh_token', json.refresh_token);",
+                  "    console.log('Tokens saved to environment');",
+                  "}",
+                  "",
+                  "pm.test('Login successful', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has tokens', function() {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('access_token');",
+                  "    pm.expect(json).to.have.property('refresh_token');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "username",
+                  "value": "{{admin_email}}",
+                  "type": "text"
+                },
+                {
+                  "key": "password",
+                  "value": "{{admin_password}}",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/login/access-token",
+              "host": ["{{base_url}}"],
+              "path": ["login", "access-token"]
+            },
+            "description": "Login with email and password to obtain access and refresh tokens.\n\nRate limit: 5 requests/minute"
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    pm.environment.set('access_token', json.access_token);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"refresh_token\": \"{{refresh_token}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/refresh",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "refresh"]
+            },
+            "description": "Refresh access token using refresh token."
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/auth/logout",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "logout"]
+            },
+            "description": "Logout and invalidate current token."
+          }
+        },
+        {
+          "name": "Register FCM Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"token\": \"fcm_device_token_here\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/fcm-token",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "fcm-token"]
+            },
+            "description": "Register FCM token for push notifications.\n\nFor drivers, also subscribes to warehouse topic."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Orders",
+      "description": "Order management endpoints",
+      "item": [
+        {
+          "name": "List Orders",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/orders?page=1&limit=10&status=pending",
+              "host": ["{{base_url}}"],
+              "path": ["orders"],
+              "query": [
+                {"key": "page", "value": "1"},
+                {"key": "limit", "value": "10"},
+                {"key": "status", "value": "pending", "description": "Filter by status"},
+                {"key": "warehouse_id", "value": "1", "disabled": true},
+                {"key": "driver_id", "value": "1", "disabled": true},
+                {"key": "search", "value": "", "disabled": true},
+                {"key": "include_archived", "value": "false", "disabled": true},
+                {"key": "sort_by", "value": "created_at", "disabled": true},
+                {"key": "sort_order", "value": "desc", "disabled": true},
+                {"key": "customer_name", "value": "", "disabled": true},
+                {"key": "customer_phone", "value": "", "disabled": true},
+                {"key": "date_from", "value": "2024-01-01", "disabled": true},
+                {"key": "date_to", "value": "2024-12-31", "disabled": true}
+              ]
+            },
+            "description": "Get paginated list of orders with optional filters.\n\nFilters:\n- status: pending, assigned, picked_up, in_transit, out_for_delivery, delivered, cancelled, rejected, returned\n- warehouse_id: Filter by warehouse\n- driver_id: Filter by driver\n- search: Universal search\n- include_archived: Show archived orders\n- sort_by: created_at, status, total_amount, etc.\n- sort_order: asc or desc"
+          }
+        },
+        {
+          "name": "Get Order",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/orders/{{test_order_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["orders", "{{test_order_id}}"]
+            },
+            "description": "Get single order by ID with full details including status history and proof of delivery."
+          }
+        },
+        {
+          "name": "Create Order",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"sales_order_number\": \"SO-TEST-001\",\n    \"customer_info\": {\n        \"name\": \"Test Customer\",\n        \"phone\": \"+965-1234-5678\",\n        \"address\": \"123 Test Street, Kuwait City\",\n        \"area\": \"Salmiya\"\n    },\n    \"total_amount\": 25.500,\n    \"payment_method\": \"CASH\",\n    \"warehouse_id\": 1,\n    \"notes\": \"Test order\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/orders",
+              "host": ["{{base_url}}"],
+              "path": ["orders"]
+            },
+            "description": "Create a new order manually."
+          }
+        },
+        {
+          "name": "Import Orders (Excel)",
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": ""
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/import",
+              "host": ["{{base_url}}"],
+              "path": ["orders", "import"]
+            },
+            "description": "Import orders from Excel file.\n\nSupported formats: .xlsx, .xls, .csv\n\nRequired columns:\n- Sales order (order number)\n- Customer name\n- Customer phone\n- Customer address\n- Total amount\n\nOptional columns:\n- Area\n- Warehouse\n- Payment method\n- Sales taker\n\nRate limit: 10 requests/5 minutes"
+          }
+        },
+        {
+          "name": "Export Orders",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/orders/export?status=delivered",
+              "host": ["{{base_url}}"],
+              "path": ["orders", "export"],
+              "query": [
+                {"key": "status", "value": "delivered", "disabled": true},
+                {"key": "warehouse_id", "value": "1", "disabled": true},
+                {"key": "date_from", "value": "2024-01-01", "disabled": true},
+                {"key": "date_to", "value": "2024-12-31", "disabled": true}
+              ]
+            },
+            "description": "Export orders to Excel file.\n\nAccepts same filters as List Orders.\n\nRate limit: 5 requests/minute"
+          }
+        },
+        {
+          "name": "Assign Driver",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"driver_id\": 1\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{test_order_id}}/assign",
+              "host": ["{{base_url}}"],
+              "path": ["orders", "{{test_order_id}}", "assign"]
+            },
+            "description": "Assign a driver to an order.\n\nChanges status from pending to assigned."
+          }
+        },
+        {
+          "name": "Unassign Driver",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/orders/{{test_order_id}}/unassign",
+              "host": ["{{base_url}}"],
+              "path": ["orders", "{{test_order_id}}", "unassign"]
+            },
+            "description": "Remove driver assignment from order.\n\nResets status to pending."
+          }
+        },
+        {
+          "name": "Update Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"status\": \"picked_up\",\n    \"notes\": \"Picked up from warehouse\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{test_order_id}}/status",
+              "host": ["{{base_url}}"],
+              "path": ["orders", "{{test_order_id}}", "status"]
+            },
+            "description": "Update order status.\n\nValid statuses: pending, assigned, picked_up, in_transit, out_for_delivery, delivered, cancelled, rejected, returned"
+          }
+        },
+        {
+          "name": "Upload Proof of Delivery",
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "photo",
+                  "type": "file",
+                  "src": ""
+                },
+                {
+                  "key": "signature",
+                  "value": "",
+                  "type": "text",
+                  "disabled": true
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{test_order_id}}/proof-of-delivery",
+              "host": ["{{base_url}}"],
+              "path": ["orders", "{{test_order_id}}", "proof-of-delivery"]
+            },
+            "description": "Upload proof of delivery photo.\n\nOptional: signature URL\n\nAutomatically marks order as delivered."
+          }
+        },
+        {
+          "name": "Submit POD URL",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"photo_url\": \"https://storage.example.com/pod/photo.jpg\",\n    \"signature_url\": null\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{test_order_id}}/proof-of-delivery-url",
+              "host": ["{{base_url}}"],
+              "path": ["orders", "{{test_order_id}}", "proof-of-delivery-url"]
+            },
+            "description": "Submit proof of delivery using pre-uploaded URLs.\n\nUsed by mobile app after uploading via /upload endpoint."
+          }
+        },
+        {
+          "name": "Cancel Order",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"reason\": \"Customer requested cancellation\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{test_order_id}}/cancel",
+              "host": ["{{base_url}}"],
+              "path": ["orders", "{{test_order_id}}", "cancel"]
+            },
+            "description": "Cancel an order.\n\nCannot cancel delivered orders."
+          }
+        },
+        {
+          "name": "Reject Order",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"reason\": \"Customer not available\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{test_order_id}}/reject",
+              "host": ["{{base_url}}"],
+              "path": ["orders", "{{test_order_id}}", "reject"]
+            },
+            "description": "Reject an order (driver couldn't complete delivery)."
+          }
+        },
+        {
+          "name": "Return Order",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"reason\": \"Customer returned the product\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{test_order_id}}/return",
+              "host": ["{{base_url}}"],
+              "path": ["orders", "{{test_order_id}}", "return"]
+            },
+            "description": "Return a delivered order.\n\nOnly delivered orders can be returned."
+          }
+        },
+        {
+          "name": "Archive Order",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/orders/{{test_order_id}}/archive",
+              "host": ["{{base_url}}"],
+              "path": ["orders", "{{test_order_id}}", "archive"]
+            },
+            "description": "Archive an order (hide from default view)."
+          }
+        },
+        {
+          "name": "Unarchive Order",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/orders/{{test_order_id}}/unarchive",
+              "host": ["{{base_url}}"],
+              "path": ["orders", "{{test_order_id}}", "unarchive"]
+            },
+            "description": "Restore an archived order to active view."
+          }
+        },
+        {
+          "name": "Delete Order",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{base_url}}/orders/{{test_order_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["orders", "{{test_order_id}}"]
+            },
+            "description": "Permanently delete an order.\n\nAdmin only."
+          }
+        },
+        {
+          "name": "Batch Assign",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "[\n    {\"order_id\": 1, \"driver_id\": 1},\n    {\"order_id\": 2, \"driver_id\": 1},\n    {\"order_id\": 3, \"driver_id\": 2}\n]"
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/batch-assign",
+              "host": ["{{base_url}}"],
+              "path": ["orders", "batch-assign"]
+            },
+            "description": "Assign multiple orders to drivers in one request."
+          }
+        },
+        {
+          "name": "Batch Cancel",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"order_ids\": [1, 2, 3],\n    \"reason\": \"Bulk cancellation\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/batch-cancel",
+              "host": ["{{base_url}}"],
+              "path": ["orders", "batch-cancel"]
+            },
+            "description": "Cancel multiple orders at once."
+          }
+        },
+        {
+          "name": "Batch Delete",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"order_ids\": [1, 2, 3]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/batch-delete",
+              "host": ["{{base_url}}"],
+              "path": ["orders", "batch-delete"]
+            },
+            "description": "Delete multiple orders permanently.\n\nAdmin only."
+          }
+        },
+        {
+          "name": "Batch Pickup",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"order_ids\": [1, 2, 3]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/batch-pickup",
+              "host": ["{{base_url}}"],
+              "path": ["orders", "batch-pickup"]
+            },
+            "description": "Mark multiple orders as picked up.\n\nDriver only - orders must be assigned to the caller."
+          }
+        },
+        {
+          "name": "Batch Delivery",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"order_ids\": [1, 2, 3],\n    \"proofs\": [\n        {\"order_id\": 1, \"photo_url\": \"https://storage.example.com/pod1.jpg\"},\n        {\"order_id\": 2, \"photo_url\": \"https://storage.example.com/pod2.jpg\"}\n    ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/batch-delivery",
+              "host": ["{{base_url}}"],
+              "path": ["orders", "batch-delivery"]
+            },
+            "description": "Complete multiple deliveries at once.\n\nPOD is optional.\nDriver only - orders must be assigned to the caller."
+          }
+        },
+        {
+          "name": "Batch Return",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"order_ids\": [1, 2, 3],\n    \"reason\": \"Products returned by customers\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/batch-return",
+              "host": ["{{base_url}}"],
+              "path": ["orders", "batch-return"]
+            },
+            "description": "Return multiple delivered orders."
+          }
+        },
+        {
+          "name": "Auto Archive (Admin)",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/orders/auto-archive",
+              "host": ["{{base_url}}"],
+              "path": ["orders", "auto-archive"]
+            },
+            "description": "Auto-archive delivered orders older than 24 hours.\n\nAdmin only. Also available as cron job."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Drivers",
+      "description": "Driver management endpoints",
+      "item": [
+        {
+          "name": "List Drivers",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/drivers?page=1&size=10",
+              "host": ["{{base_url}}"],
+              "path": ["drivers"],
+              "query": [
+                {"key": "page", "value": "1"},
+                {"key": "size", "value": "10"},
+                {"key": "active_only", "value": "false", "disabled": true},
+                {"key": "status", "value": "online", "disabled": true},
+                {"key": "search", "value": "", "disabled": true},
+                {"key": "warehouse_id", "value": "1", "disabled": true}
+              ]
+            },
+            "description": "Get paginated list of drivers."
+          }
+        },
+        {
+          "name": "Get Driver",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/drivers/{{test_driver_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["drivers", "{{test_driver_id}}"]
+            },
+            "description": "Get driver by ID."
+          }
+        },
+        {
+          "name": "Get My Profile (Driver)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/drivers/me",
+              "host": ["{{base_url}}"],
+              "path": ["drivers", "me"]
+            },
+            "description": "Get current logged-in driver's profile."
+          }
+        },
+        {
+          "name": "Get My Stats (Driver)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/drivers/me/stats",
+              "host": ["{{base_url}}"],
+              "path": ["drivers", "me", "stats"]
+            },
+            "description": "Get current driver's statistics.\n\nReturns: total_deliveries, today_deliveries, total_earnings, today_earnings, active_orders, average_rating, on_time_rate"
+          }
+        },
+        {
+          "name": "Get My Orders (Driver)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/drivers/me/orders?status_filter=assigned",
+              "host": ["{{base_url}}"],
+              "path": ["drivers", "me", "orders"],
+              "query": [
+                {"key": "status_filter", "value": "assigned", "disabled": true}
+              ]
+            },
+            "description": "Get orders assigned to current driver."
+          }
+        },
+        {
+          "name": "Update My Status (Driver)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"is_available\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/drivers/me/status",
+              "host": ["{{base_url}}"],
+              "path": ["drivers", "me", "status"]
+            },
+            "description": "Update current driver's availability status (online/offline)."
+          }
+        },
+        {
+          "name": "Create Driver",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"newdriver@pharmafleet.com\",\n    \"password\": \"securepassword123\",\n    \"full_name\": \"New Driver\",\n    \"vehicle_info\": \"Toyota Hilux 2023\",\n    \"vehicle_type\": \"pickup\",\n    \"biometric_id\": \"BIO123\",\n    \"warehouse_id\": 1,\n    \"is_available\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/drivers",
+              "host": ["{{base_url}}"],
+              "path": ["drivers"]
+            },
+            "description": "Create new driver with user account.\n\nAdmin only."
+          }
+        },
+        {
+          "name": "Update Driver",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"vehicle_info\": \"Updated Vehicle Info\",\n    \"warehouse_id\": 2,\n    \"is_available\": false\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/drivers/{{test_driver_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["drivers", "{{test_driver_id}}"]
+            },
+            "description": "Update driver details.\n\nManager or admin only."
+          }
+        },
+        {
+          "name": "Update Driver Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"is_available\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/drivers/{{test_driver_id}}/status",
+              "host": ["{{base_url}}"],
+              "path": ["drivers", "{{test_driver_id}}", "status"]
+            },
+            "description": "Update driver availability status.\n\nDispatcher, manager, or admin only."
+          }
+        },
+        {
+          "name": "Get Driver Stats",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/drivers/{{test_driver_id}}/stats",
+              "host": ["{{base_url}}"],
+              "path": ["drivers", "{{test_driver_id}}", "stats"]
+            },
+            "description": "Get driver statistics."
+          }
+        },
+        {
+          "name": "Get Driver Orders",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/drivers/{{test_driver_id}}/orders?page=1&size=50",
+              "host": ["{{base_url}}"],
+              "path": ["drivers", "{{test_driver_id}}", "orders"],
+              "query": [
+                {"key": "page", "value": "1"},
+                {"key": "size", "value": "50"},
+                {"key": "status_filter", "value": "assigned", "disabled": true}
+              ]
+            },
+            "description": "Get orders assigned to a specific driver."
+          }
+        },
+        {
+          "name": "Get Driver Delivery History",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/drivers/{{test_driver_id}}/delivery-history?limit=100",
+              "host": ["{{base_url}}"],
+              "path": ["drivers", "{{test_driver_id}}", "delivery-history"],
+              "query": [
+                {"key": "skip", "value": "0", "disabled": true},
+                {"key": "limit", "value": "100"}
+              ]
+            },
+            "description": "Get driver's completed deliveries (delivered, returned, rejected)."
+          }
+        },
+        {
+          "name": "Update Location",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"latitude\": 29.3759,\n    \"longitude\": 47.9774,\n    \"heading\": 180.0,\n    \"speed\": 45.5\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/drivers/location",
+              "host": ["{{base_url}}"],
+              "path": ["drivers", "location"]
+            },
+            "description": "Update driver's current location.\n\nUsed by mobile app for real-time tracking."
+          }
+        },
+        {
+          "name": "Get All Locations",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/drivers/locations",
+              "host": ["{{base_url}}"],
+              "path": ["drivers", "locations"]
+            },
+            "description": "Get latest location of all online drivers.\n\nUsed by dashboard map view."
+          }
+        },
+        {
+          "name": "Get Driver Location History",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/drivers/{{test_driver_id}}/location-history?limit=100",
+              "host": ["{{base_url}}"],
+              "path": ["drivers", "{{test_driver_id}}", "location-history"],
+              "query": [
+                {"key": "limit", "value": "100"}
+              ]
+            },
+            "description": "Get driver's location history for route visualization."
+          }
+        },
+        {
+          "name": "Delete Driver",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{base_url}}/drivers/{{test_driver_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["drivers", "{{test_driver_id}}"]
+            },
+            "description": "Delete a driver.\n\nAdmin only. Cannot delete drivers with active orders."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "description": "User management endpoints",
+      "item": [
+        {
+          "name": "List Users",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/users?page=1&size=10",
+              "host": ["{{base_url}}"],
+              "path": ["users"],
+              "query": [
+                {"key": "page", "value": "1"},
+                {"key": "size", "value": "10"},
+                {"key": "search", "value": "", "disabled": true}
+              ]
+            },
+            "description": "Get paginated list of users.\n\nManager or admin only."
+          }
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/users/me",
+              "host": ["{{base_url}}"],
+              "path": ["users", "me"]
+            },
+            "description": "Get current logged-in user's profile."
+          }
+        },
+        {
+          "name": "Update Current User",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"full_name\": \"Updated Name\",\n    \"email\": \"newemail@pharmafleet.com\",\n    \"password\": \"newpassword123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/users/me",
+              "host": ["{{base_url}}"],
+              "path": ["users", "me"]
+            },
+            "description": "Update current user's profile."
+          }
+        },
+        {
+          "name": "Get User by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/users/{{test_user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["users", "{{test_user_id}}"]
+            },
+            "description": "Get user by ID.\n\nUsers can view own profile. Managers+ can view any user."
+          }
+        },
+        {
+          "name": "Create User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"newuser@pharmafleet.com\",\n    \"password\": \"securepassword123\",\n    \"full_name\": \"New User\",\n    \"role\": \"dispatcher\",\n    \"is_active\": true,\n    \"is_superuser\": false\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/users",
+              "host": ["{{base_url}}"],
+              "path": ["users"]
+            },
+            "description": "Create a new user.\n\nAdmin only."
+          }
+        },
+        {
+          "name": "Update User",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"full_name\": \"Updated User Name\",\n    \"is_active\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/users/{{test_user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["users", "{{test_user_id}}"]
+            },
+            "description": "Update a user.\n\nAdmin only."
+          }
+        },
+        {
+          "name": "Delete User",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{base_url}}/users/{{test_user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["users", "{{test_user_id}}"]
+            },
+            "description": "Delete a user.\n\nAdmin only. Cannot delete yourself or other super_admins."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Warehouses",
+      "description": "Warehouse management endpoints",
+      "item": [
+        {
+          "name": "List Warehouses",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/warehouses?skip=0&limit=100",
+              "host": ["{{base_url}}"],
+              "path": ["warehouses"],
+              "query": [
+                {"key": "skip", "value": "0"},
+                {"key": "limit", "value": "100"}
+              ]
+            },
+            "description": "Get list of all warehouses."
+          }
+        },
+        {
+          "name": "Get Warehouse",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/warehouses/{{test_warehouse_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["warehouses", "{{test_warehouse_id}}"]
+            },
+            "description": "Get warehouse by ID."
+          }
+        },
+        {
+          "name": "Create Warehouse",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"code\": \"WH-NEW\",\n    \"name\": \"New Warehouse\",\n    \"latitude\": 29.3759,\n    \"longitude\": 47.9774\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/warehouses",
+              "host": ["{{base_url}}"],
+              "path": ["warehouses"]
+            },
+            "description": "Create a new warehouse.\n\nAdmin only."
+          }
+        },
+        {
+          "name": "Update Warehouse",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"code\": \"WH-UPD\",\n    \"name\": \"Updated Warehouse Name\",\n    \"latitude\": 29.3800,\n    \"longitude\": 47.9800\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/warehouses/{{test_warehouse_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["warehouses", "{{test_warehouse_id}}"]
+            },
+            "description": "Update a warehouse.\n\nAdmin only."
+          }
+        },
+        {
+          "name": "Delete Warehouse",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{base_url}}/warehouses/{{test_warehouse_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["warehouses", "{{test_warehouse_id}}"]
+            },
+            "description": "Delete a warehouse.\n\nAdmin only. Cannot delete warehouses with drivers or orders."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Payments",
+      "description": "Payment collection and verification endpoints",
+      "item": [
+        {
+          "name": "List Payments",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/payments?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["payments"],
+              "query": [
+                {"key": "page", "value": "1"},
+                {"key": "limit", "value": "10"},
+                {"key": "search", "value": "", "disabled": true},
+                {"key": "method", "value": "CASH", "disabled": true},
+                {"key": "status", "value": "PENDING", "disabled": true}
+              ]
+            },
+            "description": "Get paginated list of payments.\n\nFilters: search, method (CASH/CARD/KNET), status (PENDING/VERIFIED)"
+          }
+        },
+        {
+          "name": "Get Pending Payments",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/payments/pending",
+              "host": ["{{base_url}}"],
+              "path": ["payments", "pending"]
+            },
+            "description": "Get all payments pending verification."
+          }
+        },
+        {
+          "name": "Record Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"order_id\": 1,\n    \"driver_id\": 1,\n    \"amount\": 25.500,\n    \"method\": \"CASH\",\n    \"transaction_id\": null\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/payments/collection",
+              "host": ["{{base_url}}"],
+              "path": ["payments", "collection"]
+            },
+            "description": "Record a payment collection from an order."
+          }
+        },
+        {
+          "name": "Verify Payment",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/payments/1/clear",
+              "host": ["{{base_url}}"],
+              "path": ["payments", "1", "clear"]
+            },
+            "description": "Verify/clear a payment.\n\nManager or admin only."
+          }
+        },
+        {
+          "name": "Payment Report",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/payments/report",
+              "host": ["{{base_url}}"],
+              "path": ["payments", "report"]
+            },
+            "description": "Get payment totals by method."
+          }
+        },
+        {
+          "name": "Export Payments",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/payments/export",
+              "host": ["{{base_url}}"],
+              "path": ["payments", "export"]
+            },
+            "description": "Export payments to Excel file."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Analytics",
+      "description": "Dashboard and analytics endpoints",
+      "item": [
+        {
+          "name": "Executive Dashboard",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/analytics/executive-dashboard",
+              "host": ["{{base_url}}"],
+              "path": ["analytics", "executive-dashboard"]
+            },
+            "description": "Get executive high-level metrics.\n\nReturns: total_orders_today, active_drivers, pending_payments, success_rate, system_health"
+          }
+        },
+        {
+          "name": "Recent Activities",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/analytics/activities?limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["analytics", "activities"],
+              "query": [
+                {"key": "limit", "value": "20"}
+              ]
+            },
+            "description": "Get recent system activities (assignments, deliveries, payments)."
+          }
+        },
+        {
+          "name": "Orders Today",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/analytics/orders-today",
+              "host": ["{{base_url}}"],
+              "path": ["analytics", "orders-today"]
+            },
+            "description": "Get count of orders created today."
+          }
+        },
+        {
+          "name": "Active Drivers",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/analytics/active-drivers",
+              "host": ["{{base_url}}"],
+              "path": ["analytics", "active-drivers"]
+            },
+            "description": "Get count of online drivers."
+          }
+        },
+        {
+          "name": "Success Rate",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/analytics/success-rate",
+              "host": ["{{base_url}}"],
+              "path": ["analytics", "success-rate"]
+            },
+            "description": "Get today's delivery success rate percentage."
+          }
+        },
+        {
+          "name": "Driver Performance",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/analytics/driver-performance",
+              "host": ["{{base_url}}"],
+              "path": ["analytics", "driver-performance"]
+            },
+            "description": "Get performance stats per driver.\n\nReturns: driver_id, total_orders, delivered_orders, failed_orders, success_rate"
+          }
+        },
+        {
+          "name": "Orders by Warehouse",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/analytics/orders-by-warehouse",
+              "host": ["{{base_url}}"],
+              "path": ["analytics", "orders-by-warehouse"]
+            },
+            "description": "Get order counts grouped by warehouse."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "description": "Push notification management",
+      "item": [
+        {
+          "name": "List Notifications",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/notifications?skip=0&limit=50",
+              "host": ["{{base_url}}"],
+              "path": ["notifications"],
+              "query": [
+                {"key": "skip", "value": "0"},
+                {"key": "limit", "value": "50"}
+              ]
+            },
+            "description": "Get current user's notifications."
+          }
+        },
+        {
+          "name": "Get Unread Count",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/notifications/unread-count",
+              "host": ["{{base_url}}"],
+              "path": ["notifications", "unread-count"]
+            },
+            "description": "Get count of unread notifications."
+          }
+        },
+        {
+          "name": "Mark as Read",
+          "request": {
+            "method": "PATCH",
+            "url": {
+              "raw": "{{base_url}}/notifications/1/read",
+              "host": ["{{base_url}}"],
+              "path": ["notifications", "1", "read"]
+            },
+            "description": "Mark a single notification as read."
+          }
+        },
+        {
+          "name": "Mark All as Read",
+          "request": {
+            "method": "PATCH",
+            "url": {
+              "raw": "{{base_url}}/notifications/mark-all-read",
+              "host": ["{{base_url}}"],
+              "path": ["notifications", "mark-all-read"]
+            },
+            "description": "Mark all notifications as read."
+          }
+        },
+        {
+          "name": "Clear Notifications",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{base_url}}/notifications/clear?keep_unread=false",
+              "host": ["{{base_url}}"],
+              "path": ["notifications", "clear"],
+              "query": [
+                {"key": "keep_unread", "value": "false", "description": "If true, only delete read notifications"}
+              ]
+            },
+            "description": "Delete notifications.\n\nSet keep_unread=true to only delete read notifications."
+          }
+        },
+        {
+          "name": "Register Device",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"fcm_token\": \"device_fcm_token_here\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/notifications/register-device",
+              "host": ["{{base_url}}"],
+              "path": ["notifications", "register-device"]
+            },
+            "description": "Register device for push notifications."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sync (Mobile)",
+      "description": "Offline sync endpoints for mobile app",
+      "item": [
+        {
+          "name": "Sync Status Updates",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "[\n    {\n        \"order_id\": 1,\n        \"status\": \"picked_up\",\n        \"notes\": \"Picked up from warehouse\"\n    },\n    {\n        \"order_id\": 2,\n        \"status\": \"delivered\",\n        \"notes\": \"Delivered to customer\"\n    }\n]"
+            },
+            "url": {
+              "raw": "{{base_url}}/sync/status-updates",
+              "host": ["{{base_url}}"],
+              "path": ["sync", "status-updates"]
+            },
+            "description": "Sync offline status updates.\n\nDriver only - can only update own assigned orders."
+          }
+        },
+        {
+          "name": "Get Driver Orders for Sync",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/sync/orders/{{test_driver_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["sync", "orders", "{{test_driver_id}}"]
+            },
+            "description": "Get all active orders for offline sync."
+          }
+        },
+        {
+          "name": "Sync Proof of Delivery",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"order_id\": 1,\n    \"photo_url\": \"https://storage.example.com/pod.jpg\",\n    \"signature_url\": null,\n    \"timestamp\": \"2024-01-15T10:30:00Z\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/sync/proof-of-delivery",
+              "host": ["{{base_url}}"],
+              "path": ["sync", "proof-of-delivery"]
+            },
+            "description": "Sync offline proof of delivery.\n\nAutomatically marks order as delivered."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Upload",
+      "description": "File upload endpoint",
+      "item": [
+        {
+          "name": "Upload File",
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": ""
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/upload",
+              "host": ["{{base_url}}"],
+              "path": ["upload"]
+            },
+            "description": "Upload a file to Supabase Storage.\n\nAllowed types: .jpg, .jpeg, .png, .gif, .webp, .pdf\nMax size: 10MB\n\nReturns the public URL of the uploaded file."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cron (Internal)",
+      "description": "Scheduled job endpoints (require CRON_SECRET)",
+      "item": [
+        {
+          "name": "Auto Archive Orders",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{cron_secret}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/cron/auto-archive",
+              "host": ["{{base_url}}"],
+              "path": ["cron", "auto-archive"]
+            },
+            "description": "Auto-archive delivered orders older than 24 hours.\n\nRequires CRON_SECRET in Authorization header.\nScheduled: Daily at 2 AM UTC"
+          }
+        },
+        {
+          "name": "Cleanup Old Locations",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{cron_secret}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/cron/cleanup-old-locations",
+              "host": ["{{base_url}}"],
+              "path": ["cron", "cleanup-old-locations"]
+            },
+            "description": "Delete driver location records older than 7 days.\n\nRequires CRON_SECRET in Authorization header.\nScheduled: Daily at 3 AM UTC"
+          }
+        }
+      ]
+    }
+  ]
+}

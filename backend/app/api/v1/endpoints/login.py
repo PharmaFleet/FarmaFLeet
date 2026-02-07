@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
+from app.api.deps import limiter, RATE_LIMIT_LOGIN
 from app.core import security
 from app.core.config import settings
 from app.models.user import User
@@ -16,6 +17,7 @@ router = APIRouter()
 
 
 @router.post("/login/access-token", response_model=Token)
+@limiter.limit(RATE_LIMIT_LOGIN)
 async def login_access_token(
     request: Request,
     db: AsyncSession = Depends(deps.get_db),
@@ -131,3 +133,42 @@ async def logout(
         token, expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
     )
     return {"msg": "Successfully logged out"}
+
+
+@router.post("/auth/fcm-token")
+async def register_fcm_token(
+    token: str = Body(..., embed=True),
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    """
+    Register or update FCM token for push notifications.
+
+    The FCM token is stored on the user record and used for sending
+    push notifications to the user's device.
+
+    For drivers, this also subscribes them to their warehouse topic
+    for broadcast notifications.
+    """
+    from app.models.driver import Driver
+    from app.services.notification import notification_service
+
+    # Update user's FCM token
+    current_user.fcm_token = token
+    db.add(current_user)
+
+    # If user is a driver, subscribe to warehouse topic
+    if current_user.role == "driver":
+        result = await db.execute(
+            select(Driver).where(Driver.user_id == current_user.id)
+        )
+        driver = result.scalars().first()
+
+        if driver and driver.warehouse_id:
+            await notification_service.subscribe_to_warehouse_topic(
+                token, driver.warehouse_id
+            )
+
+    await db.commit()
+
+    return {"msg": "FCM token registered successfully"}

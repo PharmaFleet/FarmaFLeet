@@ -20,5 +20,15 @@
       "source": "/(.*)",
       "destination": "/frontend/$1"
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/v1/cron/auto-archive",
+      "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/v1/cron/cleanup-old-locations",
+      "schedule": "0 3 * * *"
+    }
   ]
 }

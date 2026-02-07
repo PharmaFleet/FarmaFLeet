@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:driver_app/core/di/injection_container.dart' as di;
+import 'package:driver_app/core/services/navigation_service.dart';
 import 'package:driver_app/features/auth/domain/repositories/auth_repository.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -157,44 +158,77 @@ class NotificationService {
   /// Process notification data and navigate accordingly
   void _processNotificationData(Map<String, dynamic> data) {
     final type = data['type'] as String?;
+    final navigationService = di.sl<NavigationService>();
     debugPrint('Processing notification type: $type');
 
     switch (type) {
+      case 'new_order_assigned':
+        // Navigate to order details if order_id is provided, otherwise orders list
+        final orderId = data['order_id']?.toString();
+        if (orderId != null && orderId.isNotEmpty) {
+          debugPrint('Navigating to order details: $orderId');
+          navigationService.goToOrderDetails(orderId);
+        } else {
+          debugPrint('Navigating to orders list');
+          navigationService.goToOrdersList();
+        }
+        break;
       case 'new_orders':
         // Navigate to orders list
-        debugPrint('Navigate to orders');
+        debugPrint('Navigating to orders list');
+        navigationService.goToOrdersList();
         break;
       case 'order_delivered':
-        // Show delivery confirmation
-        final orderId = data['order_id'];
-        debugPrint('Order delivered: $orderId');
+        // Show delivery confirmation - navigate to order details
+        final orderId = data['order_id']?.toString();
+        if (orderId != null && orderId.isNotEmpty) {
+          debugPrint('Order delivered, navigating to: $orderId');
+          navigationService.goToOrderDetails(orderId);
+        } else {
+          navigationService.goToOrdersList();
+        }
         break;
       case 'payment_collection':
-        // Show payment collection screen
-        final orderId = data['order_id'];
+        // Show payment collection screen - navigate to order details
+        final orderId = data['order_id']?.toString();
         final amount = data['amount'];
         debugPrint('Collect payment: $amount for order $orderId');
+        if (orderId != null && orderId.isNotEmpty) {
+          navigationService.goToOrderDetails(orderId);
+        } else {
+          navigationService.goToOrdersList();
+        }
         break;
       case 'shift_limit':
-        // Show shift limit warning
-        debugPrint('Shift limit reached');
+        // Show shift limit warning - navigate to home/dashboard
+        debugPrint('Shift limit reached, navigating to home');
+        navigationService.goToHome();
         break;
       case 'order_cancelled':
-        // Order was cancelled by manager
+        // Order was cancelled by manager - navigate to orders list to refresh
         final orderId = data['order_id'];
         final orderNumber = data['order_number'];
         debugPrint('Order cancelled: $orderNumber (ID: $orderId)');
-        // Navigate to orders list to refresh
+        navigationService.goToOrdersList();
         break;
       case 'order_reassigned':
-        // Order was reassigned to another driver
+        // Order was reassigned to another driver - navigate to orders list to refresh
         final orderId = data['order_id'];
         final orderNumber = data['order_number'];
         debugPrint('Order reassigned: $orderNumber (ID: $orderId)');
-        // Navigate to orders list to refresh
+        navigationService.goToOrdersList();
+        break;
+      case 'broadcast':
+        // Broadcast/announcement - navigate to notifications center
+        debugPrint('Broadcast notification, navigating to notifications');
+        navigationService.goToNotifications();
         break;
       default:
-        debugPrint('Unknown notification type: $type');
+        // Unknown notification type - navigate to home as safe default
+        debugPrint('Unknown notification type: $type, navigating to home');
+        if (type != null) {
+          navigationService.goToHome();
+        }
     }
   }
 

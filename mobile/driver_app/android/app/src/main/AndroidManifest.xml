@@ -12,7 +12,7 @@
     <uses-permission android:name="android.permission.CALL_PHONE"/>
 
     <application
-        android:label="PharmaFleet Driver"
+        android:label="Fleet Captain App"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true">

@@ -77,3 +77,22 @@ logs_result.json
 NUL
 firebase-service-account.json
 firebase_deployment_value.txt
+
+# Security - keystores and error logs
+*.jks
+*.keystore
+backend/error.log
+backend/error_trace.txt
+
+# Vercel secrets
+.env.vercel
+
+# MCP local config
+.mcp.json
+
+# Claude Code local settings
+.claude/settings.local.json
+
+# Client documents (confidential)
+docs/notes/*.pdf
+docs/notes/*.csv

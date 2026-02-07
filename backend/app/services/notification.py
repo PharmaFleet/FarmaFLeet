@@ -313,5 +313,108 @@ class NotificationService:
             )
             db.add(notif)
 
+    async def subscribe_to_warehouse_topic(self, token: str, warehouse_id: int) -> bool:
+        """
+        Subscribe a device token to a warehouse topic.
+
+        This allows sending broadcast notifications to all devices
+        subscribed to a specific warehouse (e.g., all drivers in that warehouse).
+
+        Args:
+            token: The FCM device token to subscribe
+            warehouse_id: The warehouse ID to create/subscribe to topic
+
+        Returns:
+            True if subscription succeeded, False otherwise
+        """
+        topic = f"warehouse_{warehouse_id}"
+        try:
+            if not firebase_admin._apps:
+                logger.debug(f"[MOCK FCM] Subscribing token to topic {topic}")
+                return True
+
+            response = messaging.subscribe_to_topic([token], topic)
+            if response.success_count > 0:
+                logger.info(f"[FCM] Token subscribed to topic {topic}")
+                return True
+            else:
+                logger.warning(f"[FCM] Failed to subscribe to topic {topic}: {response.errors}")
+                return False
+        except Exception as e:
+            logger.error(f"[FCM Error] subscribe_to_warehouse_topic: {e}")
+            return False
+
+    async def unsubscribe_from_warehouse_topic(self, token: str, warehouse_id: int) -> bool:
+        """
+        Unsubscribe a device token from a warehouse topic.
+
+        Args:
+            token: The FCM device token to unsubscribe
+            warehouse_id: The warehouse ID topic to unsubscribe from
+
+        Returns:
+            True if unsubscription succeeded, False otherwise
+        """
+        topic = f"warehouse_{warehouse_id}"
+        try:
+            if not firebase_admin._apps:
+                logger.debug(f"[MOCK FCM] Unsubscribing token from topic {topic}")
+                return True
+
+            response = messaging.unsubscribe_from_topic([token], topic)
+            if response.success_count > 0:
+                logger.info(f"[FCM] Token unsubscribed from topic {topic}")
+                return True
+            else:
+                logger.warning(f"[FCM] Failed to unsubscribe from topic {topic}: {response.errors}")
+                return False
+        except Exception as e:
+            logger.error(f"[FCM Error] unsubscribe_from_warehouse_topic: {e}")
+            return False
+
+    async def broadcast_to_warehouse(
+        self,
+        warehouse_id: int,
+        title: str,
+        body: str,
+        data: Optional[Dict[str, Any]] = None,
+    ) -> Optional[str]:
+        """
+        Send a notification to all devices subscribed to a warehouse topic.
+
+        This broadcasts to all drivers and staff in the specified warehouse.
+
+        Args:
+            warehouse_id: The warehouse ID to broadcast to
+            title: Notification title
+            body: Notification body text
+            data: Optional data payload
+
+        Returns:
+            Message ID if successful, None otherwise
+        """
+        topic = f"warehouse_{warehouse_id}"
+        return await self.send_to_topic(topic, title, body, data)
+
+    async def broadcast_new_orders_to_warehouse(
+        self,
+        warehouse_id: int,
+        count: int,
+    ) -> Optional[str]:
+        """
+        Broadcast a notification about new orders to all drivers in a warehouse.
+
+        Args:
+            warehouse_id: The warehouse ID to broadcast to
+            count: Number of new orders
+
+        Returns:
+            Message ID if successful, None otherwise
+        """
+        title = "New Orders Available"
+        body = f"{count} new order(s) are available for pickup."
+        data = {"type": "new_orders_available", "count": str(count)}
+        return await self.broadcast_to_warehouse(warehouse_id, title, body, data)
+
 
 notification_service = NotificationService()

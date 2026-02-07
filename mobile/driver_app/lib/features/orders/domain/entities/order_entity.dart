@@ -10,6 +10,9 @@ class OrderEntity extends Equatable {
   final DateTime createdAt;
   final DateTime updatedAt;
   final int warehouseId;
+  final DateTime? assignedAt;
+  final DateTime? pickedUpAt;
+  final DateTime? deliveredAt;
 
   const OrderEntity({
     required this.id,
@@ -21,6 +24,9 @@ class OrderEntity extends Equatable {
     required this.createdAt,
     required this.updatedAt,
     required this.warehouseId,
+    this.assignedAt,
+    this.pickedUpAt,
+    this.deliveredAt,
   });
 
   @override
@@ -34,5 +40,8 @@ class OrderEntity extends Equatable {
         createdAt,
         updatedAt,
         warehouseId,
+        assignedAt,
+        pickedUpAt,
+        deliveredAt,
       ];
 }

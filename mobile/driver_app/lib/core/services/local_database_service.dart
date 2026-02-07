@@ -1,5 +1,8 @@
+import 'package:driver_app/core/models/sync_action.dart';
 import 'package:driver_app/features/orders/data/models/order_model.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+
+export 'package:driver_app/core/models/sync_action.dart';
 
 class LocalDatabaseService {
   static const String ordersBoxName = 'orders_cache';
@@ -56,6 +59,11 @@ class LocalDatabaseService {
     await _syncQueueBox.clear();
   }
 
+  /// Updates an existing sync action (used for retry tracking)
+  Future<void> updateSyncAction(SyncAction action) async {
+    await _syncQueueBox.put(action.id, action.toMap());
+  }
+
   // Settings
   Future<void> setSetting(String key, dynamic value) async {
     await _settingsBox.put(key, value);
@@ -63,39 +71,5 @@ class LocalDatabaseService {
 
   T? getSetting<T>(String key, {T? defaultValue}) {
     return _settingsBox.get(key, defaultValue: defaultValue) as T?;
-  }
-}
-
-// Sync Action Model
-class SyncAction {
-  final String id;
-  final String type; // 'status_update', 'delivery_complete', 'rejection'
-  final int orderId;
-  final Map<String, dynamic> payload;
-  final DateTime createdAt;
-
-  SyncAction({
-    required this.id,
-    required this.type,
-    required this.orderId,
-    required this.payload,
-    required this.createdAt,
-  });
-
-  Map<String, dynamic> toMap() => {
-    'type': type,
-    'orderId': orderId,
-    'payload': payload,
-    'createdAt': createdAt.toIso8601String(),
-  };
-
-  factory SyncAction.fromMap(String id, Map<String, dynamic> map) {
-    return SyncAction(
-      id: id,
-      type: map['type'],
-      orderId: map['orderId'],
-      payload: Map<String, dynamic>.from(map['payload'] ?? {}),
-      createdAt: DateTime.parse(map['createdAt']),
-    );
   }
 }

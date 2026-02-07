@@ -31,6 +31,13 @@ class Settings(BaseSettings):
     # Firebase
     FIREBASE_CREDENTIALS_JSON: str | None = None
 
+    # Vercel Cron Secret (for authenticating cron job requests)
+    CRON_SECRET: str | None = None
+
+    # Sentry
+    SENTRY_DSN: str | None = None
+    ENVIRONMENT: str = "development"
+
     # CORS - Include all operational domains
     BACKEND_CORS_ORIGINS: List[str] | str = [
         "http://localhost:3000",
