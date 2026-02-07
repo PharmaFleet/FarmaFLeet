@@ -26,7 +26,7 @@ export function RecentActivity() {
 
   if (isLoading) {
     return (
-      <div className="h-[300px] flex items-center justify-center text-muted-foreground text-sm">
+      <div className="h-[450px] flex items-center justify-center text-muted-foreground text-sm">
         <Clock className="h-4 w-4 animate-pulse mr-2" /> Loading activity...
       </div>
     );
@@ -34,14 +34,14 @@ export function RecentActivity() {
 
   if (!notifications || notifications.length === 0) {
     return (
-      <div className="h-[300px] flex items-center justify-center text-muted-foreground text-sm">
+      <div className="h-[450px] flex items-center justify-center text-muted-foreground text-sm">
         No recent activity
       </div>
     );
   }
 
   return (
-    <div className="h-[300px] overflow-y-auto space-y-3 p-4">
+    <div className="h-[450px] overflow-y-auto space-y-3 p-4">
       {notifications.map((notification: any) => {
         // Get icon config based on activity type
         const activityType = notification.data?.type || 'assigned';
