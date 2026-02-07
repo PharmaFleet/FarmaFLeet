@@ -1,9 +1,10 @@
+import '../config/app_config.dart';
+
 class AppConstants {
   const AppConstants._();
 
-  // Network & API
-  // Production URL
-  static const String baseUrl = 'https://pharmafleet-olive.vercel.app/api/v1';
+  // Network & API - uses environment configuration
+  static String get baseUrl => AppConfig.apiBaseUrl;
 
   // Storage Keys
   static const String tokenKey = 'auth_token';
