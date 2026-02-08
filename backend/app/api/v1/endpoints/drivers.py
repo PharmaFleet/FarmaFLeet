@@ -12,8 +12,6 @@ from fastapi import (
     Depends,
     HTTPException,
     Query,
-    WebSocket,
-    WebSocketDisconnect,
 )
 from geoalchemy2.elements import WKTElement
 from sqlalchemy import desc, func, or_, select
@@ -871,14 +869,3 @@ async def delete_driver(
     return {"msg": f"Driver {driver_id} deleted successfully"}
 
 
-@router.websocket("/ws/location-updates")
-async def websocket_endpoint(websocket: WebSocket):
-    await manager.connect(websocket)
-    try:
-        while True:
-            data = await websocket.receive_text()
-            # Simple echo or broadcast logic
-            # In a real app, this would receive location updates and broadcast to dashboards
-            await manager.broadcast(f"Location update: {data}")
-    except WebSocketDisconnect:
-        manager.disconnect(websocket)
