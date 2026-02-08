@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { orderService } from '@/services/orderService';
+import { warehouseService, type Warehouse } from '@/services/warehouseService';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { useColumnResize } from '@/hooks/useColumnResize';
 import { useColumnOrder, type ColumnDefinition } from '@/hooks/useColumnOrder';
@@ -422,6 +423,13 @@ export default function OrdersPage() {
         ),
     }),
     placeholderData: keepPreviousData,
+  });
+
+  // Fetch warehouses for filter dropdown
+  const { data: warehouses = [] } = useQuery<Warehouse[]>({
+    queryKey: ['warehouses'],
+    queryFn: warehouseService.getAll,
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
 
   // Mutations with Optimistic Updates
@@ -898,6 +906,21 @@ export default function OrdersPage() {
                     </div>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div>
+                        <label className="text-xs text-muted-foreground font-medium mb-1 block">Warehouse</label>
+                        <select
+                            value={filters.warehouse_id || ''}
+                            onChange={(e) => setFilters(f => ({ ...f, warehouse_id: e.target.value }))}
+                            className="h-8 text-sm w-full rounded-md border border-input bg-background px-3 py-1"
+                        >
+                            <option value="">All Warehouses</option>
+                            {warehouses.map((wh) => (
+                                <option key={wh.id} value={wh.id.toString()}>
+                                    {wh.code} - {wh.name}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
                     <div>
                         <label className="text-xs text-muted-foreground font-medium mb-1 block">Date From</label>
                         <Input
