@@ -172,10 +172,13 @@ export default function OrdersPage() {
       }
     };
 
+    // Sticky styles for all header cells
+    const stickyClass = "sticky top-0 z-10 bg-muted";
+
     // Special handling for checkbox column (not draggable)
     if (columnDef.id === 'checkbox') {
       return (
-        <TableHead className="relative bg-muted/50" style={{ width: `${colWidths.checkbox}px` }}>
+        <TableHead className={cn("relative", stickyClass)} style={{ width: `${colWidths.checkbox}px` }}>
           <Checkbox
             checked={isAllSelected}
             onCheckedChange={handleSelectAll}
@@ -188,7 +191,7 @@ export default function OrdersPage() {
     // Special handling for actions column (not draggable)
     if (columnDef.id === 'actions') {
       return (
-        <TableHead className="bg-muted/50" style={{ width: `${colWidths.actions}px` }}></TableHead>
+        <TableHead className={stickyClass} style={{ width: `${colWidths.actions}px` }}></TableHead>
       );
     }
 
@@ -197,7 +200,8 @@ export default function OrdersPage() {
         ref={setNodeRef}
         style={style}
         className={cn(
-          "relative bg-muted/50",
+          "relative",
+          stickyClass,
           columnDef.sortable && "cursor-pointer select-none hover:bg-muted/80 transition-colors",
           columnDef.className
         )}
@@ -943,9 +947,9 @@ export default function OrdersPage() {
             </div>
         )}
 
-        <div className="overflow-auto max-h-[calc(100vh-320px)]">
-            <Table style={{ tableLayout: 'fixed' }}>
-              <TableHeader className="bg-muted/50 sticky top-0 z-10 shadow-sm">
+        <div className="max-h-[calc(100vh-320px)] overflow-auto">
+            <Table style={{ tableLayout: 'fixed' }} noWrapper>
+              <TableHeader>
                 <DndContext
                   sensors={sensors}
                   collisionDetection={closestCenter}
