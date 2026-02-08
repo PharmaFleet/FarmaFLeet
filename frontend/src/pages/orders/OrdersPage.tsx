@@ -775,8 +775,8 @@ export default function OrdersPage() {
         </nav>
       </div>
 
-      <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden transition-all duration-300">
-        <div className="flex flex-col sm:flex-row gap-4 items-center bg-muted/50 p-6 border-b border-border">
+      <div className="bg-card rounded-2xl border border-border shadow-sm transition-all duration-300 flex flex-col max-h-[calc(100vh-280px)]">
+        <div className="flex flex-col sm:flex-row gap-4 items-center bg-muted/50 p-6 border-b border-border shrink-0">
             <div className="relative flex-1 max-w-md w-full">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -822,7 +822,7 @@ export default function OrdersPage() {
 
         {/* Advanced Filters */}
         {showFilters && (
-            <div className="border-t border-border bg-muted/30 p-6 space-y-4">
+            <div className="border-t border-border bg-muted/30 p-6 space-y-4 shrink-0">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div>
                         <label className="text-xs text-muted-foreground font-medium mb-1 block">Customer Name</label>
@@ -947,7 +947,7 @@ export default function OrdersPage() {
             </div>
         )}
 
-        <div className="max-h-[calc(100vh-320px)] overflow-auto">
+        <div className="flex-1 overflow-auto">
             <Table style={{ tableLayout: 'fixed' }} noWrapper>
               <TableHeader>
                 <DndContext
