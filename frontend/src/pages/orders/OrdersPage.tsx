@@ -783,7 +783,7 @@ export default function OrdersPage() {
         </nav>
       </div>
 
-      <div className="bg-card rounded-2xl border border-border shadow-sm transition-all duration-300 flex flex-col max-h-[calc(100vh-280px)] relative overflow-hidden">
+      <div className="bg-card rounded-2xl border border-border shadow-sm transition-all duration-300 flex flex-col max-h-[calc(100vh-280px)] relative overflow-hidden isolate">
         <div className="flex flex-col sm:flex-row gap-4 items-center bg-muted/50 p-6 border-b border-border shrink-0">
             <div className="relative flex-1 max-w-md w-full">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -1027,7 +1027,7 @@ export default function OrdersPage() {
         </div>
       </div>
 
-      <div className="flex items-center justify-between px-2">
+      <div className="flex items-center justify-between px-2 relative z-20 bg-background">
         <p className="text-xs text-muted-foreground">
             Showing {data?.items?.length || 0} of {data?.total || 0} orders
         </p>
