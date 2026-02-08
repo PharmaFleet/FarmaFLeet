@@ -69,9 +69,11 @@ class Order(Base):
         "OrderStatusHistory", back_populates="order", cascade="all, delete-orphan"
     )
     proof_of_delivery = relationship(
-        "ProofOfDelivery", back_populates="order", uselist=False
+        "ProofOfDelivery", back_populates="order", uselist=False, cascade="all, delete-orphan"
     )
-    payment = relationship("PaymentCollection", back_populates="order", uselist=False)
+    payment = relationship(
+        "PaymentCollection", back_populates="order", uselist=False, cascade="all, delete-orphan"
+    )
 
 
 class OrderStatusHistory(Base):
