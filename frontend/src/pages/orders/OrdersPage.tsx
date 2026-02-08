@@ -3,22 +3,23 @@ import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tansta
 import { orderService } from '@/services/orderService';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { useColumnResize } from '@/hooks/useColumnResize';
+import { useColumnOrder, type ColumnDefinition } from '@/hooks/useColumnOrder';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
 } from '@/components/ui/table';
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuLabel, 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuTrigger,
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
@@ -31,13 +32,28 @@ import { BatchDeleteDialog } from '@/components/orders/BatchDeleteDialog';
 import { CancelOrderDialog } from '@/components/orders/CancelOrderDialog';
 import { ReturnOrderDialog } from '@/components/orders/ReturnOrderDialog';
 import { BatchReturnDialog } from '@/components/orders/BatchReturnDialog';
-import { MoreHorizontal, Plus, Download, Truck, Search, AlertOctagon, Users, XCircle, Trash2, ChevronDown, Filter, X, RotateCcw } from 'lucide-react';
+import { MoreHorizontal, Plus, Download, Truck, Search, AlertOctagon, Users, XCircle, Trash2, ChevronDown, Filter, X, RotateCcw, GripVertical } from 'lucide-react';
 import { OrderStatus } from '@/types';
 import { useToast } from '@/components/ui/use-toast';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useNavigate } from 'react-router-dom';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  horizontalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 const PAGE_SIZE_OPTIONS = [10, 50, 100, 1000] as const;
 
@@ -88,6 +104,24 @@ export default function OrdersPage() {
   };
 
   const { widths: colWidths, onMouseDown: onColResize } = useColumnResize();
+  const { orderedColumns, reorderColumns, resetColumnOrder } = useColumnOrder();
+
+  // DnD sensors for column reordering
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor)
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      reorderColumns(active.id as string, over.id as string);
+    }
+  };
 
   const ResizeHandle = ({ column }: { column: string }) => (
     <div
@@ -112,6 +146,262 @@ export default function OrdersPage() {
       {resizeColumn && <ResizeHandle column={resizeColumn} />}
     </TableHead>
   );
+
+  // Sortable/Draggable table header component
+  const SortableTableHead = ({ columnDef }: { columnDef: ColumnDefinition }) => {
+    const {
+      attributes,
+      listeners,
+      setNodeRef,
+      transform,
+      transition,
+      isDragging,
+    } = useSortable({ id: columnDef.id });
+
+    const style = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+      width: `${colWidths[columnDef.resizeKey || columnDef.id]}px`,
+      opacity: isDragging ? 0.5 : 1,
+      zIndex: isDragging ? 20 : undefined,
+    };
+
+    const handleClick = () => {
+      if (columnDef.sortable && columnDef.sortKey) {
+        handleSort(columnDef.sortKey);
+      }
+    };
+
+    // Special handling for checkbox column (not draggable)
+    if (columnDef.id === 'checkbox') {
+      return (
+        <TableHead className="relative bg-muted/50" style={{ width: `${colWidths.checkbox}px` }}>
+          <Checkbox
+            checked={isAllSelected}
+            onCheckedChange={handleSelectAll}
+            aria-label="Select all orders"
+          />
+        </TableHead>
+      );
+    }
+
+    // Special handling for actions column (not draggable)
+    if (columnDef.id === 'actions') {
+      return (
+        <TableHead className="bg-muted/50" style={{ width: `${colWidths.actions}px` }}></TableHead>
+      );
+    }
+
+    return (
+      <TableHead
+        ref={setNodeRef}
+        style={style}
+        className={cn(
+          "relative bg-muted/50",
+          columnDef.sortable && "cursor-pointer select-none hover:bg-muted/80 transition-colors",
+          columnDef.className
+        )}
+        onClick={handleClick}
+      >
+        <div className="flex items-center gap-1">
+          <span
+            {...attributes}
+            {...listeners}
+            className="cursor-grab hover:text-emerald-600 active:cursor-grabbing p-0.5 -ml-1"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <GripVertical className="h-3 w-3 text-muted-foreground/60" />
+          </span>
+          {columnDef.label}
+          {columnDef.sortable && columnDef.sortKey && sortBy === columnDef.sortKey && (
+            <span className="text-xs">{sortOrder === 'asc' ? '▲' : '▼'}</span>
+          )}
+        </div>
+        {columnDef.resizeKey && <ResizeHandle column={columnDef.resizeKey} />}
+      </TableHead>
+    );
+  };
+
+  // Render cell content based on column id
+  const renderCell = (order: any, columnId: string) => {
+    switch (columnId) {
+      case 'checkbox':
+        return (
+          <Checkbox
+            checked={selectedOrders.has(order.id)}
+            onCheckedChange={(checked) => handleSelectOrder(order.id, !!checked)}
+            aria-label={`Select order ${order.sales_order_number}`}
+          />
+        );
+      case 'order_number':
+        return (
+          <span className="font-mono text-xs text-muted-foreground group-hover:text-emerald-700">
+            {order.sales_order_number}
+          </span>
+        );
+      case 'customer':
+        return (
+          <div className="flex flex-col">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-foreground">{order.customer_info?.name || 'Guest'}</span>
+              {(!order.customer_info?.address || !order.customer_info?.phone) && (
+                <div title="Missing Address or Phone" className="text-amber-500 cursor-help">
+                  <AlertOctagon className="h-3 w-3" />
+                </div>
+              )}
+            </div>
+            <span className="text-[11px] text-muted-foreground">{order.customer_info?.phone || 'No phone'}</span>
+          </div>
+        );
+      case 'address':
+        return (
+          <div
+            className="text-sm text-muted-foreground truncate"
+            title={order.customer_info?.address || 'No address'}
+          >
+            {order.customer_info?.address || <span className="text-muted-foreground/60 italic">No address</span>}
+          </div>
+        );
+      case 'status':
+        return (
+          <Badge
+            className={cn(
+              "font-medium px-2.5 py-0.5 rounded-full border-0 shadow-sm",
+              order.status === OrderStatus.DELIVERED ? "bg-emerald-100 text-emerald-800" :
+              order.status === OrderStatus.CANCELLED ? "bg-rose-100 text-rose-800" :
+              order.status === OrderStatus.RETURNED ? "bg-orange-100 text-orange-800" :
+              order.status === OrderStatus.FAILED || order.status === OrderStatus.REJECTED ? "bg-amber-100 text-amber-800" :
+              "bg-muted text-muted-foreground"
+            )}
+          >
+            {order.status}
+          </Badge>
+        );
+      case 'warehouse':
+        return (
+          <span className="text-sm text-muted-foreground">{order.warehouse?.code || `WH-${order.warehouse_id}`}</span>
+        );
+      case 'driver':
+        return (
+          <div className="flex items-center gap-2">
+            <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center border border-border">
+              <Truck className="h-3 w-3 text-muted-foreground" />
+            </div>
+            <span className="text-sm text-muted-foreground">
+              {order.driver?.user?.full_name || 'Unassigned'}
+            </span>
+          </div>
+        );
+      case 'driver_mobile':
+        return (
+          <span className="text-sm text-muted-foreground font-mono">
+            {order.driver?.user?.phone || '-'}
+          </span>
+        );
+      case 'driver_code':
+        return (
+          <span className="text-sm text-muted-foreground font-mono">
+            {order.driver?.code || '-'}
+          </span>
+        );
+      case 'payment':
+        return (
+          <span className="text-sm text-muted-foreground">
+            {order.payment_method || '-'}
+          </span>
+        );
+      case 'sales_taker':
+        return (
+          <span className="text-sm text-muted-foreground">
+            {order.sales_taker || '-'}
+          </span>
+        );
+      case 'amount':
+        return (
+          <span className="font-bold text-foreground">{order.total_amount.toFixed(3)} KWD</span>
+        );
+      case 'created':
+        return (
+          <span className="text-xs text-muted-foreground whitespace-nowrap">
+            {order.created_at ? format(new Date(order.created_at), 'dd/MM HH:mm') : '-'}
+          </span>
+        );
+      case 'assigned':
+        return (
+          <span className="text-xs text-muted-foreground whitespace-nowrap">
+            {order.assigned_at ? format(new Date(order.assigned_at), 'dd/MM HH:mm') : '-'}
+          </span>
+        );
+      case 'picked_up':
+        return (
+          <span className="text-xs text-muted-foreground whitespace-nowrap">
+            {order.picked_up_at ? format(new Date(order.picked_up_at), 'dd/MM HH:mm') : '-'}
+          </span>
+        );
+      case 'delivered':
+        return (
+          <span className="text-xs text-muted-foreground whitespace-nowrap">
+            {order.delivered_at ? format(new Date(order.delivered_at), 'dd/MM HH:mm') : '-'}
+          </span>
+        );
+      case 'delivery_time':
+        return (
+          <span className="text-xs text-muted-foreground whitespace-nowrap font-mono">
+            {(() => {
+              if (!order.picked_up_at || !order.delivered_at) return '-';
+              const diffMs = new Date(order.delivered_at).getTime() - new Date(order.picked_up_at).getTime();
+              if (diffMs < 0) return '-';
+              const h = Math.floor(diffMs / 3600000);
+              const m = Math.floor((diffMs % 3600000) / 60000);
+              return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+            })()}
+          </span>
+        );
+      case 'actions':
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="h-9 w-9 p-0 hover:bg-muted shadow-sm border border-transparent hover:border-border">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52 shadow-xl">
+              <DropdownMenuLabel>Order Management</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => navigate(`/orders/${order.id}`)}>View Details</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleAssignClick(order.id, order.driver_id)}>Assign Driver</DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="text-amber-600"
+                onClick={() => handleCancelOrder(order.id)}
+                disabled={order.status === OrderStatus.DELIVERED || order.status === OrderStatus.CANCELLED}
+              >
+                <XCircle className="mr-2 h-4 w-4" />
+                Cancel Order
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="text-orange-600"
+                onClick={() => handleReturnOrder(order.id)}
+                disabled={order.status !== OrderStatus.DELIVERED}
+              >
+                <RotateCcw className="mr-2 h-4 w-4" />
+                Return Order
+              </DropdownMenuItem>
+              {isAdmin && (
+                <DropdownMenuItem
+                  className="text-rose-600 focus:text-rose-700 focus:bg-rose-50"
+                  onClick={() => handleDeleteOrder(order.id)}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete Permanently
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        );
+      default:
+        return null;
+    }
+  };
 
   const { data, isLoading } = useQuery({
     queryKey: ['orders', page, pageSize, debouncedSearch, statusFilter, showArchived, sortBy, sortOrder, debouncedFilters],
@@ -653,63 +943,38 @@ export default function OrdersPage() {
             </div>
         )}
 
-        <div className="overflow-x-auto">
+        <div className="overflow-auto max-h-[calc(100vh-320px)]">
             <Table style={{ tableLayout: 'fixed' }}>
-              <TableHeader className="bg-muted/50">
-                <TableRow className="hover:bg-transparent border-b">
-                  <TableHead className="relative" style={{ width: `${colWidths.checkbox}px` }}>
-                    <Checkbox
-                      checked={isAllSelected}
-                      onCheckedChange={handleSelectAll}
-                      aria-label="Select all orders"
-                    />
-                  </TableHead>
-                  <SortableHeader column="sales_order_number" width={colWidths.order_number} resizeColumn="order_number">Order #</SortableHeader>
-                  <SortableHeader column="customer_name" width={colWidths.customer} resizeColumn="customer">Customer</SortableHeader>
-                  <TableHead className="relative" style={{ width: `${colWidths.address}px` }}>
-                    Address
-                    <ResizeHandle column="address" />
-                  </TableHead>
-                  <SortableHeader column="status" width={colWidths.status} resizeColumn="status">Status</SortableHeader>
-                  <SortableHeader column="warehouse_code" width={colWidths.warehouse} resizeColumn="warehouse">Warehouse</SortableHeader>
-                  <SortableHeader column="driver_name" width={colWidths.driver} resizeColumn="driver">Driver</SortableHeader>
-                  <TableHead className="relative" style={{ width: `${colWidths.driver_mobile}px` }}>
-                    Driver Mobile
-                    <ResizeHandle column="driver_mobile" />
-                  </TableHead>
-                  <SortableHeader column="driver_code" width={colWidths.driver_code} resizeColumn="driver_code">Driver Code</SortableHeader>
-                  <SortableHeader column="payment_method" width={colWidths.payment} resizeColumn="payment">Payment</SortableHeader>
-                  <SortableHeader column="sales_taker" width={colWidths.sales_taker} resizeColumn="sales_taker">Sales Taker</SortableHeader>
-                  <SortableHeader column="total_amount" className="text-right pr-8" width={colWidths.amount} resizeColumn="amount">Amount</SortableHeader>
-                  <SortableHeader column="created_at" width={colWidths.created} resizeColumn="created">Created</SortableHeader>
-                  <SortableHeader column="assigned_at" width={colWidths.assigned} resizeColumn="assigned">Assigned</SortableHeader>
-                  <SortableHeader column="picked_up_at" width={colWidths.picked_up} resizeColumn="picked_up">Picked Up</SortableHeader>
-                  <SortableHeader column="delivered_at" width={colWidths.delivered} resizeColumn="delivered">Delivered</SortableHeader>
-                  <TableHead className="relative" style={{ width: `${colWidths.delivery_time}px` }}>
-                    Delivery Time
-                    <ResizeHandle column="delivery_time" />
-                  </TableHead>
-                  <TableHead style={{ width: `${colWidths.actions}px` }}></TableHead>
-                </TableRow>
+              <TableHeader className="bg-muted/50 sticky top-0 z-10 shadow-sm">
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext
+                    items={orderedColumns.map(c => c.id)}
+                    strategy={horizontalListSortingStrategy}
+                  >
+                    <TableRow className="hover:bg-transparent border-b">
+                      {orderedColumns.map((columnDef) => (
+                        <SortableTableHead key={columnDef.id} columnDef={columnDef} />
+                      ))}
+                    </TableRow>
+                  </SortableContext>
+                </DndContext>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                     [...Array(6)].map((_, i) => (
                         <TableRow key={i} className="animate-pulse">
-                            <TableCell><div className="h-4 w-4 bg-muted rounded" /></TableCell>
-                            <TableCell><div className="h-4 w-24 bg-muted rounded" /></TableCell>
-                            <TableCell><div className="h-4 w-32 bg-muted rounded" /></TableCell>
-                            <TableCell><div className="h-4 w-40 bg-muted rounded" /></TableCell>
-                            <TableCell><div className="h-4 w-20 bg-muted rounded" /></TableCell>
-                            <TableCell><div className="h-4 w-24 bg-muted rounded" /></TableCell>
-                            <TableCell><div className="h-4 w-24 bg-muted rounded" /></TableCell>
-                            <TableCell><div className="h-4 w-20 bg-muted rounded ml-auto" /></TableCell>
-                            <TableCell></TableCell>
+                            {orderedColumns.map((col) => (
+                              <TableCell key={col.id}><div className="h-4 w-16 bg-muted rounded" /></TableCell>
+                            ))}
                         </TableRow>
                     ))
                 ) : data?.items?.length === 0 ? (
                     <TableRow>
-                        <TableCell colSpan={18} className="h-40 text-center text-muted-foreground italic">
+                        <TableCell colSpan={orderedColumns.length} className="h-40 text-center text-muted-foreground italic">
                             No orders found matching your criteria.
                         </TableCell>
                     </TableRow>
@@ -719,141 +984,14 @@ export default function OrdersPage() {
                           "group hover:bg-emerald-50/30 transition-colors",
                           selectedOrders.has(order.id) && "bg-emerald-50/50"
                         )}>
-                            <TableCell>
-                              <Checkbox 
-                                checked={selectedOrders.has(order.id)}
-                                onCheckedChange={(checked) => handleSelectOrder(order.id, !!checked)}
-                                aria-label={`Select order ${order.sales_order_number}`}
-                              />
-                            </TableCell>
-                            <TableCell className="font-mono text-xs text-muted-foreground group-hover:text-emerald-700">
-                                {order.sales_order_number}
-                            </TableCell>
-                                    <TableCell>
-                                <div className="flex flex-col">
-                                    <div className="flex items-center gap-2">
-                                        <span className="font-semibold text-foreground">{order.customer_info?.name || 'Guest'}</span>
-                                        {(!order.customer_info?.address || !order.customer_info?.phone) && (
-                                            <div title="Missing Address or Phone" className="text-amber-500 cursor-help">
-                                                <AlertOctagon className="h-3 w-3" />
-                                            </div>
-                                        )}
-                                    </div>
-                                    <span className="text-[11px] text-muted-foreground">{order.customer_info?.phone || 'No phone'}</span>
-                                </div>
-                            </TableCell>
-                            <TableCell>
-                                <div
-                                    className="text-sm text-muted-foreground truncate"
-                                    title={order.customer_info?.address || 'No address'}
-                                >
-                                    {order.customer_info?.address || <span className="text-muted-foreground/60 italic">No address</span>}
-                                </div>
-                            </TableCell>
-                            <TableCell>
-                                <Badge 
-                                    className={cn(
-                                        "font-medium px-2.5 py-0.5 rounded-full border-0 shadow-sm",
-                                        order.status === OrderStatus.DELIVERED ? "bg-emerald-100 text-emerald-800" : 
-                                        order.status === OrderStatus.CANCELLED ? "bg-rose-100 text-rose-800" :
-                                        order.status === OrderStatus.RETURNED ? "bg-orange-100 text-orange-800" :
-                                        order.status === OrderStatus.FAILED || order.status === OrderStatus.REJECTED ? "bg-amber-100 text-amber-800" :
-                                        "bg-muted text-muted-foreground"
-                                    )}
-                                >
-                                    {order.status}
-                                </Badge>
-                            </TableCell>
-                            <TableCell className="text-muted-foreground">
-                                <span className="text-sm">{order.warehouse?.code || `WH-${order.warehouse_id}`}</span>
-                            </TableCell>
-                            <TableCell>
-                                <div className="flex items-center gap-2">
-                                    <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center border border-border">
-                                        <Truck className="h-3 w-3 text-muted-foreground" />
-                                    </div>
-                                    <span className="text-sm text-muted-foreground">
-                                        {order.driver?.user?.full_name || 'Unassigned'}
-                                    </span>
-                                </div>
-                            </TableCell>
-                            <TableCell className="text-sm text-muted-foreground font-mono">
-                                {order.driver?.user?.phone || '-'}
-                            </TableCell>
-                            <TableCell className="text-sm text-muted-foreground font-mono">
-                                {order.driver?.code || '-'}
-                            </TableCell>
-                            <TableCell className="text-sm text-muted-foreground">
-                                {order.payment_method || '-'}
-                            </TableCell>
-                            <TableCell className="text-sm text-muted-foreground">
-                                {order.sales_taker || '-'}
-                            </TableCell>
-                            <TableCell className="text-right pr-8">
-                                <span className="font-bold text-foreground">{order.total_amount.toFixed(3)} KWD</span>
-                            </TableCell>
-                            <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                                {order.created_at ? format(new Date(order.created_at), 'dd/MM HH:mm') : '-'}
-                            </TableCell>
-                            <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                                {order.assigned_at ? format(new Date(order.assigned_at), 'dd/MM HH:mm') : '-'}
-                            </TableCell>
-                            <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                                {order.picked_up_at ? format(new Date(order.picked_up_at), 'dd/MM HH:mm') : '-'}
-                            </TableCell>
-                            <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                                {order.delivered_at ? format(new Date(order.delivered_at), 'dd/MM HH:mm') : '-'}
-                            </TableCell>
-                            <TableCell className="text-xs text-muted-foreground whitespace-nowrap font-mono">
-                                {(() => {
-                                    if (!order.picked_up_at || !order.delivered_at) return '-';
-                                    const diffMs = new Date(order.delivered_at).getTime() - new Date(order.picked_up_at).getTime();
-                                    if (diffMs < 0) return '-';
-                                    const h = Math.floor(diffMs / 3600000);
-                                    const m = Math.floor((diffMs % 3600000) / 60000);
-                                    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-                                })()}
-                            </TableCell>
-                            <TableCell>
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" className="h-9 w-9 p-0 hover:bg-muted shadow-sm border border-transparent hover:border-border">
-                                            <MoreHorizontal className="h-4 w-4" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="w-52 shadow-xl">
-                                        <DropdownMenuLabel>Order Management</DropdownMenuLabel>
-                                        <DropdownMenuItem onClick={() => navigate(`/orders/${order.id}`)}>View Details</DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => handleAssignClick(order.id, order.driver_id)}>Assign Driver</DropdownMenuItem>
-                                        <DropdownMenuSeparator />
-                                        <DropdownMenuItem
-                                          className="text-amber-600"
-                                          onClick={() => handleCancelOrder(order.id)}
-                                          disabled={order.status === OrderStatus.DELIVERED || order.status === OrderStatus.CANCELLED}
-                                        >
-                                          <XCircle className="mr-2 h-4 w-4" />
-                                          Cancel Order
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem
-                                          className="text-orange-600"
-                                          onClick={() => handleReturnOrder(order.id)}
-                                          disabled={order.status !== OrderStatus.DELIVERED}
-                                        >
-                                          <RotateCcw className="mr-2 h-4 w-4" />
-                                          Return Order
-                                        </DropdownMenuItem>
-                                        {isAdmin && (
-                                          <DropdownMenuItem 
-                                            className="text-rose-600 focus:text-rose-700 focus:bg-rose-50" 
-                                            onClick={() => handleDeleteOrder(order.id)}
-                                          >
-                                            <Trash2 className="mr-2 h-4 w-4" />
-                                            Delete Permanently
-                                          </DropdownMenuItem>
-                                        )}
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            </TableCell>
+                            {orderedColumns.map((col) => (
+                              <TableCell
+                                key={col.id}
+                                className={col.id === 'amount' ? 'text-right pr-8' : undefined}
+                              >
+                                {renderCell(order, col.id)}
+                              </TableCell>
+                            ))}
                         </TableRow>
                     ))
                 )}

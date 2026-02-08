@@ -40,6 +40,7 @@ SORT_COLUMNS = {
     "sales_taker": Order.sales_taker,
     "customer_name": cast(Order.customer_info["name"], String),
     "customer_phone": cast(Order.customer_info["phone"], String),
+    "customer_address": cast(Order.customer_info["address"], String),
 }
 
 
