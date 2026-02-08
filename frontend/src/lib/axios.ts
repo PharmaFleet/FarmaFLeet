@@ -39,38 +39,72 @@ export const handlePaginatedResponse = <T>(data: any): PaginatedResponse<T> => {
   return data;
 };
 
+// Track refresh state to prevent concurrent refresh attempts
+let isRefreshing = false;
+let refreshSubscribers: ((token: string) => void)[] = [];
+
+const subscribeTokenRefresh = (cb: (token: string) => void) => {
+  refreshSubscribers.push(cb);
+};
+
+const onRefreshed = (token: string) => {
+  refreshSubscribers.forEach((cb) => cb(token));
+  refreshSubscribers = [];
+};
+
 // Response Interceptor: Handle 401 (Refresh or Logout)
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
-    
+
     // Check if error is 401 and we haven't retried yet
     if (error.response?.status === 401 && !originalRequest._retry) {
+      // Skip refresh attempt for auth endpoints to avoid loops
+      if (originalRequest.url?.includes('/auth/')) {
+        return Promise.reject(error);
+      }
+
+      if (isRefreshing) {
+        // Wait for the ongoing refresh to complete
+        return new Promise((resolve) => {
+          subscribeTokenRefresh((token: string) => {
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+            resolve(api(originalRequest));
+          });
+        });
+      }
+
       originalRequest._retry = true;
-      
+      isRefreshing = true;
+
       try {
         // Attempt refresh
         const { refreshToken } = useAuthStore.getState();
         if (!refreshToken) throw new Error('No refresh token');
 
-        // Call backend refresh endpoint
-        // NOTE: Make sure this endpoint exists and works as expected
+        // Use a separate axios instance to avoid interceptor loops
         const response = await axios.post(`${BASE_URL}/auth/refresh`, {
-          refresh_token: refreshToken, // Adjust payload key based on backend
+          refresh_token: refreshToken,
         });
 
         const { access_token } = response.data;
-        
+
         // Update store
         useAuthStore.getState().setToken(access_token);
+
+        // Notify all waiting requests
+        onRefreshed(access_token);
+        isRefreshing = false;
 
         // Update header and retry
         originalRequest.headers.Authorization = `Bearer ${access_token}`;
         return api(originalRequest);
-        
+
       } catch (refreshError) {
         // If refresh fails, logout user
+        isRefreshing = false;
+        refreshSubscribers = [];
         useAuthStore.getState().logout();
         return Promise.reject(refreshError);
       }
