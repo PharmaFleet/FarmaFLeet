@@ -206,13 +206,6 @@ export default function LoginPage() {
                 </Button>
               </form>
               
-              {/* Demo credentials hint */}
-              <div className="mt-6 p-4 bg-muted rounded-lg border border-border">
-                <p className="text-xs text-muted-foreground text-center">
-                  <span className="font-medium text-foreground">Demo credentials:</span><br />
-                  admin@pharmafleet.com / admin123
-                </p>
-              </div>
             </CardContent>
             <CardFooter className="flex justify-center border-t border-border py-4 bg-muted/50">
               <p className="text-xs text-muted-foreground">
