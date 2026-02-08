@@ -44,6 +44,12 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+        <!-- Background Service for location tracking when app is minimized -->
+        <service
+            android:name="id.flutter.flutter_background_service.BackgroundService"
+            android:foregroundServiceType="location"
+            android:exported="false" />
     </application>
     
     <queries>

@@ -1,7 +1,9 @@
 import 'dart:async';
 
 import 'package:driver_app/core/di/injection_container.dart' as di;
+import 'package:driver_app/core/services/background_service.dart';
 import 'package:driver_app/core/services/location_service.dart';
+import 'package:driver_app/core/services/token_storage_service.dart';
 import 'package:driver_app/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:driver_app/features/home/presentation/bloc/home_bloc.dart';
 import 'package:driver_app/features/home/presentation/screens/daily_summary_screen.dart';
@@ -11,6 +13,7 @@ import 'package:driver_app/theme/theme.dart';
 import 'package:driver_app/widgets/activity_item.dart' as activity_widget;
 import 'package:driver_app/widgets/widgets.dart'
     hide ActivityItem, ActivityType;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -26,17 +29,22 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Timer? _refreshTimer;
   Timer? _notificationTimer;
   bool _hasLocationPermission = false;
   int _unreadNotificationCount = 0;
+  bool _isOnline = false;
+  String? _currentDriverId;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _requestLocationPermission();
     _fetchUnreadCount();
+    _restoreOnlineStatus();
+
     // Load initial data when screen is created
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<HomeBloc>().add(HomeLoadRequested());
@@ -55,6 +63,68 @@ class _HomeScreenState extends State<HomeScreen> {
         _fetchUnreadCount();
       }
     });
+  }
+
+  /// Restore online status after app restart
+  Future<void> _restoreOnlineStatus() async {
+    try {
+      final tokenStorage = di.sl<TokenStorageService>();
+      final wasOnline = await tokenStorage.getOnlineStatus();
+      final driverId = await tokenStorage.getDriverId();
+
+      if (wasOnline && driverId != null) {
+        debugPrint('[HomeScreen] Restoring online status');
+        _currentDriverId = driverId;
+        _isOnline = true;
+
+        // Restart location tracking
+        final hasPermission = await widget.locationService.checkPermissions();
+        if (hasPermission) {
+          await widget.locationService.startTracking(driverId);
+          // Sync any locations collected while in background
+          await widget.locationService.syncPendingLocations();
+        }
+
+        // Update HomeBloc state
+        if (mounted) {
+          context.read<HomeBloc>().add(HomeOnlineStatusChanged(true));
+        }
+      }
+    } catch (e) {
+      debugPrint('[HomeScreen] Error restoring online status: $e');
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    switch (state) {
+      case AppLifecycleState.paused:
+        // App going to background
+        if (_isOnline && _currentDriverId != null) {
+          debugPrint('[HomeScreen] App paused - starting background service');
+          startBackgroundService(_currentDriverId!);
+        }
+        break;
+
+      case AppLifecycleState.resumed:
+        // App returning to foreground
+        debugPrint('[HomeScreen] App resumed - stopping background service');
+        stopBackgroundService();
+
+        // Sync any locations collected in background
+        if (_isOnline) {
+          widget.locationService.syncPendingLocations();
+        }
+        break;
+
+      case AppLifecycleState.detached:
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.hidden:
+        // No action needed for these states
+        break;
+    }
   }
 
   Future<void> _fetchUnreadCount() async {
@@ -109,12 +179,15 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _refreshTimer?.cancel();
     _notificationTimer?.cancel();
     super.dispose();
   }
 
   void _toggleOnlineStatus(bool isOnline) async {
+    final tokenStorage = di.sl<TokenStorageService>();
+
     if (isOnline) {
       // Going online
       final hasPermission = await widget.locationService.checkPermissions();
@@ -136,11 +209,25 @@ class _HomeScreenState extends State<HomeScreen> {
       final driverId = authState is AuthAuthenticated
           ? authState.user.id.toString()
           : 'unknown_driver';
+      _currentDriverId = driverId;
       await widget.locationService.startTracking(driverId);
+
+      // Persist online status and driver ID for background service
+      await tokenStorage.saveOnlineStatus(true);
+      await tokenStorage.saveDriverId(driverId);
     } else {
       // Going offline
       await widget.locationService.stopTracking();
+      await stopBackgroundService();
+
+      // Clear persisted online status
+      await tokenStorage.saveOnlineStatus(false);
+      await tokenStorage.clearDriverId();
+      _currentDriverId = null;
     }
+
+    // Track local state
+    _isOnline = isOnline;
 
     // Update driver status on the backend
     final statusUpdated = await widget.locationService.updateDriverStatus(isOnline);

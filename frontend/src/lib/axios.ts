@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { useAuthStore } from '@/store/useAuthStore';
 import { PaginatedResponse } from '@/types';
+import { toast } from '@/components/ui/use-toast';
 
 // Retrieve API URL from env, default to local if not set
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
@@ -102,9 +103,16 @@ api.interceptors.response.use(
         return api(originalRequest);
 
       } catch (refreshError) {
-        // If refresh fails, logout user
+        // If refresh fails, show toast and logout user
         isRefreshing = false;
         refreshSubscribers = [];
+
+        toast({
+          variant: 'destructive',
+          title: 'Session Expired',
+          description: 'Please log in again.',
+        });
+
         useAuthStore.getState().logout();
         return Promise.reject(refreshError);
       }

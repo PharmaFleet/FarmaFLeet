@@ -60,4 +60,44 @@ class TokenStorageService {
     final token = await _storage.read(key: _tokenKey);
     return token != null && token.isNotEmpty;
   }
+
+  // Online status persistence for background service restoration
+  static const _onlineStatusKey = 'driver_online_status';
+  static const _driverIdKey = 'driver_id';
+
+  /// Save driver online status for restoration after app restart
+  Future<void> saveOnlineStatus(bool isOnline) async {
+    debugPrint('[TokenStorage] Saving online status: $isOnline');
+    await _storage.write(key: _onlineStatusKey, value: isOnline.toString());
+  }
+
+  /// Get saved online status
+  Future<bool> getOnlineStatus() async {
+    final status = await _storage.read(key: _onlineStatusKey);
+    final isOnline = status == 'true';
+    debugPrint('[TokenStorage] Retrieved online status: $isOnline');
+    return isOnline;
+  }
+
+  /// Clear online status
+  Future<void> clearOnlineStatus() async {
+    debugPrint('[TokenStorage] Clearing online status');
+    await _storage.delete(key: _onlineStatusKey);
+  }
+
+  /// Save driver ID for background service
+  Future<void> saveDriverId(String driverId) async {
+    debugPrint('[TokenStorage] Saving driver ID');
+    await _storage.write(key: _driverIdKey, value: driverId);
+  }
+
+  /// Get saved driver ID
+  Future<String?> getDriverId() async {
+    return await _storage.read(key: _driverIdKey);
+  }
+
+  /// Clear driver ID
+  Future<void> clearDriverId() async {
+    await _storage.delete(key: _driverIdKey);
+  }
 }

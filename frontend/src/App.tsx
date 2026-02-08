@@ -3,6 +3,7 @@ import { HashRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { LayoutShell } from '@/components/layout/LayoutShell';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { Toaster } from '@/components/ui/toaster';
 
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage'));
 const DashboardHome = lazy(() => import('@/pages/dashboard/DashboardHome'));
@@ -44,7 +45,7 @@ function App() {
         <Suspense fallback={<LoadingSpinner />}>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
-            
+
             {/* Protected Routes */}
             <Route element={<LayoutShell />}>
               <Route path="/" element={<DashboardHome />} />
@@ -59,11 +60,12 @@ function App() {
               <Route path="/settings" element={<SettingsPage />} />
               {/* Add more routes here later */}
             </Route>
-            
+
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </Suspense>
       </HashRouter>
+      <Toaster />
     </QueryClientProvider>
   );
 }

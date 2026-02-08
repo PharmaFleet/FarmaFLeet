@@ -10,6 +10,7 @@ import 'core/config/app_config.dart';
 import 'core/di/injection_container.dart' as di;
 import 'core/models/location_model.dart';
 import 'core/network/dio_client.dart';
+import 'core/services/background_service.dart';
 import 'core/services/navigation_service.dart';
 import 'core/services/notification_service.dart';
 import 'core/theme/app_theme.dart';
@@ -21,6 +22,9 @@ Future<void> _initializeApp() async {
   await Hive.initFlutter();
   Hive.registerAdapter(LocationUpdateModelAdapter());
   await di.init();
+
+  // Initialize Background Service for location tracking when app is minimized
+  await initializeBackgroundService();
 
   // Initialize Notification Service (Fire and forget, or await if critical)
   di.sl<NotificationService>().initialize();
