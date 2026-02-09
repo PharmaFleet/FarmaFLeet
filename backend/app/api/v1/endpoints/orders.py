@@ -1074,6 +1074,8 @@ async def assign_order(
         raise HTTPException(status_code=400, detail=str(e))
 
     # Re-fetch with eager loading for response
+    # populate_existing=True forces SQLAlchemy to refresh from DB even if object is cached
+    # This is needed because expire_on_commit=False keeps the old driver in identity map
     query = (
         select(Order)
         .where(Order.id == order.id)
@@ -1084,6 +1086,7 @@ async def assign_order(
             selectinload(Order.status_history),
             selectinload(Order.proof_of_delivery),
         )
+        .execution_options(populate_existing=True)
     )
     result = await db.execute(query)
     return result.scalars().first()
