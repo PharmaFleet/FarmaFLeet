@@ -982,7 +982,7 @@ export default function OrdersPage() {
                     items={orderedColumns.map(c => c.id)}
                     strategy={horizontalListSortingStrategy}
                   >
-                    <TableRow className="hover:bg-transparent border-b">
+                    <TableRow className="hover:bg-transparent border-b bg-muted">
                       {orderedColumns.map((columnDef) => (
                         <SortableTableHead key={columnDef.id} columnDef={columnDef} />
                       ))}
