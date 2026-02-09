@@ -71,8 +71,13 @@ npm run lint
 ```bash
 cd mobile/driver_app
 flutter pub get
-flutter run
-flutter build apk --release
+flutter run                                    # Dev mode (points to 10.0.2.2:8000)
+flutter run --dart-define=ENV=dev              # Explicit dev environment
+flutter run --dart-define=API_URL=http://192.168.1.100:8000/api/v1  # Custom API
+
+# Production APK with Sentry
+flutter build apk --release --dart-define=SENTRY_DSN=https://xxx@xxx.ingest.sentry.io/xxx
+
 flutter test
 ```
 
@@ -224,6 +229,13 @@ Business logic is split into service modules in `backend/app/services/`:
 - 3-tab order structure: Assigned → Active (picked_up/in_transit/out_for_delivery) → History
 - **Token refresh flow**: On 401, `DioClient` attempts `POST /auth/refresh` before logout. Uses a separate Dio instance for the refresh call to avoid interceptor loops. `_isRefreshing` flag prevents concurrent refresh attempts.
 
+### Mobile: Environment Configuration
+
+Build-time configuration via `--dart-define`. See `lib/core/config/app_config.dart`:
+- `ENV=dev|staging|prod` - Environment selection (default: prod)
+- `API_URL=<url>` - Override API base URL
+- `SENTRY_DSN=<dsn>` - Enable Sentry error monitoring (empty disables)
+
 ## API Documentation
 
 See `docs/api/` for complete API reference:
@@ -361,6 +373,8 @@ SUPABASE_SERVICE_ROLE_KEY=<key>
 REDIS_URL=redis://localhost:6379/0
 FIREBASE_CREDENTIALS=<base64-encoded service account JSON>
 CRON_SECRET=<secret-for-cron-endpoints>
+SENTRY_DSN=<optional-sentry-dsn>
+ENVIRONMENT=production
 ```
 
 ### Frontend (.env)
