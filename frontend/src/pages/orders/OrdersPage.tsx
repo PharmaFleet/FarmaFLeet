@@ -173,8 +173,8 @@ export default function OrdersPage() {
       }
     };
 
-    // Sticky styles for all header cells
-    const stickyClass = "sticky top-0 z-10 bg-muted";
+    // Background styles for all header cells (sticky is now on TableHeader)
+    const stickyClass = "bg-muted";
 
     // Special handling for checkbox column (not draggable)
     if (columnDef.id === 'checkbox') {
@@ -972,7 +972,7 @@ export default function OrdersPage() {
 
         <div className="flex-1 overflow-auto min-h-0 relative isolate">
             <Table style={{ tableLayout: 'fixed' }} noWrapper>
-              <TableHeader>
+              <TableHeader className="sticky top-0 z-20 bg-muted">
                 <DndContext
                   sensors={sensors}
                   collisionDetection={closestCenter}
