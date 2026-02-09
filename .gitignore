@@ -96,3 +96,27 @@ backend/error_trace.txt
 # Client documents (confidential)
 docs/notes/*.pdf
 docs/notes/*.csv
+
+# Local archive and data (not tracked)
+_archive/
+_local_data/
+
+# Screenshots at root
+/*.jpg
+/*.png
+/*.jpeg
+
+# Debug/verify scripts at root
+/debug_*.py
+/verify_*.py
+
+# Backend logs and temp files
+backend/*.log
+backend/*.txt
+!backend/requirements.txt
+
+# Deploy trigger files
+backend/DEPLOY_*
+
+# Everything-claude-code reference repo
+everything-claude-code/
