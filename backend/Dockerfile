@@ -42,7 +42,7 @@ USER appuser
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python -c "import urllib.request, os; port = os.environ.get('PORT', '8080'); urllib.request.urlopen(f'http://localhost:{port}/api/v1/utils/health-check')" || exit 1
 
-# Expose port (document only, Cloud Run overrides)
+# Expose port
 EXPOSE 8080
 
 # Production command (using shell to expand PORT variable)

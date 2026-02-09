@@ -42,18 +42,15 @@ class Settings(BaseSettings):
     BACKEND_CORS_ORIGINS: List[str] | str = [
         "http://localhost:3000",
         "http://localhost:3001",
+        "https://pharmafleet-olive.vercel.app",
         "https://dashboard.pharmafleet.com",
         "https://staging.dashboard.pharmafleet.com",
-        "https://storage.googleapis.com",
-        "https://pharmafleet-dashboard.storage.googleapis.com",
-        "https://pharmafleet-dashboard-staging.storage.googleapis.com",
     ]
 
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")
     @classmethod
     def assemble_cors_origins(cls, v: str | List[str]) -> List[str] | str:
         if isinstance(v, str) and not v.startswith("["):
-            # Support both comma and semicolon to avoid gcloud CLI list parsing issues
             import re
 
             return [i.strip() for i in re.split(r"[,;]", v) if i.strip()]
@@ -73,11 +70,6 @@ class Settings(BaseSettings):
             if url.startswith("postgres://"):
                 return url.replace("postgres://", "postgresql+asyncpg://", 1)
             return url
-
-        from urllib.parse import quote_plus
-
-        if self.POSTGRES_SERVER.startswith("/cloudsql"):
-            return f"postgresql+asyncpg://{self.POSTGRES_USER}:{quote_plus(self.POSTGRES_PASSWORD)}@/{self.POSTGRES_DB}?host={self.POSTGRES_SERVER}"
 
         return str(
             PostgresDsn.build(
