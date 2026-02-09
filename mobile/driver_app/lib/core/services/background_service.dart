@@ -116,13 +116,13 @@ Future<void> onStart(ServiceInstance service) async {
   });
 
   // Handle driver ID updates
-  service.on('setDriverId').listen((event) {
+  service.on('setDriverId').listen((event) async {
     if (event != null && event['driverId'] != null) {
       driverId = event['driverId'] as String;
       debugPrint('[BackgroundService] Driver ID set: $driverId');
 
       // Start location tracking once we have driver ID
-      _startLocationTracking(
+      positionSubscription = await _startLocationTracking(
         service,
         driverId!,
         locationBox,
@@ -146,7 +146,7 @@ Future<void> onStart(ServiceInstance service) async {
 }
 
 /// Start location tracking in background
-Future<void> _startLocationTracking(
+Future<StreamSubscription<Position>> _startLocationTracking(
   ServiceInstance service,
   String driverId,
   Box<LocationUpdateModel>? locationBox,
@@ -165,7 +165,7 @@ Future<void> _startLocationTracking(
     locationSettings: locationSettings,
   );
 
-  positionStream.listen(
+  return positionStream.listen(
     (Position position) async {
       // Throttle updates to every 30 seconds in background
       final now = DateTime.now();
@@ -206,6 +206,7 @@ Future<void> _startLocationTracking(
     },
   );
 }
+
 
 /// Global function to initialize background service
 Future<void> initializeBackgroundService() async {
