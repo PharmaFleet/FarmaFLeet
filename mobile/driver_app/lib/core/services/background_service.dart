@@ -88,7 +88,7 @@ Future<bool> onIosBackground(ServiceInstance service) async {
 
 /// Entry point for background service
 @pragma('vm:entry-point')
-void onStart(ServiceInstance service) async {
+Future<void> onStart(ServiceInstance service) async {
   DartPluginRegistrant.ensureInitialized();
 
   String? driverId;
@@ -146,7 +146,7 @@ void onStart(ServiceInstance service) async {
 }
 
 /// Start location tracking in background
-void _startLocationTracking(
+Future<void> _startLocationTracking(
   ServiceInstance service,
   String driverId,
   Box<LocationUpdateModel>? locationBox,
