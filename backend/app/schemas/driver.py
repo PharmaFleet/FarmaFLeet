@@ -24,8 +24,18 @@ class DriverWithUserCreate(DriverBase):
     role: str = "driver"
 
 
-class DriverUpdate(DriverBase):
-    pass
+class DriverUpdate(BaseModel):
+    """Fields that can be updated on an existing driver."""
+
+    is_available: Optional[bool] = None
+    code: Optional[str] = None
+    vehicle_info: Optional[str] = None
+    vehicle_type: Optional[str] = None
+    biometric_id: Optional[str] = None
+    warehouse_id: Optional[int] = None
+    # User-related fields (updates the associated User model)
+    user_full_name: Optional[str] = None
+    user_phone: Optional[str] = None
 
 
 class DriverStatusUpdate(BaseModel):

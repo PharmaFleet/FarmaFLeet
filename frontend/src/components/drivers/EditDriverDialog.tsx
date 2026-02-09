@@ -40,6 +40,8 @@ export function EditDriverDialog({ driver, open, onOpenChange }: EditDriverDialo
     biometric_id: driver.biometric_id || '',
     warehouse_id: driver.warehouse_id?.toString() || '',
     is_available: driver.is_available ?? true,
+    user_full_name: driver.user?.full_name || '',
+    user_phone: driver.user?.phone || '',
   });
 
   // Reset form when driver changes or dialog opens
@@ -51,6 +53,8 @@ export function EditDriverDialog({ driver, open, onOpenChange }: EditDriverDialo
         biometric_id: driver.biometric_id || '',
         warehouse_id: driver.warehouse_id?.toString() || '',
         is_available: driver.is_available ?? true,
+        user_full_name: driver.user?.full_name || '',
+        user_phone: driver.user?.phone || '',
       });
     }
   }, [open, driver]);
@@ -73,6 +77,8 @@ export function EditDriverDialog({ driver, open, onOpenChange }: EditDriverDialo
         biometric_id: formData.biometric_id || null,
         warehouse_id: formData.warehouse_id ? parseInt(formData.warehouse_id) : null,
         is_available: formData.is_available,
+        user_full_name: formData.user_full_name || undefined,
+        user_phone: formData.user_phone || undefined,
       };
       return driverService.update(driver.id, payload);
     },
@@ -115,10 +121,40 @@ export function EditDriverDialog({ driver, open, onOpenChange }: EditDriverDialo
         <form onSubmit={handleSubmit} className="p-8 space-y-6">
           {/* Driver Info Section */}
           <div className="space-y-4">
+            {/* Email (read-only) */}
             <div className="p-4 bg-muted rounded-xl">
-              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground/70 mb-1">Driver</p>
-              <p className="text-lg font-semibold text-foreground">{driver.user?.full_name || 'Unknown'}</p>
-              <p className="text-sm text-muted-foreground">{driver.user?.email}</p>
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground/70 mb-1">Email</p>
+              <p className="text-sm text-muted-foreground">{driver.user?.email || 'N/A'}</p>
+            </div>
+
+            {/* Editable Name and Phone */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="user_full_name" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Driver Name
+                </Label>
+                <Input
+                  id="user_full_name"
+                  placeholder="Enter driver name"
+                  value={formData.user_full_name}
+                  onChange={(e) => handleChange('user_full_name', e.target.value)}
+                  className="bg-muted border-border focus:bg-background h-11 rounded-xl"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="user_phone" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Phone Number
+                </Label>
+                <Input
+                  id="user_phone"
+                  type="tel"
+                  placeholder="+965-XXXX-XXXX"
+                  value={formData.user_phone}
+                  onChange={(e) => handleChange('user_phone', e.target.value)}
+                  className="bg-muted border-border focus:bg-background h-11 rounded-xl"
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -153,15 +189,18 @@ export function EditDriverDialog({ driver, open, onOpenChange }: EditDriverDialo
               <Label htmlFor="vehicle_type" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 Vehicle Type
               </Label>
-              <select
-                id="vehicle_type"
+              <Select
                 value={formData.vehicle_type}
-                onChange={(e) => handleChange('vehicle_type', e.target.value)}
-                className="flex h-11 w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm focus:bg-background focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                onValueChange={(value) => handleChange('vehicle_type', value)}
               >
-                <option value="car">Car</option>
-                <option value="motorcycle">Motorcycle</option>
-              </select>
+                <SelectTrigger className="bg-muted border-border h-11 rounded-xl">
+                  <SelectValue placeholder="Select vehicle type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="car">Car</SelectItem>
+                  <SelectItem value="motorcycle">Motorcycle</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2">

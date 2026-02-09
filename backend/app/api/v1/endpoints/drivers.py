@@ -665,16 +665,34 @@ async def update_driver(
     """
     Update a driver.
     Manager or admin only.
+    Supports updating both driver fields and associated user fields (full_name, phone).
     """
-    driver = await db.get(Driver, driver_id)
+    # Fetch driver with user relationship eagerly loaded
+    result = await db.execute(
+        select(Driver)
+        .where(Driver.id == driver_id)
+        .options(selectinload(Driver.user), selectinload(Driver.warehouse))
+    )
+    driver = result.scalars().first()
     if not driver:
         raise HTTPException(status_code=404, detail="Driver not found")
 
+    # Get update data excluding unset fields
     update_data = driver_in.model_dump(exclude_unset=True)
+
+    # Extract and apply user fields
+    user_full_name = update_data.pop("user_full_name", None)
+    user_phone = update_data.pop("user_phone", None)
+
+    if user_full_name is not None and driver.user:
+        driver.user.full_name = user_full_name
+    if user_phone is not None and driver.user:
+        driver.user.phone = user_phone
+
+    # Apply remaining driver fields
     for field, value in update_data.items():
         setattr(driver, field, value)
 
-    db.add(driver)
     await db.commit()
 
     # Re-fetch with relationships for response
