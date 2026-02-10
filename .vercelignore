@@ -12,3 +12,7 @@ frontend/dist
 mobile
 venv
 env
+backend/tests
+backend/scripts
+backend/static
+backend/migrations

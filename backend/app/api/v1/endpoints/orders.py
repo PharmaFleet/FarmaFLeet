@@ -25,7 +25,6 @@ from app.services import order_assignment as assignment_service
 from app.services.order_status import order_status_service
 from app.services.proof_of_delivery import pod_service
 from app.core.exceptions import DriverNotFoundException, DriverNotAvailableException
-import pandas as pd
 import logging
 
 logger = logging.getLogger(__name__)
@@ -402,8 +401,14 @@ async def import_orders(
     Import orders from Excel file.
     """
 
-    def clean_value(val):
-        if pd.isna(val) or str(val).strip() == "" or str(val).lower() == "nan":
+    def _is_empty(val: object) -> bool:
+        if val is None:
+            return True
+        s = str(val).strip().lower()
+        return s in ("", "nan", "none")
+
+    def clean_value(val: object) -> str | None:
+        if _is_empty(val):
             return None
         return str(val).strip()
 
@@ -457,7 +462,7 @@ async def import_orders(
                 # Direct mapping based on user file confirmation
                 order_num_raw = row.get("Sales order") or row.get("Order Number")
 
-                if pd.isna(order_num_raw) or str(order_num_raw).strip() == "":
+                if _is_empty(order_num_raw):
                     raise Exception("Missing 'Sales order' column or value")
 
                 sales_order_number = str(order_num_raw).strip()
@@ -472,7 +477,7 @@ async def import_orders(
                 cust_area = clean_value(row.get("Area"))
 
                 amount_raw = row.get("Total amount") or row.get("Amount")
-                total_amount = float(amount_raw) if not pd.isna(amount_raw) else 0.0
+                total_amount = float(amount_raw) if not _is_empty(amount_raw) else 0.0
 
                 # Extract payment method - prefer "Retail payment method" from MS Dynamics
                 retail_payment_raw = row.get("Retail payment method") or row.get(
@@ -1297,8 +1302,6 @@ async def export_orders(
     Export filtered orders with all columns.
     Accepts the same filter parameters as read_orders.
     """
-    import io
-
     query = select(Order).options(
         selectinload(Order.warehouse),
         selectinload(Order.driver).selectinload(Driver.user),
@@ -1453,11 +1456,7 @@ async def export_orders(
             }
         )
 
-    df = pd.DataFrame(data)
-    stream = io.BytesIO()
-    with pd.ExcelWriter(stream, engine="openpyxl") as writer:
-        df.to_excel(writer, index=False)
-    stream.seek(0)
+    stream = excel_service.write_xlsx(data, sheet_name="Orders")
 
     headers = {"Content-Disposition": 'attachment; filename="orders.xlsx"'}
     return StreamingResponse(

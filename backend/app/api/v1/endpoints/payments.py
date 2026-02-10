@@ -1,9 +1,6 @@
 from typing import Any, Dict, List, Optional
 import math
-import io
 from datetime import datetime, timezone
-import pandas as pd  # type: ignore
-
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -242,11 +239,9 @@ async def export_payments(
             }
         )
 
-    df = pd.DataFrame(data)
-    stream = io.BytesIO()
-    with pd.ExcelWriter(stream, engine="openpyxl") as writer:
-        df.to_excel(writer, index=False)
-    stream.seek(0)
+    from app.services.excel import excel_service
+
+    stream = excel_service.write_xlsx(data, sheet_name="Payments")
 
     headers = {"Content-Disposition": 'attachment; filename="payments.xlsx"'}
     return StreamingResponse(

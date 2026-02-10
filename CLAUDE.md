@@ -270,6 +270,7 @@ PostgreSQL with PostGIS. Migrations via Alembic.
 - **Batch operations**: Bulk assign, cancel, delete, pickup, delivery, return in `orders.py`
 - **Column rename**: `sales_track` was renamed to `sales_taker` (migration `c8f3a1b2d4e5`). Use `sales_taker` everywhere.
 - **Driver code**: Defaults to `biometric_id` when not explicitly provided. Unique constraint on `code` column.
+- **Driver user updates**: `PUT /drivers/{id}` accepts `user_full_name` and `user_phone` to update the associated User model in the same transaction.
 
 ## Testing
 
