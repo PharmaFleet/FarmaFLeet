@@ -138,7 +138,9 @@ class ProofOfDeliveryService:
         # Notify driver about delivery
         if driver_user.fcm_token:
             await notification_service.notify_driver_order_delivered(
-                db, driver_user.id, order.id, driver_user.fcm_token
+                db, driver_user.id, order.id,
+                order_number=order.sales_order_number or "",
+                token=driver_user.fcm_token,
             )
 
         # Handle payment collection for COD orders
@@ -186,7 +188,8 @@ class ProofOfDeliveryService:
                 order.driver.user_id,
                 order.id,
                 order.total_amount,
-                order.driver.user.fcm_token,
+                order_number=order.sales_order_number or "",
+                token=order.driver.user.fcm_token,
             )
 
     def validate_pod_urls(

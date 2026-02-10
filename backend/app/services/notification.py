@@ -124,11 +124,12 @@ class NotificationService:
             logger.info(f"No token for user {user_id}, skipping push notification.")
 
     async def notify_driver_order_delivered(
-        self, db: AsyncSession, user_id: int, order_id: int, token: Optional[str] = None
+        self, db: AsyncSession, user_id: int, order_id: int, order_number: str = "", token: Optional[str] = None
     ):
         """Notify driver that order is marked delivered."""
         title = "Order Delivered"
-        body = f"Order #{order_id} has been successfully delivered."
+        display = order_number or f"#{order_id}"
+        body = f"Order {display} has been successfully delivered."
 
         notif = Notification(
             user_id=user_id,
@@ -154,11 +155,13 @@ class NotificationService:
         user_id: int,
         order_id: int,
         amount: float,
+        order_number: str = "",
         token: Optional[str] = None,
     ):
         """Notify driver about payment collection."""
         title = "Payment Collected"
-        body = f"Please collect {amount:.2f} for Order #{order_id}."
+        display = order_number or f"#{order_id}"
+        body = f"Please collect {amount:.2f} for Order {display}."
 
         notif = Notification(
             user_id=user_id,

@@ -61,7 +61,7 @@ async def get_recent_activities(
             activities.append({
                 "id": f"hist_{history.id}",
                 "title": "Order Assigned",
-                "body": f"Order #{order.id if order else 'N/A'} assigned to {driver_name}",
+                "body": f"Order {order.sales_order_number or order.id if order else 'N/A'} assigned to {driver_name}",
                 "created_at": to_utc_iso(history.timestamp),
                 "data": {"type": "assigned", "order_id": order.id if order else None},
             })
@@ -69,7 +69,7 @@ async def get_recent_activities(
             activities.append({
                 "id": f"hist_{history.id}",
                 "title": "Order Delivered",
-                "body": f"Order #{order.id if order else 'N/A'} delivered by {driver_name}",
+                "body": f"Order {order.sales_order_number or order.id if order else 'N/A'} delivered by {driver_name}",
                 "created_at": to_utc_iso(history.timestamp),
                 "data": {"type": "order_delivered", "order_id": order.id if order else None},
             })
@@ -77,7 +77,7 @@ async def get_recent_activities(
             activities.append({
                 "id": f"hist_{history.id}",
                 "title": "Order Picked Up",
-                "body": f"Order #{order.id if order else 'N/A'} picked up by {driver_name}",
+                "body": f"Order {order.sales_order_number or order.id if order else 'N/A'} picked up by {driver_name}",
                 "created_at": to_utc_iso(history.timestamp),
                 "data": {"type": "picked_up", "order_id": order.id if order else None},
             })
@@ -85,7 +85,7 @@ async def get_recent_activities(
             activities.append({
                 "id": f"hist_{history.id}",
                 "title": "Out for Delivery",
-                "body": f"Order #{order.id if order else 'N/A'} is out for delivery",
+                "body": f"Order {order.sales_order_number or order.id if order else 'N/A'} is out for delivery",
                 "created_at": to_utc_iso(history.timestamp),
                 "data": {"type": "out_for_delivery", "order_id": order.id if order else None},
             })
@@ -93,7 +93,7 @@ async def get_recent_activities(
             activities.append({
                 "id": f"hist_{history.id}",
                 "title": "Order Cancelled",
-                "body": f"Order #{order.id if order else 'N/A'} was cancelled",
+                "body": f"Order {order.sales_order_number or order.id if order else 'N/A'} was cancelled",
                 "created_at": to_utc_iso(history.timestamp),
                 "data": {"type": "cancelled", "order_id": order.id if order else None},
             })
@@ -101,7 +101,7 @@ async def get_recent_activities(
             activities.append({
                 "id": f"hist_{history.id}",
                 "title": "Order Rejected",
-                "body": f"Order #{order.id if order else 'N/A'} was rejected",
+                "body": f"Order {order.sales_order_number or order.id if order else 'N/A'} was rejected",
                 "created_at": to_utc_iso(history.timestamp),
                 "data": {"type": "rejected", "order_id": order.id if order else None},
             })
