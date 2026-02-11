@@ -50,7 +50,17 @@ async def get_current_user(
                 detail="Token has been invalidated",
             )
 
-    except (JWTError, ValidationError) as e:
+    except JWTError as e:
+        if "expired" in str(e).lower():
+            logger.info(f"Token expired for request")
+        else:
+            logger.error(f"JWT Validation Error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except ValidationError as e:
         logger.error(f"JWT Validation Error: {e}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

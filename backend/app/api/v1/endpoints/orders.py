@@ -384,7 +384,11 @@ async def create_order(
         select(Order)
         .where(Order.id == db_obj.id)
         .options(
-            selectinload(Order.status_history), selectinload(Order.proof_of_delivery)
+            selectinload(Order.status_history),
+            selectinload(Order.proof_of_delivery),
+            selectinload(Order.warehouse),
+            selectinload(Order.driver).selectinload(Driver.user),
+            selectinload(Order.driver).selectinload(Driver.warehouse),
         )
     )
     result = await db.execute(query)
@@ -1057,7 +1061,10 @@ async def assign_order(
     order_result = await db.execute(
         select(Order)
         .where(Order.id == order_id)
-        .options(selectinload(Order.driver).selectinload(Driver.user))
+        .options(
+            selectinload(Order.driver).selectinload(Driver.user),
+            selectinload(Order.driver).selectinload(Driver.warehouse),
+        )
     )
     order = order_result.scalars().first()
     if not order:
@@ -1094,7 +1101,7 @@ async def assign_order(
         .execution_options(populate_existing=True)
     )
     result = await db.execute(query)
-    return result.scalars().first()
+    return OrderSchema.model_validate(result.scalars().first())
 
 
 @router.patch("/{order_id}/status")
