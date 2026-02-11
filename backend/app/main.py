@@ -16,6 +16,9 @@ from app.core.logging import setup_logging
 from app.api.middleware import RequestLoggingMiddleware, RateLimitMiddleware
 from app.routers.websocket import start_redis_listener
 
+# Detect serverless environment (same check as session.py)
+IS_SERVERLESS = bool(os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME"))
+
 # Setup logging
 setup_logging()
 
@@ -36,10 +39,11 @@ tags_metadata = [
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: Start Redis listener
-    await start_redis_listener()
+    # Only start Redis listener in non-serverless environments.
+    # Vercel doesn't support WebSockets; frontend uses HTTP polling instead.
+    if not IS_SERVERLESS:
+        await start_redis_listener()
     yield
-    # Shutdown events if needed
 
 
 app = FastAPI(
