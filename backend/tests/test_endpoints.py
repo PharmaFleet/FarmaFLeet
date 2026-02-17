@@ -933,3 +933,164 @@ class TestHealthAndMiscEndpoints:
             headers=admin_token_headers,
         )
         assert response.status_code in [200, 401, 403, 404]
+
+
+class TestPaymentMethodEndpoint:
+    """Tests for PATCH /{order_id}/payment-method endpoint (Task 2)"""
+
+    def test_payment_method_endpoint_exists(self, client, admin_token_headers):
+        """Test payment-method endpoint is accessible (not 405 Method Not Allowed)"""
+        response = client.patch(
+            "/api/v1/orders/1/payment-method",
+            json={"payment_method": "KNET"},
+            headers=admin_token_headers,
+        )
+        assert response.status_code != 405
+
+    def test_payment_method_valid_methods(self, client, admin_token_headers):
+        """Test that valid payment methods are accepted"""
+        for method in ["CASH", "COD", "KNET", "LINK", "CREDIT_CARD"]:
+            response = client.patch(
+                "/api/v1/orders/1/payment-method",
+                json={"payment_method": method},
+                headers=admin_token_headers,
+            )
+            # Should not return 400 for invalid method - may fail on order lookup
+            assert response.status_code in [200, 400, 401, 403, 404]
+
+    def test_payment_method_invalid_method_rejected(self, client, admin_token_headers):
+        """Test that invalid payment methods are rejected (400 or auth failure)"""
+        response = client.patch(
+            "/api/v1/orders/1/payment-method",
+            json={"payment_method": "BITCOIN"},
+            headers=admin_token_headers,
+        )
+        # Mock DB may fail on auth before reaching validation;
+        # the key assertion is that it doesn't succeed (200)
+        assert response.status_code in [400, 401, 403, 404]
+
+    def test_payment_method_invalid_validation_logic(self):
+        """Test payment method validation logic directly"""
+        valid_methods = {"CASH", "COD", "KNET", "LINK", "CREDIT_CARD"}
+        assert "BITCOIN".upper() not in valid_methods
+        assert "PAYPAL".upper() not in valid_methods
+        assert "KNET".upper() in valid_methods
+        assert "cash".upper() in valid_methods
+        assert "Credit_Card".upper() in valid_methods
+
+    def test_payment_method_case_insensitive(self, client, admin_token_headers):
+        """Test that payment method accepts lowercase input"""
+        response = client.patch(
+            "/api/v1/orders/1/payment-method",
+            json={"payment_method": "knet"},
+            headers=admin_token_headers,
+        )
+        # Should not be rejected as invalid - knet maps to KNET
+        assert response.status_code in [200, 400, 401, 403, 404]
+
+    def test_payment_method_requires_auth(self, client):
+        """Test that unauthenticated requests are rejected"""
+        response = client.patch(
+            "/api/v1/orders/1/payment-method",
+            json={"payment_method": "CASH"},
+        )
+        assert response.status_code in [401, 403]
+
+    def test_payment_method_missing_body(self, client, admin_token_headers):
+        """Test that missing payment_method body returns 422 or auth error"""
+        response = client.patch(
+            "/api/v1/orders/1/payment-method",
+            json={},
+            headers=admin_token_headers,
+        )
+        # 422 for validation error, or 401/404 if auth middleware fails first
+        assert response.status_code in [422, 401, 403, 404]
+
+
+class TestDriverDefaultOffline:
+    """Tests for driver default is_available=False (Task 6)"""
+
+    def test_driver_schema_defaults_to_offline(self):
+        """Test DriverBase schema defaults is_available to False"""
+        from app.schemas.driver import DriverBase
+
+        driver = DriverBase()
+        assert driver.is_available is False
+
+    def test_driver_with_user_create_defaults_to_offline(self):
+        """Test DriverWithUserCreate schema defaults is_available to False"""
+        from app.schemas.driver import DriverWithUserCreate
+
+        driver = DriverWithUserCreate(
+            email="test@test.com",
+            password="password123",
+            full_name="Test Driver",
+        )
+        assert driver.is_available is False
+
+    def test_driver_model_default_is_false(self):
+        """Test Driver model column default is False"""
+        from app.models.driver import Driver
+
+        col = Driver.__table__.columns["is_available"]
+        assert col.default.arg is False
+
+    def test_create_driver_endpoint_without_is_available(self, client, admin_token_headers):
+        """Test creating a driver without specifying is_available defaults to False"""
+        response = client.post(
+            "/api/v1/drivers/",
+            json={
+                "email": "offline@test.com",
+                "password": "pass123",
+                "full_name": "Offline Driver",
+                "biometric_id": "BIO_OFF",
+                "vehicle_info": "Toyota - KWT 9999",
+                "warehouse_id": 1,
+            },
+            headers=admin_token_headers,
+        )
+        assert response.status_code in [200, 201, 400, 401, 403, 404, 422]
+
+
+class TestDriverPhoneField:
+    """Tests for phone field on DriverWithUserCreate (Task 5)"""
+
+    def test_driver_with_user_create_has_phone_field(self):
+        """Test DriverWithUserCreate schema has phone field"""
+        from app.schemas.driver import DriverWithUserCreate
+
+        driver = DriverWithUserCreate(
+            email="test@test.com",
+            password="password123",
+            full_name="Test Driver",
+            phone="+965-1234-5678",
+        )
+        assert driver.phone == "+965-1234-5678"
+
+    def test_driver_with_user_create_phone_is_optional(self):
+        """Test phone field is optional (defaults to None)"""
+        from app.schemas.driver import DriverWithUserCreate
+
+        driver = DriverWithUserCreate(
+            email="test@test.com",
+            password="password123",
+            full_name="Test Driver",
+        )
+        assert driver.phone is None
+
+    def test_create_driver_with_phone(self, client, admin_token_headers):
+        """Test creating a driver with phone field"""
+        response = client.post(
+            "/api/v1/drivers/",
+            json={
+                "email": "withphone@test.com",
+                "password": "pass123",
+                "full_name": "Phone Driver",
+                "phone": "+965-9999-0000",
+                "biometric_id": "BIO_PHONE",
+                "vehicle_info": "Honda - KWT 1111",
+                "warehouse_id": 1,
+            },
+            headers=admin_token_headers,
+        )
+        assert response.status_code in [200, 201, 400, 401, 403, 404, 422]

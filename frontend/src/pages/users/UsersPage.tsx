@@ -1,39 +1,80 @@
 import { useState } from 'react';
-import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { userService } from '@/services/userService';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Filter, UserPlus, MoreHorizontal } from 'lucide-react';
-import { 
-    DropdownMenu, 
-    DropdownMenuContent, 
-    DropdownMenuItem, 
-    DropdownMenuLabel, 
-    DropdownMenuTrigger 
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
+import { useToast } from '@/components/ui/use-toast';
+import { User } from '@/types';
+import { EditUserDialog } from '@/components/users/EditUserDialog';
+import { ResetPasswordDialog } from '@/components/users/ResetPasswordDialog';
+import { AddUserDialog } from '@/components/users/AddUserDialog';
 
 export default function UsersPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // Dialog states
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [resetPwOpen, setResetPwOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['users', page, search],
-    queryFn: () => userService.getAll({ 
-        page, 
-        limit: 10, 
+    queryFn: () => userService.getAll({
+        page,
+        limit: 10,
         search: search || undefined
     }),
     placeholderData: keepPreviousData,
   });
+
+  const toggleStatusMutation = useMutation({
+    mutationFn: ({ id, isActive }: { id: number; isActive: boolean }) =>
+      userService.toggleStatus(id, isActive),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      toast({ title: "Status updated", description: "User status has been changed." });
+    },
+    onError: (error: any) => {
+      const detail = error.response?.data?.detail;
+      const message = typeof detail === 'string' ? detail : (error.message || "Failed to update status");
+      toast({ variant: "destructive", title: "Error", description: message });
+    },
+  });
+
+  const handleEdit = (user: User) => {
+    setSelectedUser(user);
+    setEditOpen(true);
+  };
+
+  const handleResetPassword = (user: User) => {
+    setSelectedUser(user);
+    setResetPwOpen(true);
+  };
+
+  const handleToggleStatus = (user: User) => {
+    toggleStatusMutation.mutate({ id: user.id, isActive: !user.is_active });
+  };
 
   return (
     <div className="space-y-6">
@@ -42,7 +83,7 @@ export default function UsersPage() {
            <h2 className="text-3xl font-bold tracking-tight text-foreground">User Management</h2>
            <p className="text-muted-foreground">Manage system users and verify roles.</p>
         </div>
-        <Button className="bg-emerald-600 hover:bg-emerald-700">
+        <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => setAddOpen(true)}>
             <UserPlus className="mr-2 h-4 w-4" />
             Add User
         </Button>
@@ -50,8 +91,8 @@ export default function UsersPage() {
 
       <div className="flex gap-2 items-center bg-card p-4 rounded-lg border border-border shadow-sm">
         <div className="relative flex-1 max-w-sm">
-            <Input 
-                placeholder="Search users..." 
+            <Input
+                placeholder="Search users..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full"
@@ -114,9 +155,18 @@ export default function UsersPage() {
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
                                     <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                    <DropdownMenuItem>Edit User</DropdownMenuItem>
-                                    <DropdownMenuItem>Reset Password</DropdownMenuItem>
-                                    <DropdownMenuItem className="text-red-600">Deactivate</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleEdit(user)}>
+                                      Edit User
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleResetPassword(user)}>
+                                      Reset Password
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      className={user.is_active ? "text-red-600" : "text-emerald-600"}
+                                      onClick={() => handleToggleStatus(user)}
+                                    >
+                                      {user.is_active ? 'Deactivate' : 'Activate'}
+                                    </DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         </TableCell>
@@ -149,6 +199,15 @@ export default function UsersPage() {
           Next
         </Button>
       </div>
+
+      {/* Dialogs */}
+      {selectedUser && (
+        <>
+          <EditUserDialog user={selectedUser} open={editOpen} onOpenChange={setEditOpen} />
+          <ResetPasswordDialog user={selectedUser} open={resetPwOpen} onOpenChange={setResetPwOpen} />
+        </>
+      )}
+      <AddUserDialog open={addOpen} onOpenChange={setAddOpen} />
     </div>
   );
 }

@@ -429,6 +429,7 @@ async def create_driver(
             hashed_password=get_password_hash(driver_in.password),
             role="driver",
             is_active=True,
+            phone=getattr(driver_in, 'phone', None),
         )
         db.add(new_user)
         await db.flush()  # Get the user ID

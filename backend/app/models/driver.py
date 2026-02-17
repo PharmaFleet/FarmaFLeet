@@ -16,7 +16,7 @@ class Driver(Base):
     biometric_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     vehicle_info: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     vehicle_type: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # "car" or "motorcycle"
-    is_available: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_available: Mapped[bool] = mapped_column(Boolean, default=False)
     last_online_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Relationships

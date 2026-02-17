@@ -10,6 +10,8 @@ class OrderEntity extends Equatable {
   final DateTime createdAt;
   final DateTime updatedAt;
   final int warehouseId;
+  final String? warehouseName;
+  final String? warehouseCode;
   final DateTime? assignedAt;
   final DateTime? pickedUpAt;
   final DateTime? deliveredAt;
@@ -24,6 +26,8 @@ class OrderEntity extends Equatable {
     required this.createdAt,
     required this.updatedAt,
     required this.warehouseId,
+    this.warehouseName,
+    this.warehouseCode,
     this.assignedAt,
     this.pickedUpAt,
     this.deliveredAt,
@@ -40,6 +44,8 @@ class OrderEntity extends Equatable {
         createdAt,
         updatedAt,
         warehouseId,
+        warehouseName,
+        warehouseCode,
         assignedAt,
         pickedUpAt,
         deliveredAt,

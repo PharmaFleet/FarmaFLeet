@@ -2,8 +2,7 @@ import { api, handlePaginatedResponse } from '@/lib/axios';
 import { User, PaginatedResponse } from '@/types';
 
 export const userService = {
-getAll: async (params?: any): Promise<PaginatedResponse<User>> => {
-    // Backend uses page/size/search
+  getAll: async (params?: any): Promise<PaginatedResponse<User>> => {
     const queryParams = {
       page: params?.page || 1,
       size: params?.limit || 10,
@@ -14,17 +13,20 @@ getAll: async (params?: any): Promise<PaginatedResponse<User>> => {
   },
 
   create: async (data: any): Promise<User> => {
-      const response = await api.post('/users', data);
-      return response.data;
+    const response = await api.post('/users', data);
+    return response.data;
   },
 
   update: async (id: number, data: any): Promise<User> => {
-      const response = await api.put(`/users/${id}`, data);
-      return response.data;
+    const response = await api.put(`/users/${id}`, data);
+    return response.data;
   },
-  
-  // Example for toggling active status
+
   toggleStatus: async (id: number, isActive: boolean) => {
-      return api.patch(`/users/${id}`, { is_active: isActive });
+    return api.put(`/users/${id}`, { is_active: isActive });
+  },
+
+  resetPassword: async (id: number, password: string) => {
+    return api.put(`/users/${id}`, { password });
   }
 };

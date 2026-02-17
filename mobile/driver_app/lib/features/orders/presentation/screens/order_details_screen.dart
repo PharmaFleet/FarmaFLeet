@@ -83,6 +83,8 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
               children: [
                 _buildStatusSection(context, order),
                 SizedBox(height: 16.h),
+                _buildPickupSection(context, order),
+                SizedBox(height: 16.h),
                 _buildCustomerSection(context, order),
                 SizedBox(height: 16.h),
                 _buildOrderItemsSection(context, order),
@@ -135,6 +137,68 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
     );
   }
 
+  Widget _buildPickupSection(BuildContext context, OrderEntity order) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final pickupLabel = order.warehouseCode != null && order.warehouseName != null
+        ? "${order.warehouseCode} - ${order.warehouseName}"
+        : order.warehouseName ?? order.warehouseCode ?? 'N/A';
+
+    return Container(
+      padding: EdgeInsets.all(16.w),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(color: isDark ? AppColors.borderDark : AppColors.borderLight),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "Pickup Location",
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+            ),
+          ),
+          SizedBox(height: 8.h),
+          Row(
+            children: [
+              Icon(Icons.warehouse, color: AppColors.info, size: 20),
+              SizedBox(width: 8.w),
+              Expanded(
+                child: Text(
+                  pickupLabel,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (order.status.toLowerCase() == 'assigned') ...[
+            SizedBox(height: 12.h),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.info,
+                  side: BorderSide(color: AppColors.info.withValues(alpha: 0.5)),
+                ),
+                onPressed: () {
+                  // Open Google Maps to warehouse - uses warehouseId as fallback
+                  final query = Uri.encodeComponent(pickupLabel);
+                  launchUrl(Uri.parse('https://www.google.com/maps/search/?api=1&query=$query'));
+                },
+                icon: const Icon(Icons.directions),
+                label: const Text("Navigate to Pickup"),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget _buildCustomerSection(BuildContext context, OrderEntity order) {
     final customer = order.customerInfo;
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -182,6 +246,10 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
 
   Widget _buildOrderItemsSection(BuildContext context, OrderEntity order) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final status = order.status.toLowerCase();
+    final terminalStatuses = {'cancelled', 'rejected', 'returned'};
+    final isPaymentEditable = !terminalStatuses.contains(status);
+
     return Container(
       padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
@@ -199,7 +267,39 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
             ),
           ),
            SizedBox(height: 12.h),
-           InfoRow(label: "Payment Method", value: order.paymentMethod),
+           isPaymentEditable
+             ? InkWell(
+                 onTap: () => _showPaymentMethodPicker(context, order),
+                 borderRadius: BorderRadius.circular(8.r),
+                 child: Padding(
+                   padding: EdgeInsets.symmetric(vertical: 4.h),
+                   child: Row(
+                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                     children: [
+                       Text(
+                         "Payment Method",
+                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                           color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+                         ),
+                       ),
+                       Row(
+                         children: [
+                           Text(
+                             order.paymentMethod,
+                             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                               color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight,
+                               fontWeight: FontWeight.w600,
+                             ),
+                           ),
+                           SizedBox(width: 4.w),
+                           Icon(Icons.edit, size: 16, color: AppColors.primary),
+                         ],
+                       ),
+                     ],
+                   ),
+                 ),
+               )
+             : InfoRow(label: "Payment Method", value: order.paymentMethod),
            Divider(color: isDark ? AppColors.borderDark : AppColors.borderLight),
            InfoRow(
              label: "Total Amount",
@@ -210,6 +310,98 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen> {
         ],
       ),
     );
+  }
+
+  void _showPaymentMethodPicker(BuildContext context, OrderEntity order) {
+    final methods = ['CASH', 'COD', 'KNET', 'LINK', 'CREDIT_CARD'];
+    final labels = {
+      'CASH': 'Cash',
+      'COD': 'Cash on Delivery',
+      'KNET': 'KNET',
+      'LINK': 'Payment Link',
+      'CREDIT_CARD': 'Credit Card',
+    };
+    final icons = {
+      'CASH': Icons.money,
+      'COD': Icons.local_atm,
+      'KNET': Icons.credit_card,
+      'LINK': Icons.link,
+      'CREDIT_CARD': Icons.credit_score,
+    };
+
+    showModalBottomSheet(
+      context: context,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: EdgeInsets.symmetric(vertical: 16.h),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16.w),
+                  child: Text(
+                    "Select Payment Method",
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                SizedBox(height: 8.h),
+                ...methods.map((method) {
+                  final isSelected = order.paymentMethod.toUpperCase() == method;
+                  return ListTile(
+                    leading: Icon(
+                      icons[method] ?? Icons.payment,
+                      color: isSelected ? AppColors.primary : null,
+                    ),
+                    title: Text(
+                      labels[method] ?? method,
+                      style: TextStyle(
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        color: isSelected ? AppColors.primary : null,
+                      ),
+                    ),
+                    trailing: isSelected
+                        ? const Icon(Icons.check_circle, color: AppColors.primary)
+                        : null,
+                    onTap: () async {
+                      Navigator.pop(sheetContext);
+                      if (!isSelected) {
+                        await _updatePaymentMethod(order, method);
+                      }
+                    },
+                  );
+                }),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _updatePaymentMethod(OrderEntity order, String method) async {
+    try {
+      await di.sl<OrderRepository>().updatePaymentMethod(order.id, method);
+      setState(() {
+        _loadOrder();
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Payment method updated to $method")),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed to update payment method: $e")),
+        );
+      }
+    }
   }
 
   Widget _buildActionButtons(BuildContext context, OrderEntity order) {

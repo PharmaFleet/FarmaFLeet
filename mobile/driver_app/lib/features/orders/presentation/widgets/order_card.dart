@@ -10,6 +10,8 @@ class OrderCard extends StatelessWidget {
   final String status;
   final double amount;
   final String address;
+  final String? warehouseName;
+  final String? warehouseCode;
   final VoidCallback onTap;
 
   const OrderCard({
@@ -20,6 +22,8 @@ class OrderCard extends StatelessWidget {
     required this.status,
     required this.amount,
     required this.address,
+    this.warehouseName,
+    this.warehouseCode,
     required this.onTap,
   });
 
@@ -82,6 +86,16 @@ class OrderCard extends StatelessWidget {
                 ],
               ),
               SizedBox(height: 12.h),
+
+              // Pickup location
+              if (warehouseName != null || warehouseCode != null)
+                InfoRow(
+                  label: "Pickup",
+                  value: warehouseCode != null && warehouseName != null
+                      ? "$warehouseCode - $warehouseName"
+                      : warehouseName ?? warehouseCode ?? '',
+                  valueColor: AppColors.info,
+                ),
 
               // Customer & Address
               InfoRow(label: "Customer", value: customerName, isBold: true),

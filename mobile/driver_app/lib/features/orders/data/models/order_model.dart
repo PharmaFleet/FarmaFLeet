@@ -11,12 +11,16 @@ class OrderModel extends OrderEntity {
     required super.createdAt,
     required super.updatedAt,
     required super.warehouseId,
+    super.warehouseName,
+    super.warehouseCode,
     super.assignedAt,
     super.pickedUpAt,
     super.deliveredAt,
   });
 
   factory OrderModel.fromJson(Map<String, dynamic> json) {
+    final warehouse = json['warehouse'] as Map<String, dynamic>?;
+
     return OrderModel(
       id: json['id'],
       salesOrderNumber: json['sales_order_number'],
@@ -27,6 +31,8 @@ class OrderModel extends OrderEntity {
       createdAt: DateTime.parse(json['created_at']),
       updatedAt: DateTime.parse(json['updated_at']),
       warehouseId: json['warehouse_id'],
+      warehouseName: warehouse?['name'] as String?,
+      warehouseCode: warehouse?['code'] as String?,
       assignedAt: json['assigned_at'] != null
           ? DateTime.parse(json['assigned_at'])
           : null,

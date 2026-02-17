@@ -350,6 +350,8 @@ class _OrderListBuilder extends StatelessWidget {
       status: order.status,
       amount: order.totalAmount,
       address: order.customerInfo['address'] ?? 'No Address',
+      warehouseName: order.warehouseName,
+      warehouseCode: order.warehouseCode,
       onTap: () {
         if (isSelectionMode) {
           onToggleSelection(order.id);

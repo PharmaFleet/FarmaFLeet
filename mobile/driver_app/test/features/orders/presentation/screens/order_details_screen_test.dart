@@ -57,6 +57,9 @@ class MockOrderRepository implements OrderRepository {
     returnOrderCalled = true;
     lastReturnReason = reason;
   }
+
+  @override
+  Future<void> updatePaymentMethod(int id, String method) async {}
 }
 
 Widget buildTestWidget(Widget child) {

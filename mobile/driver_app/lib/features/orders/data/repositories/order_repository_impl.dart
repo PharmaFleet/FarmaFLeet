@@ -166,4 +166,25 @@ class OrderRepositoryImpl implements OrderRepository {
       throw Exception('Failed to return order: $e');
     }
   }
+
+  @override
+  Future<void> updatePaymentMethod(int id, String method) async {
+    debugPrint('[OrderRepo] Updating payment method for order $id to: $method');
+    try {
+      await dio.patch(
+        '/orders/$id/payment-method',
+        data: {'payment_method': method},
+      );
+      debugPrint('[OrderRepo] Payment method updated for order $id');
+    } on DioException catch (e) {
+      debugPrint('[OrderRepo] Update payment DioException: ${e.response?.statusCode} - ${e.message}');
+      if (e.response?.statusCode == 401) {
+        throw Exception('Unauthorized - please login again');
+      }
+      throw Exception('Failed to update payment method: ${e.message}');
+    } catch (e) {
+      debugPrint('[OrderRepo] Update payment Exception: $e');
+      throw Exception('Failed to update payment method: $e');
+    }
+  }
 }

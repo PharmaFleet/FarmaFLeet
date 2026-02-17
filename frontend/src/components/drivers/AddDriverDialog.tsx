@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { driverService } from '@/services/driverService';
+import { warehouseService } from '@/services/warehouseService';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -12,6 +13,13 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
 
 interface AddDriverDialogProps {
@@ -19,41 +27,48 @@ interface AddDriverDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
+const initialState = {
+  full_name: '',
+  email: '',
+  password: '',
+  phone: '',
+  vehicle_info: '',
+  vehicle_type: 'car',
+  biometric_id: '',
+  warehouse_id: '',
+};
+
 export function AddDriverDialog({ open, onOpenChange }: AddDriverDialogProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
-  const [formData, setFormData] = useState({
-      full_name: '',
-      email: '',
-      password: '',
-      vehicle_info: '',
-      vehicle_type: 'car',
-      biometric_id: '',
-      warehouse_id: '1',
-      is_available: true
+
+  const [formData, setFormData] = useState(initialState);
+
+  const { data: warehouses = [] } = useQuery({
+    queryKey: ['warehouses'],
+    queryFn: warehouseService.getAll,
   });
 
-  const handleChange = (field: string, value: string | boolean | number) => {
-      setFormData(prev => ({ ...prev, [field]: value }));
+  const handleChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
   };
 
   const createMutation = useMutation({
     mutationFn: () => {
-      const payload = {
-          full_name: formData.full_name,
-          email: formData.email,
-          password: formData.password,
-          vehicle_info: formData.vehicle_info,
-          vehicle_type: formData.vehicle_type,
-          biometric_id: formData.biometric_id,
-          warehouse_id: parseInt(formData.warehouse_id),
-          is_available: formData.is_available
-      };
-
-      if (!payload.email || !payload.full_name || !payload.password || !payload.vehicle_info) {
-          throw new Error("Missing required fields");
+      if (!formData.email || !formData.full_name || !formData.password || !formData.vehicle_info || !formData.warehouse_id) {
+        throw new Error("Missing required fields");
       }
+
+      const payload: any = {
+        full_name: formData.full_name,
+        email: formData.email,
+        password: formData.password,
+        vehicle_info: formData.vehicle_info,
+        vehicle_type: formData.vehicle_type,
+        biometric_id: formData.biometric_id,
+        warehouse_id: parseInt(formData.warehouse_id),
+      };
+      if (formData.phone) payload.phone = formData.phone;
 
       return driverService.create(payload);
     },
@@ -64,21 +79,12 @@ export function AddDriverDialog({ open, onOpenChange }: AddDriverDialogProps) {
         description: "The driver has been successfully added.",
       });
       onOpenChange(false);
-      setFormData({
-          full_name: '',
-          email: '',
-          password: '',
-          vehicle_info: '',
-          vehicle_type: 'car',
-          biometric_id: '',
-          warehouse_id: '1',
-          is_available: true
-      });
+      setFormData(initialState);
     },
     onError: (error: any) => {
       const detail = error.response?.data?.detail;
       const message = typeof detail === 'string' ? detail : (error.message || "Failed to add driver");
-      
+
       toast({
         variant: "destructive",
         title: "Database Error",
@@ -88,12 +94,12 @@ export function AddDriverDialog({ open, onOpenChange }: AddDriverDialogProps) {
   });
 
   const handleSubmit = (e: React.FormEvent) => {
-      e.preventDefault();
-      createMutation.mutate();
+    e.preventDefault();
+    createMutation.mutate();
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(v) => { if (!v) setFormData(initialState); onOpenChange(v); }}>
       <DialogContent className="sm:max-w-[480px] border-none shadow-2xl rounded-3xl p-0 overflow-hidden bg-card">
         <DialogHeader className="p-8 bg-muted/50 border-b border-border">
           <DialogTitle className="text-2xl font-black text-foreground">Add New Driver</DialogTitle>
@@ -106,9 +112,9 @@ export function AddDriverDialog({ open, onOpenChange }: AddDriverDialogProps) {
             <div className="space-y-4">
                 <div className="space-y-2">
                     <Label htmlFor="full_name" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Full Name</Label>
-                    <Input 
+                    <Input
                         id="full_name"
-                        placeholder="John Doe" 
+                        placeholder="John Doe"
                         value={formData.full_name}
                         onChange={(e) => handleChange('full_name', e.target.value)}
                         className="bg-muted border-border focus:bg-background h-11 rounded-xl"
@@ -119,10 +125,10 @@ export function AddDriverDialog({ open, onOpenChange }: AddDriverDialogProps) {
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                         <Label htmlFor="email" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Email Address</Label>
-                        <Input 
+                        <Input
                             id="email"
                             type="email"
-                            placeholder="driver@example.com" 
+                            placeholder="driver@example.com"
                             value={formData.email}
                             onChange={(e) => handleChange('email', e.target.value)}
                             className="bg-muted border-border focus:bg-background h-11 rounded-xl"
@@ -131,10 +137,10 @@ export function AddDriverDialog({ open, onOpenChange }: AddDriverDialogProps) {
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="password" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Initial Password</Label>
-                        <Input 
+                        <Input
                             id="password"
                             type="password"
-                            placeholder="••••••••" 
+                            placeholder="••••••••"
                             value={formData.password}
                             onChange={(e) => handleChange('password', e.target.value)}
                             className="bg-muted border-border focus:bg-background h-11 rounded-xl"
@@ -142,20 +148,35 @@ export function AddDriverDialog({ open, onOpenChange }: AddDriverDialogProps) {
                         />
                     </div>
                 </div>
+
+                <div className="space-y-2">
+                    <Label htmlFor="phone" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Phone Number</Label>
+                    <Input
+                        id="phone"
+                        type="tel"
+                        placeholder="+965-XXXX-XXXX"
+                        value={formData.phone}
+                        onChange={(e) => handleChange('phone', e.target.value)}
+                        className="bg-muted border-border focus:bg-background h-11 rounded-xl"
+                    />
+                </div>
             </div>
 
             <div className="grid grid-cols-2 gap-6 pt-2 border-t border-border">
                 <div className="space-y-2">
                     <Label htmlFor="wh_id" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Warehouse</Label>
-                    <Input
-                        id="wh_id"
-                        type="number"
-                        placeholder="1"
-                        value={formData.warehouse_id}
-                        onChange={(e) => handleChange('warehouse_id', e.target.value)}
-                        className="bg-muted border-border focus:bg-background h-11 rounded-xl"
-                        required
-                    />
+                    <Select value={formData.warehouse_id} onValueChange={(value) => handleChange('warehouse_id', value)}>
+                      <SelectTrigger className="bg-muted border-border h-11 rounded-xl">
+                        <SelectValue placeholder="Select warehouse" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {warehouses.map((wh: any) => (
+                          <SelectItem key={wh.id} value={wh.id.toString()}>
+                            {wh.name} ({wh.code})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                 </div>
 
                 <div className="space-y-2">
@@ -173,22 +194,22 @@ export function AddDriverDialog({ open, onOpenChange }: AddDriverDialogProps) {
 
             <div className="space-y-2">
                 <Label htmlFor="vehicle_type" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Vehicle Type</Label>
-                <select
-                    id="vehicle_type"
-                    value={formData.vehicle_type}
-                    onChange={(e) => handleChange('vehicle_type', e.target.value)}
-                    className="flex h-11 w-full rounded-xl border border-border bg-muted px-3 py-2 text-sm focus:bg-background focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-                >
-                    <option value="car">Car</option>
-                    <option value="motorcycle">Motorcycle</option>
-                </select>
+                <Select value={formData.vehicle_type} onValueChange={(value) => handleChange('vehicle_type', value)}>
+                  <SelectTrigger className="bg-muted border-border h-11 rounded-xl">
+                    <SelectValue placeholder="Select vehicle type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="car">Car</SelectItem>
+                    <SelectItem value="motorcycle">Motorcycle</SelectItem>
+                  </SelectContent>
+                </Select>
             </div>
-            
+
             <div className="space-y-2">
                 <Label htmlFor="bio_id" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Biometric ID</Label>
-                <Input 
+                <Input
                     id="bio_id"
-                    placeholder="BIO-12345" 
+                    placeholder="BIO-12345"
                     value={formData.biometric_id}
                     onChange={(e) => handleChange('biometric_id', e.target.value)}
                     className="bg-muted border-border focus:bg-background h-11 rounded-xl"

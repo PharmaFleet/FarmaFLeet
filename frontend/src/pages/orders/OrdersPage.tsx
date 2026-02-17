@@ -159,12 +159,13 @@ export default function OrdersPage() {
       isDragging,
     } = useSortable({ id: columnDef.id });
 
-    const style = {
+    const style: React.CSSProperties = {
       transform: isDragging ? CSS.Transform.toString(transform) : undefined,
       transition: isDragging ? transition : undefined,
       width: `${colWidths[columnDef.resizeKey || columnDef.id]}px`,
       opacity: isDragging ? 0.5 : 1,
       zIndex: isDragging ? 20 : undefined,
+      backgroundColor: 'hsl(var(--muted))',
     };
 
     const handleClick = () => {
@@ -179,7 +180,7 @@ export default function OrdersPage() {
     // Special handling for checkbox column (not draggable)
     if (columnDef.id === 'checkbox') {
       return (
-        <TableHead className={cn("relative", stickyClass)} style={{ width: `${colWidths.checkbox}px` }}>
+        <TableHead className={cn("relative", stickyClass)} style={{ width: `${colWidths.checkbox}px`, backgroundColor: 'hsl(var(--muted))' }}>
           <Checkbox
             checked={isAllSelected}
             onCheckedChange={handleSelectAll}
@@ -192,7 +193,7 @@ export default function OrdersPage() {
     // Special handling for actions column (not draggable)
     if (columnDef.id === 'actions') {
       return (
-        <TableHead className={stickyClass} style={{ width: `${colWidths.actions}px` }}></TableHead>
+        <TableHead className={stickyClass} style={{ width: `${colWidths.actions}px`, backgroundColor: 'hsl(var(--muted))' }}></TableHead>
       );
     }
 
@@ -972,7 +973,7 @@ export default function OrdersPage() {
 
         <div className="flex-1 overflow-auto min-h-0 relative isolate">
             <Table style={{ tableLayout: 'fixed' }} noWrapper>
-              <TableHeader className="sticky top-0 z-20 bg-muted">
+              <TableHeader className="sticky top-0 z-20 bg-muted shadow-[0_1px_0_0_hsl(var(--border))]">
                 <DndContext
                   sensors={sensors}
                   collisionDetection={closestCenter}
@@ -982,7 +983,7 @@ export default function OrdersPage() {
                     items={orderedColumns.map(c => c.id)}
                     strategy={horizontalListSortingStrategy}
                   >
-                    <TableRow className="hover:bg-transparent border-b bg-muted">
+                    <TableRow className="border-b bg-muted [&:hover]:bg-muted">
                       {orderedColumns.map((columnDef) => (
                         <SortableTableHead key={columnDef.id} columnDef={columnDef} />
                       ))}

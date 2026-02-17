@@ -1625,6 +1625,63 @@ async def return_order(
     return {"msg": "Order returned successfully"}
 
 
+@router.patch("/{order_id}/payment-method")
+async def update_payment_method(
+    order_id: int,
+    payment_method: str = Body(..., embed=True),
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+) -> Any:
+    """
+    Update the payment method for an order.
+    Allowed for active and delivered orders. Blocked for cancelled/rejected/returned.
+    Drivers can only update orders assigned to them.
+    """
+    valid_methods = {"CASH", "COD", "KNET", "LINK", "CREDIT_CARD"}
+    if payment_method.upper() not in valid_methods:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid payment method. Must be one of: {', '.join(sorted(valid_methods))}",
+        )
+
+    result = await db.execute(
+        select(Order)
+        .where(Order.id == order_id)
+        .options(selectinload(Order.driver))
+    )
+    order = result.scalars().first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    # Block terminal statuses (except delivered)
+    terminal = {OrderStatus.CANCELLED, OrderStatus.REJECTED, OrderStatus.RETURNED}
+    if order.status in terminal:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot change payment method for {order.status} orders",
+        )
+
+    # Drivers can only update their own assigned orders
+    if current_user.role == "driver":
+        driver_result = await db.execute(
+            select(Driver).where(Driver.user_id == current_user.id)
+        )
+        driver = driver_result.scalars().first()
+        if not driver or order.driver_id != driver.id:
+            raise HTTPException(
+                status_code=403,
+                detail="You can only update payment method for orders assigned to you",
+            )
+    else:
+        # Admins/managers: warehouse access check
+        await deps.verify_order_warehouse_access(order.warehouse_id, current_user, db)
+
+    order.payment_method = payment_method.upper()
+    db.add(order)
+    await db.commit()
+    return {"msg": "Payment method updated", "payment_method": order.payment_method}
+
+
 @router.delete("/{order_id}")
 async def delete_order(
     order_id: int,

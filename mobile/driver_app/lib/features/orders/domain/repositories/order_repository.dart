@@ -29,4 +29,7 @@ abstract class OrderRepository {
 
   /// Returns a delivered order with a reason
   Future<void> returnOrder(int id, String reason);
+
+  /// Updates the payment method for an order
+  Future<void> updatePaymentMethod(int id, String method);
 }
