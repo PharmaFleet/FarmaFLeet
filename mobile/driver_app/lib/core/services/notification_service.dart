@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:driver_app/core/di/injection_container.dart' as di;
 import 'package:driver_app/core/services/navigation_service.dart';
@@ -7,12 +8,44 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 /// Background message handler - must be top-level function
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
   debugPrint('Background message: ${message.messageId}');
+
+  // For data-only messages (no notification payload), show a local notification
+  // Messages with a notification payload are auto-displayed by Android
+  if (message.notification == null && message.data.isNotEmpty) {
+    final plugin = FlutterLocalNotificationsPlugin();
+    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const initSettings = InitializationSettings(android: androidSettings);
+    await plugin.initialize(initSettings);
+
+    final title = message.data['title'] ?? 'PharmaFleet';
+    final body = message.data['body'] ?? 'You have a new notification';
+
+    const androidDetails = AndroidNotificationDetails(
+      'pharmafleet_driver',
+      'PharmaFleet Driver Notifications',
+      channelDescription: 'Notifications for driver app',
+      importance: Importance.high,
+      priority: Priority.high,
+      showWhen: true,
+    );
+
+    const details = NotificationDetails(android: androidDetails);
+
+    await plugin.show(
+      DateTime.now().millisecondsSinceEpoch.remainder(100000),
+      title,
+      body,
+      details,
+      payload: jsonEncode(message.data),
+    );
+  }
 }
 
 class NotificationService {
@@ -29,7 +62,13 @@ class NotificationService {
 
   /// Initialize notification service
   Future<void> initialize() async {
-    // Request permission
+    // Request Android 13+ POST_NOTIFICATIONS permission
+    if (Platform.isAndroid) {
+      final status = await Permission.notification.request();
+      debugPrint('Android notification permission: $status');
+    }
+
+    // Request Firebase messaging permission (handles iOS)
     final settings = await _messaging.requestPermission(
       alert: true,
       badge: true,
@@ -45,6 +84,13 @@ class NotificationService {
       await _configureMessageHandlers();
       await getFCMToken();
     }
+
+    // Enable foreground notification display
+    await _messaging.setForegroundNotificationPresentationOptions(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
   }
 
   /// Initialize local notifications for foreground display

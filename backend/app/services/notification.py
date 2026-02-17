@@ -13,6 +13,18 @@ logger = logging.getLogger(__name__)
 
 
 class NotificationService:
+    @staticmethod
+    def _build_android_config():
+        """Build Android-specific FCM config for high-priority delivery."""
+        return messaging.AndroidConfig(
+            priority="high",
+            notification=messaging.AndroidNotification(
+                channel_id="pharmafleet_driver",
+                priority="high",
+                default_sound=True,
+            ),
+        )
+
     def __init__(self):
         # Initialize Firebase App
         try:
@@ -44,6 +56,7 @@ class NotificationService:
                 topic=topic,
                 notification=messaging.Notification(title=title, body=body),
                 data=data or {},
+                android=self._build_android_config(),
             )
             response = messaging.send(message)
             return response
@@ -64,6 +77,7 @@ class NotificationService:
                 token=token,
                 notification=messaging.Notification(title=title, body=body),
                 data=data or {},
+                android=self._build_android_config(),
             )
             response = messaging.send(message)
             return response
@@ -88,6 +102,7 @@ class NotificationService:
                 tokens=tokens,
                 notification=messaging.Notification(title=title, body=body),
                 data=data or {},
+                android=self._build_android_config(),
             )
             response = messaging.send_multicast(message)
             return response

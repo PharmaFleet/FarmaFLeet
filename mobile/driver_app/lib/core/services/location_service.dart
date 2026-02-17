@@ -164,14 +164,20 @@ class LocationService {
     }
   }
 
-  /// Stop location tracking
+  /// Stop location tracking (preserves driver ID for restart)
   Future<void> stopTracking() async {
     if (_positionStreamSubscription != null) {
       _logger.i('Stopping location tracking');
       await _positionStreamSubscription!.cancel();
       _positionStreamSubscription = null;
-      _currentDriverId = null;
     }
+  }
+
+  /// Stop tracking and clear driver ID (used when driver explicitly goes offline)
+  Future<void> stopTrackingAndClear() async {
+    await stopTracking();
+    _currentDriverId = null;
+    _logger.i('Location tracking stopped and driver ID cleared');
   }
 
   /// Handle incoming position update

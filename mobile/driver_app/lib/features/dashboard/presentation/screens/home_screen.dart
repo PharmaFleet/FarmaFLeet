@@ -6,6 +6,9 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/di/injection_container.dart' as di;
+import '../../../../core/services/background_service.dart';
+import '../../../../core/services/location_service.dart';
+import '../../../../core/services/token_storage_service.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../notifications/domain/repositories/notification_repository.dart';
 import '../bloc/dashboard_bloc.dart';
@@ -31,13 +34,14 @@ class DashboardView extends StatefulWidget {
   State<DashboardView> createState() => _DashboardViewState();
 }
 
-class _DashboardViewState extends State<DashboardView> {
+class _DashboardViewState extends State<DashboardView> with WidgetsBindingObserver {
   int _unreadCount = 0;
   Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _fetchUnreadCount();
     // Refresh unread count every 30 seconds
     _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
@@ -47,8 +51,37 @@ class _DashboardViewState extends State<DashboardView> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _refreshTimer?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final bloc = context.read<DashboardBloc>();
+    final currentState = bloc.state;
+
+    if (state == AppLifecycleState.paused) {
+      // App going to background - start background service if online
+      if (currentState.isAvailable && currentState.driverId != null) {
+        debugPrint('[Dashboard] App paused - starting background service');
+        startBackgroundService(currentState.driverId!);
+      }
+    } else if (state == AppLifecycleState.resumed) {
+      // App returning to foreground
+      debugPrint('[Dashboard] App resumed');
+
+      if (currentState.isAvailable && currentState.driverId != null) {
+        // Stop background service, restart foreground tracking
+        stopBackgroundService();
+        final locationService = di.sl<LocationService>();
+        locationService.startTracking(currentState.driverId!);
+        locationService.syncPendingLocations();
+      }
+
+      // Refresh notification count
+      _fetchUnreadCount();
+    }
   }
 
   Future<void> _fetchUnreadCount() async {
@@ -61,6 +94,10 @@ class _DashboardViewState extends State<DashboardView> {
     } catch (_) {
       // Ignore errors - just don't update the count
     }
+  }
+
+  void _handleStatusToggle(BuildContext context, bool val) {
+    context.read<DashboardBloc>().add(DashboardStatusToggled(val));
   }
 
   @override
@@ -171,6 +208,11 @@ class _DashboardViewState extends State<DashboardView> {
               leading: const Icon(Icons.logout),
               title: const Text('Logout'),
               onTap: () {
+                // Clear online status on logout
+                final tokenStorage = di.sl<TokenStorageService>();
+                tokenStorage.clearOnlineStatus();
+                tokenStorage.clearDriverId();
+                stopBackgroundService();
                 context.read<AuthBloc>().add(AuthLogoutRequested());
               },
             ),
@@ -189,7 +231,7 @@ class _DashboardViewState extends State<DashboardView> {
               );
             },
           ),
-          
+
           // Floating Status Toggle
           Positioned(
             bottom: 40.h,
@@ -208,9 +250,7 @@ class _DashboardViewState extends State<DashboardView> {
                   return StatusToggle(
                     isAvailable: state.isAvailable,
                     isLoading: state.status == DriverStatus.loading,
-                    onToggle: (val) {
-                      context.read<DashboardBloc>().add(DashboardStatusToggled(val));
-                    },
+                    onToggle: (val) => _handleStatusToggle(context, val),
                   );
                 },
               ),
