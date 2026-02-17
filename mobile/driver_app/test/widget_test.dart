@@ -55,7 +55,7 @@ void main() {
           'created_at': '2026-01-22T10:00:00Z',
           'updated_at': '2026-01-22T10:00:00Z',
           'warehouse_id': 1,
-          'customer_info': {},
+          'customer_info': <String, dynamic>{},
           'payment_method': 'cash',
         };
         final order = OrderModel.fromJson(json);

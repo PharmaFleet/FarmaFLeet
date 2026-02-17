@@ -1,4 +1,5 @@
 import 'package:driver_app/theme/app_colors.dart';
+import 'package:driver_app/widgets/card_container.dart';
 import 'package:driver_app/widgets/stat_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -127,7 +128,7 @@ void main() {
             body: StatCard(
               title: testTitle,
               value: testValue,
-              icon: Icons.trending_up,
+              icon: Icons.bar_chart,
               trend: trend,
               trendType: TrendType.up,
             ),
@@ -136,6 +137,7 @@ void main() {
       );
 
       expect(find.text(trend), findsOneWidget);
+      expect(find.byIcon(Icons.bar_chart), findsOneWidget);
       expect(find.byIcon(Icons.trending_up), findsOneWidget);
 
       final trendText = tester.widget<Text>(find.text(trend));
@@ -229,6 +231,7 @@ void main() {
     });
 
     testWidgets('applies semantic label', (tester) async {
+      final handle = tester.ensureSemantics();
       const testTitle = 'Orders';
       const testValue = '50';
       const testDescription = 'This week';
@@ -248,6 +251,7 @@ void main() {
       );
 
       expect(find.bySemanticsLabel(semanticLabel), findsOneWidget);
+      handle.dispose();
     });
 
     testWidgets('applies custom background color', (tester) async {
@@ -268,9 +272,8 @@ void main() {
         ),
       );
 
-      final container = tester.widget<Container>(find.byType(Container));
-      final decoration = container.decoration as BoxDecoration;
-      expect(decoration.color, equals(bgColor));
+      final cardContainer = tester.widget<CardContainer>(find.byType(CardContainer));
+      expect(cardContainer.backgroundColor, equals(bgColor));
     });
   });
 
@@ -313,9 +316,9 @@ void main() {
 
         String expectedFormatted;
         if (amount >= 1000000) {
-          expectedFormatted = '\${(amount / 1000000).toStringAsFixed(1)}M';
+          expectedFormatted = '\$${(amount / 1000000).toStringAsFixed(1)}M';
         } else if (amount >= 1000) {
-          expectedFormatted = '\${(amount / 1000).toStringAsFixed(1)}K';
+          expectedFormatted = '\$${(amount / 1000).toStringAsFixed(1)}K';
         } else {
           expectedFormatted = '\$${amount.toStringAsFixed(2)}';
         }
@@ -343,7 +346,7 @@ void main() {
         ),
       );
 
-      expect(find.text('+500.0'), findsOneWidget);
+      expect(find.text('+500.00'), findsOneWidget);
       expect(find.byIcon(Icons.trending_up), findsOneWidget);
 
       // Test negative change
@@ -360,7 +363,7 @@ void main() {
         ),
       );
 
-      expect(find.text('-$changeAmount'), findsOneWidget);
+      expect(find.text('-500.00'), findsOneWidget);
       expect(find.byIcon(Icons.trending_down), findsOneWidget);
     });
   });

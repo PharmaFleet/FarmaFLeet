@@ -261,8 +261,10 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      // Tap Return Order button to open dialog
-      await tester.tap(find.text('Return Order'));
+      // Scroll to make Return Order button visible before tapping
+      final returnButton = find.text('Return Order');
+      await tester.ensureVisible(returnButton);
+      await tester.tap(returnButton);
       await tester.pumpAndSettle();
 
       // Dialog should have title and text field
@@ -297,8 +299,10 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      // Open return dialog
-      await tester.tap(find.text('Return Order'));
+      // Scroll to make Return Order button visible before tapping
+      final returnButton = find.text('Return Order');
+      await tester.ensureVisible(returnButton);
+      await tester.tap(returnButton);
       await tester.pumpAndSettle();
 
       // Type reason

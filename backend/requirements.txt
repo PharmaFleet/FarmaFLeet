@@ -21,3 +21,4 @@ slowapi>=0.1.9
 firebase-admin>=6.2.0
 supabase>=2.4.0
 sentry-sdk[fastapi]>=1.14.0
+aiosqlite>=0.20.0

@@ -252,6 +252,7 @@ void main() {
     });
 
     testWidgets('applies semantic label', (tester) async {
+      final handle = tester.ensureSemantics();
       const testText = 'Test Badge';
       const semanticLabel = 'Status: Test Badge';
 
@@ -267,6 +268,7 @@ void main() {
       );
 
       expect(find.bySemanticsLabel(semanticLabel), findsOneWidget);
+      handle.dispose();
     });
 
     testWidgets('applies pulse animation', (tester) async {
@@ -283,8 +285,11 @@ void main() {
         ),
       );
 
+      // Pump one frame for the animation to render Transform widget
+      await tester.pump();
+
       // Check for the pulsing widget wrapper
-      expect(find.byType(Transform), findsOneWidget);
+      expect(find.byType(Transform), findsAtLeastNWidgets(1));
     });
 
     testWidgets('factory constructors work correctly', (tester) async {

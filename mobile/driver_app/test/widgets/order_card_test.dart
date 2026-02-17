@@ -254,7 +254,7 @@ void main() {
         ),
       );
 
-      await tester.tap(find.byType(OrderCard));
+      await tester.tap(find.text(defaultCustomerName));
       expect(cardTapped, isTrue);
     });
 
@@ -365,6 +365,7 @@ void main() {
     });
 
     testWidgets('applies semantic label', (tester) async {
+      final handle = tester.ensureSemantics();
       const semanticLabel = 'Order Card';
 
       await tester.pumpWidget(
@@ -383,6 +384,7 @@ void main() {
       );
 
       expect(find.bySemanticsLabel(semanticLabel), findsOneWidget);
+      handle.dispose();
     });
 
     testWidgets('shows/hides bottom divider', (tester) async {

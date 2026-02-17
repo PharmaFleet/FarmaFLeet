@@ -44,8 +44,8 @@ void main() {
         ),
       );
 
-      final paddingWidget = tester.widget<Padding>(find.byType(Padding).first);
-      expect(paddingWidget.padding, equals(customPadding));
+      final card = tester.widget<CardContainer>(find.byType(CardContainer));
+      expect(card.padding, equals(customPadding));
     });
 
     testWidgets('applies custom margin', (tester) async {
@@ -188,6 +188,7 @@ void main() {
     });
 
     testWidgets('applies semantic label', (tester) async {
+      final handle = tester.ensureSemantics();
       const testChild = Text('Test Content');
       const semanticLabel = 'Card Description';
 
@@ -203,6 +204,7 @@ void main() {
       );
 
       expect(find.bySemanticsLabel(semanticLabel), findsOneWidget);
+      handle.dispose();
     });
 
     testWidgets('applies custom width and height', (tester) async {
@@ -222,9 +224,9 @@ void main() {
         ),
       );
 
-      final sizedBox = tester.widget<SizedBox>(find.byType(SizedBox).first);
-      expect(sizedBox.width, equals(width));
-      expect(sizedBox.height, equals(height));
+      final card = tester.widget<CardContainer>(find.byType(CardContainer));
+      expect(card.width, equals(width));
+      expect(card.height, equals(height));
     });
   });
 

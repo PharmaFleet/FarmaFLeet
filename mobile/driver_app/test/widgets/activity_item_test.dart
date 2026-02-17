@@ -194,8 +194,14 @@ void main() {
       expect(find.text(testTimestamp), findsOneWidget);
 
       // Compact items should have smaller padding
-      final padding = tester.widget<Padding>(find.byType(Padding).first);
-      expect(padding.padding.vertical, equals(AppSpacing.sm));
+      // EdgeInsets.symmetric(vertical: sm) means top=sm, bottom=sm, so vertical = 2*sm
+      final padding = tester.widget<Padding>(find.descendant(
+        of: find.byType(ActivityItem),
+        matching: find.byType(Padding),
+      ).first);
+      final insets = padding.padding as EdgeInsets;
+      expect(insets.top, equals(AppSpacing.sm));
+      expect(insets.left, equals(AppSpacing.md));
     });
 
     testWidgets('displays trailing widget when provided', (tester) async {
@@ -322,6 +328,7 @@ void main() {
     });
 
     testWidgets('applies semantic label', (tester) async {
+      final handle = tester.ensureSemantics();
       const testTitle = 'Test Activity';
       const testTimestamp = '2 hours ago';
       const testIcon = Icons.notifications;
@@ -341,6 +348,7 @@ void main() {
       );
 
       expect(find.bySemanticsLabel(semanticLabel), findsOneWidget);
+      handle.dispose();
     });
 
     testWidgets('truncates long title text', (tester) async {

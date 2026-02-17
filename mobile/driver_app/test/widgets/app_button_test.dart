@@ -130,10 +130,12 @@ void main() {
         textButton.style?.backgroundColor?.resolve({}),
         equals(Colors.transparent),
       );
-      expect(textButton.style?.side, isNull);
+      // Ghost variant uses BorderSide.none (not null)
+      expect(textButton.style?.side?.resolve({}), equals(BorderSide.none));
 
-      final textWidget = tester.widget<Text>(find.text(testText));
-      expect(textWidget.style?.color, equals(AppColors.textPrimary));
+      // Check foreground color via button style
+      final fgColor = textButton.style?.foregroundColor?.resolve({});
+      expect(fgColor, equals(AppColors.textPrimary));
     });
 
     testWidgets('applies different sizes', (tester) async {
@@ -332,9 +334,9 @@ void main() {
       final textButton = tester.widget<TextButton>(find.byType(TextButton));
       expect(textButton.onPressed, isNull);
 
-      // Should have disabled colors
-      final textWidget = tester.widget<Text>(find.text(testText));
-      expect(textWidget.style?.color, equals(AppColors.textDisabled));
+      // Check disabled foreground color via button style
+      final fgColor = textButton.style?.foregroundColor?.resolve({WidgetState.disabled});
+      expect(fgColor, equals(AppColors.textDisabled));
     });
 
     testWidgets('applies semantic label', (tester) async {

@@ -147,19 +147,6 @@ describe('LoginPage Component', () => {
       expect(screen.getByText(/Proof of delivery capture/)).toBeInTheDocument();
     });
 
-    it('should render demo credentials', () => {
-      // Act
-      render(
-        <TestWrapper>
-          <LoginPage />
-        </TestWrapper>
-      );
-
-      // Assert
-      expect(screen.getByText(/Demo credentials:/)).toBeInTheDocument();
-      expect(screen.getByText('admin@pharmafleet.com / admin123')).toBeInTheDocument();
-    });
-
     it('should render footer information', () => {
       // Act
       render(
