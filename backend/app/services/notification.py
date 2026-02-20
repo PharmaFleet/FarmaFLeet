@@ -67,7 +67,11 @@ class NotificationService:
     async def send_to_token(
         self, token: str, title: str, body: str, data: Optional[Dict[str, Any]] = None
     ):
-        """Send a message to a specific device token."""
+        """Send a message to a specific device token.
+
+        Returns:
+            str: Message ID on success, "INVALID_TOKEN" if token is stale/invalid, None on error.
+        """
         try:
             if not firebase_admin._apps:
                 logger.debug(f"[MOCK FCM] Sending to token {token[:10]}...: {title} - {body}")
@@ -81,8 +85,17 @@ class NotificationService:
             )
             response = messaging.send(message)
             return response
+        except (messaging.UnregisteredError, messaging.SenderIdMismatchError):
+            # Token is permanently invalid - device uninstalled, token rotated, etc.
+            logger.warning(f"[FCM] Invalid token detected (will be cleared): {token[:20]}...")
+            return "INVALID_TOKEN"
         except Exception as e:
             logger.error(f"[FCM Error] send_to_token: {e}")
+            # Check error string for known invalid-token patterns
+            error_str = str(e).lower()
+            if "not found" in error_str or "not registered" in error_str or "invalid registration" in error_str:
+                logger.warning(f"[FCM] Token likely invalid based on error message: {token[:20]}...")
+                return "INVALID_TOKEN"
             return None
 
     async def send_multicast(
@@ -110,6 +123,19 @@ class NotificationService:
             logger.error(f"[FCM Error] send_multicast: {e}")
             return None
 
+    async def _clear_invalid_token(self, db: AsyncSession, user_id: int):
+        """Clear FCM token for a user when it's detected as invalid."""
+        from app.models.user import User
+        from sqlalchemy import select
+
+        result = await db.execute(select(User).where(User.id == user_id))
+        user = result.scalars().first()
+        if user and user.fcm_token:
+            logger.info(f"[FCM] Clearing invalid token for user {user_id}")
+            user.fcm_token = None
+            db.add(user)
+            # Don't commit here - let the caller's commit handle it
+
     async def notify_driver_new_orders(
         self, db: AsyncSession, user_id: int, count: int, token: Optional[str] = None
     ):
@@ -132,9 +158,11 @@ class NotificationService:
         # sometimes we want them even if main tx fails? No, usually not.
 
         if token:
-            await self.send_to_token(
+            result = await self.send_to_token(
                 token, title, body, data={"type": "new_orders", "count": str(count)}
             )
+            if result == "INVALID_TOKEN":
+                await self._clear_invalid_token(db, user_id)
         else:
             logger.info(f"No token for user {user_id}, skipping push notification.")
 
@@ -157,12 +185,14 @@ class NotificationService:
         db.add(notif)
 
         if token:
-            await self.send_to_token(
+            result = await self.send_to_token(
                 token,
                 title,
                 body,
                 data={"type": "order_delivered", "order_id": str(order_id)},
             )
+            if result == "INVALID_TOKEN":
+                await self._clear_invalid_token(db, user_id)
 
     async def notify_driver_payment_collected(
         self,
@@ -193,7 +223,7 @@ class NotificationService:
         db.add(notif)
 
         if token:
-            await self.send_to_token(
+            result = await self.send_to_token(
                 token,
                 title,
                 body,
@@ -203,6 +233,8 @@ class NotificationService:
                     "amount": str(amount),
                 },
             )
+            if result == "INVALID_TOKEN":
+                await self._clear_invalid_token(db, user_id)
 
     async def notify_driver_shift_limit(
         self, driver_id: int, token: Optional[str] = None
@@ -242,7 +274,7 @@ class NotificationService:
         db.add(notif)
 
         if token:
-            await self.send_to_token(
+            result = await self.send_to_token(
                 token,
                 title,
                 body,
@@ -252,6 +284,8 @@ class NotificationService:
                     "order_number": order_number,
                 },
             )
+            if result == "INVALID_TOKEN":
+                await self._clear_invalid_token(db, user_id)
 
     async def notify_driver_order_reassigned(
         self,
@@ -280,7 +314,7 @@ class NotificationService:
         db.add(notif)
 
         if token:
-            await self.send_to_token(
+            result = await self.send_to_token(
                 token,
                 title,
                 body,
@@ -290,6 +324,8 @@ class NotificationService:
                     "order_number": order_number,
                 },
             )
+            if result == "INVALID_TOKEN":
+                await self._clear_invalid_token(db, user_id)
 
     async def notify_admins_order_assigned(
         self,

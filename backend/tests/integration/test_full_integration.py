@@ -191,6 +191,7 @@ class TestMobileBackendIntegration:
         assert response.status_code in [200, 201, 401, 403, 404, 422]
 
 
+@pytest.mark.skip(reason="WebSocket endpoint disabled on Vercel; replaced by HTTP polling")
 class TestRealtimeMapIntegration:
     """Section 7.1.3 - Test Real-time Map (Mobile GPS -> Backend -> Dashboard WebSocket)"""
 

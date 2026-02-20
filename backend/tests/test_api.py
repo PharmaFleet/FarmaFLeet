@@ -7,7 +7,6 @@ from unittest.mock import AsyncMock, patch
 from fastapi.testclient import TestClient
 from app.main import app
 
-client = TestClient(app)
 
 @pytest.fixture(autouse=True)
 def mock_redis():
@@ -18,7 +17,7 @@ def mock_redis():
         mock_client.set.return_value = None
         mock_client.incr.return_value = 1
         mock_client.expire.return_value = True
-        
+
         mock_from_url.return_value = mock_client
         yield mock_client
 
@@ -26,7 +25,7 @@ def mock_redis():
 class TestHealthCheck:
     """Health check endpoint tests"""
 
-    def test_health_check_returns_200(self):
+    def test_health_check_returns_200(self, client):
         """Test that health check endpoint returns 200 OK"""
         response = client.get("/api/v1/utils/health-check")
         assert response.status_code == 200
@@ -36,12 +35,12 @@ class TestHealthCheck:
 class TestAuthEndpoints:
     """Authentication endpoint tests"""
 
-    def test_login_without_credentials_fails(self):
+    def test_login_without_credentials_fails(self, client):
         """Test that login without credentials returns 422"""
         response = client.post("/api/v1/login/access-token")
         assert response.status_code == 422
 
-    def test_login_with_invalid_credentials_fails(self):
+    def test_login_with_invalid_credentials_fails(self, client):
         """Test that login with invalid credentials returns 401"""
         response = client.post(
             "/api/v1/login/access-token",
@@ -54,12 +53,12 @@ class TestAuthEndpoints:
 class TestOrderEndpoints:
     """Order endpoint tests (without authentication)"""
 
-    def test_orders_list_requires_auth(self):
+    def test_orders_list_requires_auth(self, client):
         """Test that orders endpoint requires authentication"""
         response = client.get("/api/v1/orders")
         assert response.status_code == 401
 
-    def test_order_detail_requires_auth(self):
+    def test_order_detail_requires_auth(self, client):
         """Test that order detail endpoint requires authentication"""
         response = client.get("/api/v1/orders/1")
         assert response.status_code == 401
@@ -68,12 +67,12 @@ class TestOrderEndpoints:
 class TestDriverEndpoints:
     """Driver endpoint tests (without authentication)"""
 
-    def test_drivers_list_requires_auth(self):
+    def test_drivers_list_requires_auth(self, client):
         """Test that drivers endpoint requires authentication"""
         response = client.get("/api/v1/drivers")
         assert response.status_code == 401
 
-    def test_driver_location_update_requires_auth(self):
+    def test_driver_location_update_requires_auth(self, client):
         """Test that driver location update requires authentication"""
         response = client.post(
             "/api/v1/drivers/location",
@@ -85,7 +84,7 @@ class TestDriverEndpoints:
 class TestAPIDocumentation:
     """API Documentation tests"""
 
-    def test_openapi_schema_available(self):
+    def test_openapi_schema_available(self, client):
         """Test that OpenAPI schema is available"""
         response = client.get("/api/v1/openapi.json")
         assert response.status_code == 200
@@ -93,12 +92,12 @@ class TestAPIDocumentation:
         assert "openapi" in data
         assert "paths" in data
 
-    def test_swagger_ui_available(self):
+    def test_swagger_ui_available(self, client):
         """Test that Swagger UI is accessible"""
         response = client.get("/docs")
         assert response.status_code == 200
 
-    def test_redoc_available(self):
+    def test_redoc_available(self, client):
         """Test that ReDoc is accessible"""
         response = client.get("/redoc")
         assert response.status_code == 200
@@ -107,7 +106,7 @@ class TestAPIDocumentation:
 class TestCORSHeaders:
     """CORS configuration tests"""
 
-    def test_cors_headers_present(self):
+    def test_cors_headers_present(self, client):
         """Test that CORS headers are present"""
         response = client.options(
             "/api/v1/utils/health-check",
@@ -119,12 +118,12 @@ class TestCORSHeaders:
 class TestResponseFormat:
     """Response format validation tests"""
 
-    def test_health_check_json_format(self):
+    def test_health_check_json_format(self, client):
         """Test health check returns proper JSON format"""
         response = client.get("/api/v1/utils/health-check")
         assert response.headers["content-type"] == "application/json"
 
-    def test_error_responses_have_detail(self):
+    def test_error_responses_have_detail(self, client):
         """Test that error responses contain detail field"""
         response = client.get("/api/v1/orders/99999")
         assert response.status_code == 401

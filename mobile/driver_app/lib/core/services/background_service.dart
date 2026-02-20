@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:uuid/uuid.dart';
@@ -23,6 +24,20 @@ class BackgroundServiceManager {
   /// Initialize the background service
   Future<void> initialize() async {
     if (_isInitialized) return;
+
+    // Create the notification channel for the foreground service
+    // Must exist before startForeground is called (Android 8+ / API 26+)
+    final flnp = FlutterLocalNotificationsPlugin();
+    const channel = AndroidNotificationChannel(
+      'pharmafleet_driver_channel',
+      'PharmaFleet Location Tracking',
+      description: 'Shows when PharmaFleet is tracking your location',
+      importance: Importance.low,
+    );
+    await flnp
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(channel);
 
     await _service.configure(
       androidConfiguration: AndroidConfiguration(
@@ -146,7 +161,7 @@ Future<void> onStart(ServiceInstance service) async {
 }
 
 /// Start location tracking in background
-Future<StreamSubscription<Position>> _startLocationTracking(
+Future<StreamSubscription<Position>?> _startLocationTracking(
   ServiceInstance service,
   String driverId,
   Box<LocationUpdateModel>? locationBox,
@@ -156,55 +171,61 @@ Future<StreamSubscription<Position>> _startLocationTracking(
   // Cancel existing subscription if any
   await existingSubscription?.cancel();
 
-  const locationSettings = LocationSettings(
-    accuracy: LocationAccuracy.high,
-    distanceFilter: 50, // Only update when moved 50 meters
-  );
+  try {
+    const locationSettings = LocationSettings(
+      accuracy: LocationAccuracy.high,
+      distanceFilter: 50, // Only update when moved 50 meters
+    );
 
-  final positionStream = Geolocator.getPositionStream(
-    locationSettings: locationSettings,
-  );
+    final positionStream = Geolocator.getPositionStream(
+      locationSettings: locationSettings,
+    );
 
-  return positionStream.listen(
-    (Position position) async {
-      // Throttle updates to every 30 seconds in background
-      final now = DateTime.now();
-      if (lastUpdateTime != null &&
-          now.difference(lastUpdateTime!).inSeconds < 30) {
-        return;
-      }
-      lastUpdateTime = now;
-
-      debugPrint(
-        '[BackgroundService] Location: ${position.latitude}, ${position.longitude}',
-      );
-
-      // Store location in Hive for later sync
-      if (locationBox != null) {
-        try {
-          final locationUpdate = LocationUpdateModel(
-            id: const Uuid().v4(),
-            driverId: driverId,
-            latitude: position.latitude,
-            longitude: position.longitude,
-            accuracy: position.accuracy,
-            timestamp: DateTime.now(),
-            speed: position.speed > 0 ? position.speed : null,
-            heading: position.heading > 0 ? position.heading : null,
-            synced: false,
-          );
-
-          await locationBox.put(locationUpdate.id, locationUpdate);
-          debugPrint('[BackgroundService] Location stored for sync');
-        } catch (e) {
-          debugPrint('[BackgroundService] Error storing location: $e');
+    return positionStream.listen(
+      (Position position) async {
+        // Throttle updates to every 30 seconds in background
+        final now = DateTime.now();
+        if (lastUpdateTime != null &&
+            now.difference(lastUpdateTime!).inSeconds < 30) {
+          return;
         }
-      }
-    },
-    onError: (error) {
-      debugPrint('[BackgroundService] Location error: $error');
-    },
-  );
+        lastUpdateTime = now;
+
+        debugPrint(
+          '[BackgroundService] Location: ${position.latitude}, ${position.longitude}',
+        );
+
+        // Store location in Hive for later sync
+        if (locationBox != null) {
+          try {
+            final locationUpdate = LocationUpdateModel(
+              id: const Uuid().v4(),
+              driverId: driverId,
+              latitude: position.latitude,
+              longitude: position.longitude,
+              accuracy: position.accuracy,
+              timestamp: DateTime.now(),
+              speed: position.speed > 0 ? position.speed : null,
+              heading: position.heading > 0 ? position.heading : null,
+              synced: false,
+            );
+
+            await locationBox.put(locationUpdate.id, locationUpdate);
+            debugPrint('[BackgroundService] Location stored for sync');
+          } catch (e) {
+            debugPrint('[BackgroundService] Error storing location: $e');
+          }
+        }
+      },
+      onError: (error) {
+        debugPrint('[BackgroundService] Location stream error: $error');
+      },
+      cancelOnError: false, // Keep listening even after transient errors
+    );
+  } catch (e) {
+    debugPrint('[BackgroundService] Failed to start location tracking: $e');
+    return null;
+  }
 }
 
 

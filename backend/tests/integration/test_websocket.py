@@ -4,6 +4,7 @@ import pytest
 class TestWebSocket:
     """Integration tests for WebSocket connections"""
 
+    @pytest.mark.skip(reason="WebSocket endpoint disabled on Vercel; replaced by HTTP polling")
     def test_websocket_location_updates(self, client):
         """Test WebSocket connection for driver location updates."""
         # Use TestClient's websocket_connect
