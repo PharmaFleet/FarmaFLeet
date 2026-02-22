@@ -99,8 +99,8 @@ export default function OrdersPage() {
   type DateRange = 'today' | 'week' | 'month' | 'all';
   const [dateRange, setDateRange] = useState<DateRange>(() => {
     try {
-      return (localStorage.getItem('orders-date-range') as DateRange) || 'today';
-    } catch { return 'today'; }
+      return (localStorage.getItem('orders-date-range') as DateRange) || 'all';
+    } catch { return 'all'; }
   });
 
   const getDateRangeFilters = useCallback((range: DateRange): Record<string, string> => {
