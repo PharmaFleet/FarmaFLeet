@@ -4,7 +4,9 @@ interface ColumnWidths {
   [key: string]: number;
 }
 
-const STORAGE_KEY = 'orders-column-widths';
+function storageKey(userId?: number) {
+  return userId ? `orders-column-widths:user-${userId}` : 'orders-column-widths';
+}
 
 const DEFAULT_WIDTHS: ColumnWidths = {
   checkbox: 50,
@@ -27,9 +29,9 @@ const DEFAULT_WIDTHS: ColumnWidths = {
   actions: 80,
 };
 
-function loadWidths(): ColumnWidths {
+function loadWidths(userId?: number): ColumnWidths {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored = localStorage.getItem(storageKey(userId));
     if (stored) {
       return { ...DEFAULT_WIDTHS, ...JSON.parse(stored) };
     }
@@ -39,16 +41,16 @@ function loadWidths(): ColumnWidths {
   return { ...DEFAULT_WIDTHS };
 }
 
-function saveWidths(widths: ColumnWidths) {
+function saveWidths(widths: ColumnWidths, userId?: number) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(widths));
+    localStorage.setItem(storageKey(userId), JSON.stringify(widths));
   } catch {
     // ignore
   }
 }
 
-export function useColumnResize() {
-  const [widths, setWidths] = useState<ColumnWidths>(loadWidths);
+export function useColumnResize(userId?: number) {
+  const [widths, setWidths] = useState<ColumnWidths>(() => loadWidths(userId));
   const resizingRef = useRef<{ column: string; startX: number; startWidth: number } | null>(null);
 
   const onMouseDown = useCallback((column: string, e: React.MouseEvent) => {
@@ -73,7 +75,7 @@ export function useColumnResize() {
     const onMouseUp = () => {
       if (resizingRef.current) {
         setWidths(prev => {
-          saveWidths(prev);
+          saveWidths(prev, userId);
           return prev;
         });
         resizingRef.current = null;
@@ -88,16 +90,16 @@ export function useColumnResize() {
     document.addEventListener('mouseup', onMouseUp);
     document.body.style.cursor = 'col-resize';
     document.body.style.userSelect = 'none';
-  }, [widths]);
+  }, [widths, userId]);
 
   const resetWidths = useCallback(() => {
     setWidths({ ...DEFAULT_WIDTHS });
     try {
-      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(storageKey(userId));
     } catch {
       // ignore
     }
-  }, []);
+  }, [userId]);
 
   return { widths, onMouseDown, resetWidths, DEFAULT_WIDTHS };
 }

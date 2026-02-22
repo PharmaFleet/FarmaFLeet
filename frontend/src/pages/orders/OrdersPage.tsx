@@ -70,6 +70,7 @@ export default function OrdersPage() {
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const user = useAuthStore((state) => state.user);
+  const userId = user?.id;
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
 
   const [createOpen, setCreateOpen] = useState(false);
@@ -97,9 +98,10 @@ export default function OrdersPage() {
 
   // Date range quick-select
   type DateRange = 'today' | 'week' | 'month' | 'all';
+  const dateRangeKey = userId ? `orders-date-range:user-${userId}` : 'orders-date-range';
   const [dateRange, setDateRange] = useState<DateRange>(() => {
     try {
-      return (localStorage.getItem('orders-date-range') as DateRange) || 'all';
+      return (localStorage.getItem(dateRangeKey) as DateRange) || 'all';
     } catch { return 'all'; }
   });
 
@@ -127,7 +129,7 @@ export default function OrdersPage() {
   const handleDateRangeChange = useCallback((range: DateRange) => {
     setDateRange(range);
     setPage(1);
-    try { localStorage.setItem('orders-date-range', range); } catch { /* ignore */ }
+    try { localStorage.setItem(dateRangeKey, range); } catch { /* ignore */ }
     // Clear manual date filters when using quick-select
     setFilters(f => {
       const next = { ...f };
@@ -152,8 +154,8 @@ export default function OrdersPage() {
     setPage(1);
   };
 
-  const { widths: colWidths, onMouseDown: onColResize } = useColumnResize();
-  const { orderedColumns, reorderColumns, resetColumnOrder, showAllColumns, toggleAllColumns } = useColumnOrder();
+  const { widths: colWidths, onMouseDown: onColResize } = useColumnResize(userId);
+  const { orderedColumns, reorderColumns, resetColumnOrder, showAllColumns, toggleAllColumns } = useColumnOrder(userId);
 
   // DnD sensors for column reordering
   const sensors = useSensors(

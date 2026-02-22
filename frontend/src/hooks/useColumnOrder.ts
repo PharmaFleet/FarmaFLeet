@@ -1,8 +1,5 @@
 import { useState, useCallback } from 'react';
 
-const STORAGE_KEY = 'orders-column-order';
-const VISIBILITY_KEY = 'orders-column-visibility';
-
 export interface ColumnDefinition {
   id: string;
   label: string;
@@ -43,9 +40,13 @@ const DEFAULT_VISIBLE_IDS = new Set([
 // For backward compatibility
 export const DEFAULT_COLUMNS = ALL_COLUMNS;
 
-function loadColumnOrder(): string[] {
+function storageKey(base: string, userId?: number) {
+  return userId ? `${base}:user-${userId}` : base;
+}
+
+function loadColumnOrder(userId?: number): string[] {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored = localStorage.getItem(storageKey('orders-column-order', userId));
     if (stored) {
       const order = JSON.parse(stored);
       const defaultIds = ALL_COLUMNS.map(c => c.id);
@@ -60,17 +61,17 @@ function loadColumnOrder(): string[] {
   return ALL_COLUMNS.map(c => c.id);
 }
 
-function saveColumnOrder(order: string[]) {
+function saveColumnOrder(order: string[], userId?: number) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(order));
+    localStorage.setItem(storageKey('orders-column-order', userId), JSON.stringify(order));
   } catch {
     // ignore
   }
 }
 
-function loadColumnVisibility(): Set<string> {
+function loadColumnVisibility(userId?: number): Set<string> {
   try {
-    const stored = localStorage.getItem(VISIBILITY_KEY);
+    const stored = localStorage.getItem(storageKey('orders-column-visibility', userId));
     if (stored) {
       const ids = JSON.parse(stored);
       if (Array.isArray(ids)) return new Set(ids);
@@ -81,17 +82,17 @@ function loadColumnVisibility(): Set<string> {
   return new Set(DEFAULT_VISIBLE_IDS);
 }
 
-function saveColumnVisibility(visible: Set<string>) {
+function saveColumnVisibility(visible: Set<string>, userId?: number) {
   try {
-    localStorage.setItem(VISIBILITY_KEY, JSON.stringify([...visible]));
+    localStorage.setItem(storageKey('orders-column-visibility', userId), JSON.stringify([...visible]));
   } catch {
     // ignore
   }
 }
 
-export function useColumnOrder() {
-  const [columnOrder, setColumnOrder] = useState<string[]>(loadColumnOrder);
-  const [visibleColumns, setVisibleColumns] = useState<Set<string>>(loadColumnVisibility);
+export function useColumnOrder(userId?: number) {
+  const [columnOrder, setColumnOrder] = useState<string[]>(() => loadColumnOrder(userId));
+  const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => loadColumnVisibility(userId));
 
   const showAllColumns = visibleColumns.size >= ALL_COLUMNS.length;
 
@@ -106,23 +107,23 @@ export function useColumnOrder() {
       newOrder.splice(oldIndex, 1);
       newOrder.splice(newIndex, 0, activeId);
 
-      saveColumnOrder(newOrder);
+      saveColumnOrder(newOrder, userId);
       return newOrder;
     });
-  }, []);
+  }, [userId]);
 
   const toggleAllColumns = useCallback(() => {
     if (showAllColumns) {
       // Reset to defaults
       setVisibleColumns(new Set(DEFAULT_VISIBLE_IDS));
-      saveColumnVisibility(new Set(DEFAULT_VISIBLE_IDS));
+      saveColumnVisibility(new Set(DEFAULT_VISIBLE_IDS), userId);
     } else {
       // Show all
       const all = new Set(ALL_COLUMNS.map(c => c.id));
       setVisibleColumns(all);
-      saveColumnVisibility(all);
+      saveColumnVisibility(all, userId);
     }
-  }, [showAllColumns]);
+  }, [showAllColumns, userId]);
 
   const toggleColumn = useCallback((columnId: string) => {
     setVisibleColumns(prev => {
@@ -132,22 +133,22 @@ export function useColumnOrder() {
       } else {
         next.add(columnId);
       }
-      saveColumnVisibility(next);
+      saveColumnVisibility(next, userId);
       return next;
     });
-  }, []);
+  }, [userId]);
 
   const resetColumnOrder = useCallback(() => {
     const defaultOrder = ALL_COLUMNS.map(c => c.id);
     setColumnOrder(defaultOrder);
     setVisibleColumns(new Set(DEFAULT_VISIBLE_IDS));
     try {
-      localStorage.removeItem(STORAGE_KEY);
-      localStorage.removeItem(VISIBILITY_KEY);
+      localStorage.removeItem(storageKey('orders-column-order', userId));
+      localStorage.removeItem(storageKey('orders-column-visibility', userId));
     } catch {
       // ignore
     }
-  }, []);
+  }, [userId]);
 
   const orderedColumns = columnOrder
     .filter(id => visibleColumns.has(id))
