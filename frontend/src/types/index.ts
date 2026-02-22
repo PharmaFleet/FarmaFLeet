@@ -102,9 +102,31 @@ export interface PaginatedResponse<T> {
 
 export interface AnalyticsMetrics {
   total_orders_today: number;
+  unassigned_today: number;
   active_drivers: number;
   pending_payments_amount: number;
   pending_payments_count: number;
   total_deliveries_all_time: number;
   success_rate: number;
+  all_time_success_rate: number;
+}
+
+export interface DailyOrderData {
+  date: string;
+  total: number;
+  delivered: number;
+  pending: number;
+}
+
+export interface DriverPerformanceData {
+  driver_id: number;
+  total_orders: number;
+  delivered_orders: number;
+  failed_orders: number;
+  success_rate: number;
+}
+
+export interface WarehouseOrderData {
+  warehouse: string;
+  orders: number;
 }

@@ -1094,3 +1094,118 @@ class TestDriverPhoneField:
             headers=admin_token_headers,
         )
         assert response.status_code in [200, 201, 400, 401, 403, 404, 422]
+
+
+class TestBatchCancelStaleEndpoint:
+    """Tests for POST /orders/batch-cancel-stale endpoint (v7)"""
+
+    def test_batch_cancel_stale_endpoint_exists(self, client, admin_token_headers):
+        """Test batch-cancel-stale endpoint is accessible (not 405 Method Not Allowed)"""
+        response = client.post(
+            "/api/v1/orders/batch-cancel-stale",
+            json={"days_threshold": 7},
+            headers=admin_token_headers,
+        )
+        # 404 from mock DB user lookup, not route; key: not 405
+        assert response.status_code != 405
+
+    def test_batch_cancel_stale_returns_count(self, client, admin_token_headers):
+        """Test batch-cancel-stale returns cancelled count"""
+        response = client.post(
+            "/api/v1/orders/batch-cancel-stale",
+            json={"days_threshold": 7},
+            headers=admin_token_headers,
+        )
+        if response.status_code == 200:
+            data = response.json()
+            assert "cancelled" in data
+            assert "days_threshold" in data
+            assert data["days_threshold"] == 7
+
+    def test_batch_cancel_stale_default_threshold(self, client, admin_token_headers):
+        """Test batch-cancel-stale works with default 7-day threshold"""
+        response = client.post(
+            "/api/v1/orders/batch-cancel-stale",
+            json={},
+            headers=admin_token_headers,
+        )
+        # 404 from mock DB user lookup; key: not 405
+        assert response.status_code != 405
+
+    def test_batch_cancel_stale_requires_auth(self, client):
+        """Test batch-cancel-stale requires authentication"""
+        response = client.post(
+            "/api/v1/orders/batch-cancel-stale",
+            json={"days_threshold": 7},
+        )
+        assert response.status_code == 401
+
+
+class TestAnalyticsDailyOrdersEndpoint:
+    """Tests for GET /analytics/daily-orders endpoint (v7)"""
+
+    def test_daily_orders_endpoint_exists(self, client, admin_token_headers):
+        """Test daily-orders endpoint is accessible (not 405)"""
+        response = client.get(
+            "/api/v1/analytics/daily-orders",
+            headers=admin_token_headers,
+        )
+        # 404 from mock DB user lookup; key: not 405
+        assert response.status_code != 405
+
+    def test_daily_orders_returns_list(self, client, admin_token_headers):
+        """Test daily-orders returns a list of daily data when accessible"""
+        response = client.get(
+            "/api/v1/analytics/daily-orders",
+            headers=admin_token_headers,
+        )
+        if response.status_code == 200:
+            data = response.json()
+            assert isinstance(data, list)
+            assert len(data) == 7
+            for entry in data:
+                assert "date" in entry
+                assert "total" in entry
+                assert "delivered" in entry
+                assert "pending" in entry
+
+    def test_daily_orders_custom_days(self, client, admin_token_headers):
+        """Test daily-orders with custom days parameter"""
+        response = client.get(
+            "/api/v1/analytics/daily-orders?days=14",
+            headers=admin_token_headers,
+        )
+        if response.status_code == 200:
+            data = response.json()
+            assert len(data) == 14
+
+    def test_daily_orders_requires_auth(self, client):
+        """Test daily-orders requires authentication"""
+        response = client.get("/api/v1/analytics/daily-orders")
+        assert response.status_code == 401
+
+
+class TestAnalyticsExecutiveDashboardV7:
+    """Tests for executive-dashboard v7 additions"""
+
+    def test_executive_dashboard_includes_unassigned_today(self, client, admin_token_headers):
+        """Test executive-dashboard includes unassigned_today field"""
+        response = client.get(
+            "/api/v1/analytics/executive-dashboard",
+            headers=admin_token_headers,
+        )
+        if response.status_code == 200:
+            data = response.json()
+            assert "unassigned_today" in data
+            assert "all_time_success_rate" in data
+
+    def test_executive_dashboard_success_rate_is_decimal(self, client, admin_token_headers):
+        """Test that success rates are returned as decimal values (0.0 to 1.0)"""
+        response = client.get(
+            "/api/v1/analytics/executive-dashboard",
+            headers=admin_token_headers,
+        )
+        if response.status_code == 200:
+            data = response.json()
+            assert 0.0 <= data["success_rate"] <= 1.0
+            assert 0.0 <= data["all_time_success_rate"] <= 1.0

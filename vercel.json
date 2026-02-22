@@ -30,6 +30,14 @@
     {
       "path": "/api/v1/cron/cleanup-old-locations",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/v1/cron/auto-expire-stale",
+      "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/v1/cron/check-driver-shifts",
+      "schedule": "0 * * * *"
     }
   ]
 }

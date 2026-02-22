@@ -1,7 +1,8 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { orderService } from '@/services/orderService';
 import { warehouseService, type Warehouse } from '@/services/warehouseService';
+import { analyticsService } from '@/services/analyticsService';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { useColumnResize } from '@/hooks/useColumnResize';
 import { useColumnOrder, type ColumnDefinition } from '@/hooks/useColumnOrder';
@@ -33,7 +34,7 @@ import { BatchDeleteDialog } from '@/components/orders/BatchDeleteDialog';
 import { CancelOrderDialog } from '@/components/orders/CancelOrderDialog';
 import { ReturnOrderDialog } from '@/components/orders/ReturnOrderDialog';
 import { BatchReturnDialog } from '@/components/orders/BatchReturnDialog';
-import { MoreHorizontal, Plus, Download, Truck, Search, AlertOctagon, Users, XCircle, Trash2, ChevronDown, Filter, X, RotateCcw, GripVertical } from 'lucide-react';
+import { MoreHorizontal, Plus, Download, Truck, Search, AlertOctagon, Users, XCircle, Trash2, ChevronDown, Filter, X, RotateCcw, GripVertical, Clock, Columns, AlertTriangle } from 'lucide-react';
 import { OrderStatus } from '@/types';
 import { useToast } from '@/components/ui/use-toast';
 import { format } from 'date-fns';
@@ -61,7 +62,7 @@ const PAGE_SIZE_OPTIONS = [10, 50, 100, 1000] as const;
 export default function OrdersPage() {
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState<number>(10);
+  const [pageSize, setPageSize] = useState<number>(50);
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search, 300);
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'ALL'>('ALL');
@@ -94,6 +95,53 @@ export default function OrdersPage() {
   const debouncedFilters = useDebouncedValue(filters, 500);
   const activeFilterCount = Object.values(filters).filter(v => v.trim()).length;
 
+  // Date range quick-select
+  type DateRange = 'today' | 'week' | 'month' | 'all';
+  const [dateRange, setDateRange] = useState<DateRange>(() => {
+    try {
+      return (localStorage.getItem('orders-date-range') as DateRange) || 'today';
+    } catch { return 'today'; }
+  });
+
+  const getDateRangeFilters = useCallback((range: DateRange): Record<string, string> => {
+    const now = new Date();
+    const toDateStr = (d: Date) => d.toISOString().split('T')[0];
+    switch (range) {
+      case 'today':
+        return { date_from: toDateStr(now), date_field: 'created_at' };
+      case 'week': {
+        const weekAgo = new Date(now);
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        return { date_from: toDateStr(weekAgo), date_field: 'created_at' };
+      }
+      case 'month': {
+        const monthAgo = new Date(now);
+        monthAgo.setDate(monthAgo.getDate() - 30);
+        return { date_from: toDateStr(monthAgo), date_field: 'created_at' };
+      }
+      case 'all':
+        return {};
+    }
+  }, []);
+
+  const handleDateRangeChange = useCallback((range: DateRange) => {
+    setDateRange(range);
+    setPage(1);
+    try { localStorage.setItem('orders-date-range', range); } catch { /* ignore */ }
+    // Clear manual date filters when using quick-select
+    setFilters(f => {
+      const next = { ...f };
+      delete next.date_from;
+      delete next.date_to;
+      delete next.date_field;
+      return next;
+    });
+  }, []);
+
+  // Cancel stale orders dialog
+  const [cancelStaleOpen, setCancelStaleOpen] = useState(false);
+  const [cancelStaleLoading, setCancelStaleLoading] = useState(false);
+
   const handleSort = (column: string) => {
     if (sortBy === column) {
       setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
@@ -105,7 +153,7 @@ export default function OrdersPage() {
   };
 
   const { widths: colWidths, onMouseDown: onColResize } = useColumnResize();
-  const { orderedColumns, reorderColumns, resetColumnOrder } = useColumnOrder();
+  const { orderedColumns, reorderColumns, resetColumnOrder, showAllColumns, toggleAllColumns } = useColumnOrder();
 
   // DnD sensors for column reordering
   const sensors = useSensors(
@@ -409,8 +457,13 @@ export default function OrdersPage() {
     }
   };
 
+  // Merge date range quick-select with manual filters (manual overrides quick-select)
+  const effectiveDateFilters = filters.date_from || filters.date_to
+    ? {} // Manual date filters take precedence, they're already in debouncedFilters
+    : getDateRangeFilters(dateRange);
+
   const { data, isLoading } = useQuery({
-    queryKey: ['orders', page, pageSize, debouncedSearch, statusFilter, showArchived, sortBy, sortOrder, debouncedFilters],
+    queryKey: ['orders', page, pageSize, debouncedSearch, statusFilter, showArchived, sortBy, sortOrder, debouncedFilters, dateRange],
     queryFn: () => orderService.getAll({
         page,
         limit: pageSize,
@@ -419,6 +472,7 @@ export default function OrdersPage() {
         include_archived: showArchived,
         sort_by: sortBy,
         sort_order: sortOrder,
+        ...effectiveDateFilters,
         ...Object.fromEntries(
             Object.entries(debouncedFilters).filter(([_, v]) => v.trim())
         ),
@@ -499,9 +553,16 @@ export default function OrdersPage() {
       const created = data?.created ?? 0;
       const errors = data?.errors ?? [];
       if (created > 0 && errors.length === 0) {
-        toast({ title: `${created} orders imported successfully` });
+        toast({
+          title: `${created} orders imported successfully`,
+          description: "Showing today's orders. Use date filter to view more.",
+        });
+        // Switch to today's view to see the new orders
+        handleDateRangeChange('today');
+        setStatusFilter('ALL');
       } else if (created > 0 && errors.length > 0) {
-        toast({ title: `${created} orders imported`, description: `${errors.length} rows had errors`, variant: "default" });
+        toast({ title: `${created} orders imported`, description: `${errors.length} rows had errors. Showing today's orders.`, variant: "default" });
+        handleDateRangeChange('today');
       } else if (created === 0 && errors.length > 0) {
         const sample = errors.slice(0, 3).map((e: any) => `Row ${e.row}: ${e.error}`).join('; ');
         toast({ title: "No orders imported", description: `${errors.length} errors. ${sample}`, variant: "destructive" });
@@ -518,6 +579,20 @@ export default function OrdersPage() {
   });
 
   // Handlers
+  const handleCancelStale = async () => {
+    setCancelStaleLoading(true);
+    try {
+      const result = await analyticsService.batchCancelStale(7);
+      toast({ title: `${result.cancelled} stale orders cancelled`, description: result.message });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      setCancelStaleOpen(false);
+    } catch (error: any) {
+      toast({ title: "Failed to cancel stale orders", description: error?.response?.data?.detail || "Unknown error", variant: "destructive" });
+    } finally {
+      setCancelStaleLoading(false);
+    }
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       importMutation.mutate(e.target.files[0]);
@@ -827,6 +902,58 @@ export default function OrdersPage() {
             >
               {showArchived ? "📦 Showing Archived" : "📦 View Archive"}
             </Button>
+            <Button
+              variant={showAllColumns ? "default" : "outline"}
+              size="sm"
+              onClick={toggleAllColumns}
+              className={cn(
+                "transition-all",
+                showAllColumns
+                  ? "bg-violet-500 hover:bg-violet-600 text-white"
+                  : "border-border hover:border-violet-300 hover:bg-violet-50 dark:hover:bg-violet-950"
+              )}
+            >
+              <Columns className="mr-1.5 h-3.5 w-3.5" />
+              {showAllColumns ? "Essential Columns" : "All Columns"}
+            </Button>
+            {(dateRange === 'all' || dateRange === 'month') && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCancelStaleOpen(true)}
+                className="border-rose-300 text-rose-600 hover:bg-rose-50 hover:border-rose-400"
+              >
+                <AlertTriangle className="mr-1.5 h-3.5 w-3.5" />
+                Cancel Stale
+              </Button>
+            )}
+        </div>
+
+        {/* Date Range Quick-Select */}
+        <div className="flex items-center gap-1 px-6 py-2 bg-muted/30 border-b border-border shrink-0">
+          <Clock className="h-3.5 w-3.5 text-muted-foreground mr-1" />
+          <span className="text-xs text-muted-foreground mr-2">Show:</span>
+          {([
+            { key: 'today' as DateRange, label: 'Today' },
+            { key: 'week' as DateRange, label: 'This Week' },
+            { key: 'month' as DateRange, label: 'This Month' },
+            { key: 'all' as DateRange, label: 'All Time' },
+          ]).map(({ key, label }) => (
+            <Button
+              key={key}
+              variant={dateRange === key ? "default" : "ghost"}
+              size="sm"
+              className={cn(
+                "h-7 px-3 text-xs",
+                dateRange === key
+                  ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+              onClick={() => handleDateRangeChange(key)}
+            >
+              {label}
+            </Button>
+          ))}
         </div>
 
         {/* Advanced Filters */}
@@ -1083,6 +1210,39 @@ export default function OrdersPage() {
             </div>
         </div>
       </div>
+
+      {/* Cancel Stale Orders Confirmation Dialog */}
+      {cancelStaleOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-card rounded-2xl border border-border shadow-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-10 w-10 rounded-full bg-rose-100 flex items-center justify-center">
+                <AlertTriangle className="h-5 w-5 text-rose-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-foreground">Cancel Stale Orders</h3>
+                <p className="text-sm text-muted-foreground">This action cannot be undone</p>
+              </div>
+            </div>
+            <p className="text-sm text-muted-foreground mb-6">
+              This will cancel all <strong>pending</strong> orders that are older than 7 days.
+              Assigned orders with active drivers will not be affected.
+            </p>
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setCancelStaleOpen(false)} disabled={cancelStaleLoading}>
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleCancelStale}
+                disabled={cancelStaleLoading}
+              >
+                {cancelStaleLoading ? 'Cancelling...' : 'Yes, Cancel Stale Orders'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

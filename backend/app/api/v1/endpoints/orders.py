@@ -1042,6 +1042,68 @@ async def batch_return_orders(
     return {"returned": returned_count, "errors": errors}
 
 
+class BatchCancelStaleRequest(BaseModel):
+    days_threshold: int = 7
+
+
+@router.post("/batch-cancel-stale")
+async def batch_cancel_stale_orders(
+    request: BatchCancelStaleRequest = BatchCancelStaleRequest(),
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_manager_or_above),
+) -> Dict[str, Any]:
+    """
+    Cancel all stale pending orders older than the specified threshold.
+    Only cancels orders with status 'pending' (not assigned, which have a driver working them).
+    Manager or above access required.
+    """
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(days=request.days_threshold)
+
+    warehouse_ids = await deps.get_user_warehouse_ids(current_user, db)
+
+    stmt = (
+        select(Order)
+        .where(
+            Order.status == OrderStatus.PENDING,
+            Order.is_archived.is_(False),
+            Order.created_at < cutoff,
+        )
+    )
+    if warehouse_ids is not None:
+        stmt = stmt.where(Order.warehouse_id.in_(warehouse_ids))
+
+    result = await db.execute(stmt)
+    stale_orders = result.scalars().all()
+
+    cancelled_count = 0
+    for order in stale_orders:
+        order.status = OrderStatus.CANCELLED
+        order.notes = (order.notes + " | " if order.notes else "") + \
+            f"Bulk cancelled: stale order ({request.days_threshold}+ days pending)"
+        db.add(order)
+
+        history = OrderStatusHistory(
+            order_id=order.id,
+            status=OrderStatus.CANCELLED,
+            notes=f"Bulk cancelled by {current_user.email}: stale order ({request.days_threshold}+ days pending)",
+            timestamp=now,
+        )
+        db.add(history)
+        cancelled_count += 1
+
+    await db.commit()
+
+    logger.info(
+        f"Batch cancel stale: {cancelled_count} orders cancelled by {current_user.email}"
+    )
+    return {
+        "cancelled": cancelled_count,
+        "days_threshold": request.days_threshold,
+        "message": f"Cancelled {cancelled_count} stale pending orders older than {request.days_threshold} days",
+    }
+
+
 # ==========================================
 # ORDER-SPECIFIC ROUTES (with /{order_id})
 # ==========================================

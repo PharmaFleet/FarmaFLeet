@@ -1,7 +1,8 @@
+from datetime import datetime, time, timezone, timedelta
 from typing import Any, Dict, List
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, case, desc
+from sqlalchemy import select, func, case, desc, cast, Date
 from sqlalchemy.orm import selectinload
 
 from app.api import deps
@@ -156,11 +157,9 @@ async def executive_dashboard(
     """
     Get executive high-level metrics.
     """
-    # Total Active Orders (Today's Pending/In-Transit)
-    from datetime import datetime, time, timezone
-
     today_start = datetime.combine(datetime.now(timezone.utc).date(), time.min)
 
+    # Active Orders (all non-archived pending/assigned/out_for_delivery)
     active_orders = await db.scalar(
         select(func.count(Order.id)).where(
             Order.status.in_(
@@ -173,12 +172,20 @@ async def executive_dashboard(
         )
     )
 
+    # Unassigned orders today (pending + created today)
+    unassigned_today = await db.scalar(
+        select(func.count(Order.id)).where(
+            Order.status == OrderStatus.PENDING,
+            Order.created_at >= today_start,
+        )
+    )
+
     # Active Drivers
     online_drivers = await db.scalar(
         select(func.count(Driver.id)).where(Driver.is_available)
     )
 
-    # Revenue & Success Rate (Today's)
+    # Today's delivered count & revenue
     delivered_query = select(
         func.count(Order.id).label("count"),
         func.sum(Order.total_amount).label("revenue"),
@@ -190,6 +197,17 @@ async def executive_dashboard(
         select(func.count(Order.id)).where(Order.created_at >= today_start)
     )
 
+    # All-time success rate (delivered / total non-archived)
+    total_all = await db.scalar(
+        select(func.count(Order.id)).where(Order.is_archived.is_(False))
+    )
+    delivered_all = await db.scalar(
+        select(func.count(Order.id)).where(
+            Order.status == OrderStatus.DELIVERED,
+            Order.is_archived.is_(False),
+        )
+    )
+
     # Payments
     pay_query = select(
         func.count(PaymentCollection.id).label("count"),
@@ -198,17 +216,23 @@ async def executive_dashboard(
     pay_res = await db.execute(pay_query)
     pay_data = pay_res.one()
 
-    # Success rate
-    rate = (
-        (delivered_data.count / total_today) if total_today and total_today > 0 else 1.0
+    # Today's success rate
+    today_rate = (
+        (delivered_data.count / total_today) if total_today and total_today > 0 else 0.0
+    )
+    # All-time success rate
+    all_time_rate = (
+        (delivered_all / total_all) if total_all and total_all > 0 else 0.0
     )
 
     return {
         "total_orders_today": active_orders or 0,
+        "unassigned_today": unassigned_today or 0,
         "active_drivers": online_drivers or 0,
         "pending_payments_amount": float(pay_data.amount or 0.0),
         "pending_payments_count": pay_data.count or 0,
-        "success_rate": round(rate, 4),
+        "success_rate": round(today_rate, 4),
+        "all_time_success_rate": round(all_time_rate, 4),
         "system_health": "Healthy",
     }
 
@@ -219,8 +243,6 @@ async def orders_today(
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Dict[str, int]:
     """Get total orders created today."""
-    from datetime import datetime, time, timezone
-
     today_start = datetime.combine(datetime.now(timezone.utc).date(), time.min)
     count = await db.scalar(
         select(func.count(Order.id)).where(Order.created_at >= today_start)
@@ -244,8 +266,6 @@ async def success_rate(
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Dict[str, float]:
     """Get today's delivery success rate."""
-    from datetime import datetime, time, timezone
-
     today_start = datetime.combine(datetime.now(timezone.utc).date(), time.min)
 
     total = await db.scalar(
@@ -325,5 +345,55 @@ async def orders_by_warehouse(
     return [{"warehouse": row.name, "orders": row.count} for row in result]
 
 
-# No changes needed if all routes are specific like /dashboard, /driver-performance, etc.
-# But I will check if there's any @router.get("/")
+@router.get("/daily-orders")
+async def daily_orders(
+    db: AsyncSession = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+    days: int = 7,
+) -> List[Dict[str, Any]]:
+    """
+    Get daily order counts for the last N days (default 7).
+    Returns date, total, delivered, and pending counts per day.
+    """
+    now = datetime.now(timezone.utc)
+    start_date = (now - timedelta(days=days - 1)).date()
+
+    # Get counts grouped by date
+    date_col = func.date(Order.created_at)
+    query = (
+        select(
+            date_col.label("date"),
+            func.count(Order.id).label("total"),
+            func.sum(case((Order.status == OrderStatus.DELIVERED, 1), else_=0)).label("delivered"),
+            func.sum(case((Order.status == OrderStatus.PENDING, 1), else_=0)).label("pending"),
+        )
+        .where(Order.created_at >= datetime.combine(start_date, time.min))
+        .group_by(date_col)
+        .order_by(date_col)
+    )
+
+    result = await db.execute(query)
+    rows = result.all()
+
+    # Build a dict for quick lookup
+    data_map = {}
+    for row in rows:
+        date_str = str(row.date)
+        data_map[date_str] = {
+            "date": date_str,
+            "total": row.total or 0,
+            "delivered": row.delivered or 0,
+            "pending": row.pending or 0,
+        }
+
+    # Fill in missing days with zeros
+    daily = []
+    for i in range(days):
+        d = start_date + timedelta(days=i)
+        date_str = str(d)
+        if date_str in data_map:
+            daily.append(data_map[date_str])
+        else:
+            daily.append({"date": date_str, "total": 0, "delivered": 0, "pending": 0})
+
+    return daily

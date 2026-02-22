@@ -1,26 +1,29 @@
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Activity, CreditCard, Package, Truck } from 'lucide-react';
+import { Activity, CreditCard, Package, Truck, AlertCircle } from 'lucide-react';
 import { analyticsService } from '@/services/analyticsService';
 import { Skeleton } from '@/components/ui/skeleton';
 import { MiniMapView } from '@/components/dashboard/MiniMapView';
 import { RecentActivity } from '@/components/dashboard/RecentActivity';
+import { useNavigate } from 'react-router-dom';
 
 export default function DashboardHome() {
+  const navigate = useNavigate();
   const { data: metrics, isLoading, isError } = useQuery({
     queryKey: ['dashboard-metrics'],
     queryFn: analyticsService.getDashboardMetrics,
-    refetchInterval: 30000, // Auto-refresh every 30s
+    refetchInterval: 30000,
   });
 
   const stats = [
     {
       title: "Active Orders",
       value: metrics?.total_orders_today ?? 0,
-      description: "Orders for today",
+      description: `${metrics?.unassigned_today ?? 0} unassigned today`,
       icon: Package,
       color: "text-blue-500",
-      bg: "bg-blue-500/10"
+      bg: "bg-blue-500/10",
+      onClick: () => navigate('/#/orders'),
     },
     {
       title: "Active Drivers",
@@ -28,23 +31,26 @@ export default function DashboardHome() {
       description: "Currently Online",
       icon: Truck,
       color: "text-emerald-500",
-      bg: "bg-emerald-500/10"
+      bg: "bg-emerald-500/10",
+      onClick: () => navigate('/#/drivers'),
     },
     {
       title: "Pending Payments",
-      value: `KWD ${metrics?.pending_payments_amount ?? 0}`,
+      value: `KWD ${(metrics?.pending_payments_amount ?? 0).toFixed(3)}`,
       description: `${metrics?.pending_payments_count ?? 0} transactions`,
       icon: CreditCard,
       color: "text-amber-500",
-      bg: "bg-amber-500/10"
+      bg: "bg-amber-500/10",
+      onClick: () => navigate('/#/payments'),
     },
     {
       title: "Success Rate",
       value: `${((metrics?.success_rate ?? 0) * 100).toFixed(1)}%`,
-      description: "All time",
+      description: `Today | ${((metrics?.all_time_success_rate ?? 0) * 100).toFixed(1)}% all-time`,
       icon: Activity,
       color: "text-purple-500",
-      bg: "bg-purple-500/10"
+      bg: "bg-purple-500/10",
+      onClick: () => navigate('/#/analytics'),
     }
   ];
 
@@ -59,10 +65,30 @@ export default function DashboardHome() {
         <p className="text-muted-foreground mt-1">Overview of today's delivery operations and fleet performance.</p>
       </div>
 
+      {/* Unassigned Alert */}
+      {metrics && (metrics.unassigned_today ?? 0) > 0 && (
+        <div
+          className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-4 flex items-center gap-3 cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-950/50 transition-colors"
+          onClick={() => navigate('/#/orders')}
+        >
+          <AlertCircle className="h-5 w-5 text-amber-600 shrink-0" />
+          <div>
+            <p className="font-semibold text-amber-900 dark:text-amber-200">
+              {metrics.unassigned_today} unassigned orders today
+            </p>
+            <p className="text-sm text-amber-700 dark:text-amber-400">Click to view and assign pending orders</p>
+          </div>
+        </div>
+      )}
+
       {/* Stats Grid */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => (
-          <Card key={stat.title} className="border-none shadow-sm bg-card rounded-2xl overflow-hidden group hover:shadow-md transition-shadow duration-300">
+          <Card
+            key={stat.title}
+            className="border-none shadow-sm bg-card rounded-2xl overflow-hidden group hover:shadow-md transition-shadow duration-300 cursor-pointer"
+            onClick={stat.onClick}
+          >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
               <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 {stat.title}
@@ -93,12 +119,11 @@ export default function DashboardHome() {
           </CardHeader>
           <CardContent className="p-0">
             <div className="h-[450px] w-full">
-              {/* Embedded mini-map - uses Google Maps API if configured */}
               <MiniMapView />
             </div>
           </CardContent>
         </Card>
-        
+
         <Card className="col-span-1 lg:col-span-3 border-border shadow-sm rounded-2xl overflow-hidden bg-card">
           <CardHeader className="border-b border-border bg-muted/30">
             <CardTitle className="text-lg font-bold text-foreground">Recent Activity</CardTitle>

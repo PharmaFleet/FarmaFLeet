@@ -237,12 +237,13 @@ class NotificationService:
                 await self._clear_invalid_token(db, user_id)
 
     async def notify_driver_shift_limit(
-        self, driver_id: int, token: Optional[str] = None
+        self, driver_id: int, token: Optional[str] = None, hours: int = 10
     ):
-        """Notify driver about 12h shift limit."""
-        title = "Shift Limit Reached"
+        """Notify driver about shift limit."""
+        title = "Shift Reminder"
         body = (
-            "You have been online for 12 hours. Please confirm if your shift is over."
+            f"You've been online for {hours} hours. Still on shift? "
+            f"Open the app to confirm, or go offline if you're done."
         )
         if token:
             await self.send_to_token(token, title, body, data={"type": "shift_limit"})

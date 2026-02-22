@@ -144,3 +144,92 @@ class TestCronSecretNotConfigured:
             )
             assert response.status_code == 401
             assert "not configured" in response.json()["detail"]
+
+
+class TestCronAutoExpireStale:
+    """Test auto-expire stale orders cron endpoint."""
+
+    def test_auto_expire_stale_requires_auth(self, client):
+        """Test that auto-expire-stale endpoint requires CRON_SECRET."""
+        response = client.post("/api/v1/cron/auto-expire-stale")
+        assert response.status_code == 401
+
+    def test_auto_expire_stale_with_invalid_secret_returns_401(self, client):
+        """Test that auto-expire-stale returns 401 with invalid secret."""
+        with patch("app.core.config.settings.CRON_SECRET", "valid_secret"):
+            response = client.post(
+                "/api/v1/cron/auto-expire-stale",
+                headers={"Authorization": "Bearer wrong_secret"}
+            )
+            assert response.status_code == 401
+
+    def test_auto_expire_stale_with_valid_secret_succeeds(self, client):
+        """Test that auto-expire-stale endpoint succeeds with valid cron secret."""
+        with patch("app.core.config.settings.CRON_SECRET", "valid_secret"):
+            response = client.post(
+                "/api/v1/cron/auto-expire-stale",
+                headers={"Authorization": "Bearer valid_secret"}
+            )
+            assert response.status_code == 200
+            data = response.json()
+            assert data["success"] is True
+            assert "expired_count" in data
+
+    def test_auto_expire_stale_returns_correct_format(self, client):
+        """Test that auto-expire-stale returns expected response format."""
+        with patch("app.core.config.settings.CRON_SECRET", "test_secret"):
+            response = client.post(
+                "/api/v1/cron/auto-expire-stale",
+                headers={"Authorization": "Bearer test_secret"}
+            )
+            assert response.status_code == 200
+            data = response.json()
+            assert "success" in data
+            assert "expired_count" in data
+            assert "cutoff_date" in data
+            assert "timestamp" in data
+
+
+class TestCronCheckDriverShifts:
+    """Test driver shift check cron endpoint."""
+
+    def test_check_driver_shifts_requires_auth(self, client):
+        """Test that check-driver-shifts endpoint requires CRON_SECRET."""
+        response = client.post("/api/v1/cron/check-driver-shifts")
+        assert response.status_code == 401
+
+    def test_check_driver_shifts_with_invalid_secret_returns_401(self, client):
+        """Test that check-driver-shifts returns 401 with invalid secret."""
+        with patch("app.core.config.settings.CRON_SECRET", "valid_secret"):
+            response = client.post(
+                "/api/v1/cron/check-driver-shifts",
+                headers={"Authorization": "Bearer wrong_secret"}
+            )
+            assert response.status_code == 401
+
+    def test_check_driver_shifts_with_valid_secret_succeeds(self, client):
+        """Test that check-driver-shifts endpoint succeeds with valid cron secret."""
+        with patch("app.core.config.settings.CRON_SECRET", "valid_secret"):
+            response = client.post(
+                "/api/v1/cron/check-driver-shifts",
+                headers={"Authorization": "Bearer valid_secret"}
+            )
+            assert response.status_code == 200
+            data = response.json()
+            assert data["success"] is True
+            assert "notified_count" in data
+            assert "skipped_count" in data
+
+    def test_check_driver_shifts_returns_correct_format(self, client):
+        """Test that check-driver-shifts returns expected response format."""
+        with patch("app.core.config.settings.CRON_SECRET", "test_secret"):
+            response = client.post(
+                "/api/v1/cron/check-driver-shifts",
+                headers={"Authorization": "Bearer test_secret"}
+            )
+            assert response.status_code == 200
+            data = response.json()
+            assert "success" in data
+            assert "notified_count" in data
+            assert "skipped_count" in data
+            assert "timestamp" in data

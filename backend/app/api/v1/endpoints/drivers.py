@@ -497,17 +497,6 @@ async def update_location(
     db_obj = DriverLocation(driver_id=driver.id, location=WKTElement(point, srid=4326))
     db.add(db_obj)
 
-    # Check for shift limit (12 hours)
-    if driver.is_available and driver.last_online_at:
-        shift_duration = datetime.now(timezone.utc) - driver.last_online_at
-        if shift_duration > timedelta(hours=12):
-            # We should probably only notify once or throttle this.
-            # For now, we rely on the mobile app to handle duplicate alerts or user to toggle offline.
-            if current_user.fcm_token:
-                await notification_service.notify_driver_shift_limit(
-                    driver.id, current_user.fcm_token
-                )
-
     await db.commit()
     await db.refresh(db_obj)
 

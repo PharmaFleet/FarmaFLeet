@@ -129,6 +129,51 @@ vi.mock('@/hooks/useColumnResize', () => ({
   }),
 }));
 
+// All column IDs for "show all" mode
+const ALL_COLUMN_IDS = [
+  'checkbox', 'order_number', 'customer', 'address', 'status', 'warehouse',
+  'driver', 'driver_mobile', 'driver_code', 'payment', 'sales_taker',
+  'amount', 'created', 'assigned', 'picked_up', 'delivered', 'delivery_time', 'actions',
+];
+
+// Mock useColumnOrder hook - show ALL columns by default for backward compat with tests
+vi.mock('@/hooks/useColumnOrder', () => {
+  const ALL_COLUMNS = [
+    { id: 'checkbox', label: '', sortable: false },
+    { id: 'order_number', label: 'Order #', sortKey: 'sales_order_number', resizeKey: 'order_number', sortable: true },
+    { id: 'customer', label: 'Customer', sortKey: 'customer_name', resizeKey: 'customer', sortable: true },
+    { id: 'address', label: 'Address', sortKey: 'customer_address', resizeKey: 'address', sortable: true },
+    { id: 'status', label: 'Status', sortKey: 'status', resizeKey: 'status', sortable: true },
+    { id: 'warehouse', label: 'Warehouse', sortKey: 'warehouse_code', resizeKey: 'warehouse', sortable: true },
+    { id: 'driver', label: 'Driver', sortKey: 'driver_name', resizeKey: 'driver', sortable: true },
+    { id: 'driver_mobile', label: 'Driver Mobile', resizeKey: 'driver_mobile', sortable: false },
+    { id: 'driver_code', label: 'Driver Code', sortKey: 'driver_code', resizeKey: 'driver_code', sortable: true },
+    { id: 'payment', label: 'Payment', sortKey: 'payment_method', resizeKey: 'payment', sortable: true },
+    { id: 'sales_taker', label: 'Sales Taker', sortKey: 'sales_taker', resizeKey: 'sales_taker', sortable: true },
+    { id: 'amount', label: 'Amount', sortKey: 'total_amount', resizeKey: 'amount', sortable: true, className: 'text-right pr-8' },
+    { id: 'created', label: 'Created', sortKey: 'created_at', resizeKey: 'created', sortable: true },
+    { id: 'assigned', label: 'Assigned', sortKey: 'assigned_at', resizeKey: 'assigned', sortable: true },
+    { id: 'picked_up', label: 'Picked Up', sortKey: 'picked_up_at', resizeKey: 'picked_up', sortable: true },
+    { id: 'delivered', label: 'Delivered', sortKey: 'delivered_at', resizeKey: 'delivered', sortable: true },
+    { id: 'delivery_time', label: 'Delivery Time', resizeKey: 'delivery_time', sortable: false },
+    { id: 'actions', label: '', sortable: false },
+  ];
+  return {
+    ALL_COLUMNS,
+    DEFAULT_COLUMNS: ALL_COLUMNS,
+    useColumnOrder: () => ({
+      columnOrder: ALL_COLUMNS.map((c: any) => c.id),
+      orderedColumns: ALL_COLUMNS,
+      visibleColumns: new Set(ALL_COLUMNS.map((c: any) => c.id)),
+      showAllColumns: true,
+      reorderColumns: vi.fn(),
+      toggleAllColumns: vi.fn(),
+      toggleColumn: vi.fn(),
+      resetColumnOrder: vi.fn(),
+    }),
+  };
+});
+
 // Mock useToast - spy on toast calls
 const mockToast = vi.fn();
 vi.mock('@/components/ui/use-toast', () => ({
@@ -424,15 +469,18 @@ describe('OrdersPage Component', () => {
 
       // Verify API is called with search parameter (after debounce resolves naturally)
       await waitFor(() => {
-        expect(orderService.getAll).toHaveBeenCalledWith({
-          page: 1,
-          limit: 10,
-          search: 'SO-001',
-          status: undefined,
-          include_archived: false,
-          sort_by: undefined,
-          sort_order: 'desc',
-        });
+        expect(orderService.getAll).toHaveBeenCalledWith(
+          expect.objectContaining({
+            page: 1,
+            limit: 50,
+            search: 'SO-001',
+            status: undefined,
+            include_archived: false,
+            sort_by: undefined,
+            sort_order: 'desc',
+            date_field: 'created_at',
+          })
+        );
       }, { timeout: 3000 });
     });
 
@@ -454,15 +502,18 @@ describe('OrdersPage Component', () => {
 
       // Assert - debounced search clears back to undefined
       await waitFor(() => {
-        expect(orderService.getAll).toHaveBeenCalledWith({
-          page: 1,
-          limit: 10,
-          search: undefined,
-          status: undefined,
-          include_archived: false,
-          sort_by: undefined,
-          sort_order: 'desc',
-        });
+        expect(orderService.getAll).toHaveBeenCalledWith(
+          expect.objectContaining({
+            page: 1,
+            limit: 50,
+            search: undefined,
+            status: undefined,
+            include_archived: false,
+            sort_by: undefined,
+            sort_order: 'desc',
+            date_field: 'created_at',
+          })
+        );
       });
     });
   });
@@ -538,15 +589,18 @@ describe('OrdersPage Component', () => {
 
       // Assert - Page updated
       await waitFor(() => {
-        expect(orderService.getAll).toHaveBeenCalledWith({
-          page: 2,
-          limit: 10,
-          search: undefined,
-          status: undefined,
-          include_archived: false,
-          sort_by: undefined,
-          sort_order: 'desc',
-        });
+        expect(orderService.getAll).toHaveBeenCalledWith(
+          expect.objectContaining({
+            page: 2,
+            limit: 50,
+            search: undefined,
+            status: undefined,
+            include_archived: false,
+            sort_by: undefined,
+            sort_order: 'desc',
+            date_field: 'created_at',
+          })
+        );
       });
     });
 
@@ -803,7 +857,7 @@ describe('OrdersPage Component', () => {
         expect(mockToast).toHaveBeenCalledWith(
           expect.objectContaining({
             title: '3 orders imported',
-            description: '2 rows had errors',
+            description: "2 rows had errors. Showing today's orders.",
           })
         );
       });
