@@ -44,6 +44,9 @@ async def lifespan(app: FastAPI):
     if not IS_SERVERLESS:
         await start_redis_listener()
     yield
+    # Dispose engine to release pooled connections on shutdown/function recycle
+    from app.db.session import engine
+    await engine.dispose()
 
 
 app = FastAPI(

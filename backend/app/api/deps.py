@@ -1,10 +1,11 @@
-from typing import Generator, List
+from typing import AsyncGenerator, List
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
 from pydantic import ValidationError
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+from sqlalchemy.exc import DBAPIError, TimeoutError as SATimeoutError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -21,9 +22,19 @@ limiter = Limiter(key_func=get_remote_address)
 reusable_oauth2 = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login")
 
 
-async def get_db() -> Generator:
-    async with SessionLocal() as session:
-        yield session
+async def get_db() -> AsyncGenerator:
+    try:
+        async with SessionLocal() as session:
+            try:
+                yield session
+            except DBAPIError:
+                await session.rollback()
+                raise
+    except SATimeoutError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database temporarily unavailable. Please retry.",
+        )
 
 
 async def get_current_user(

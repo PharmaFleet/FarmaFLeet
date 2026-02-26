@@ -6,16 +6,6 @@ Connection pooling, roles, and performance settings
 from app.core.config import settings
 
 
-# Connection Pool Configuration
-POOL_CONFIG = {
-    "pool_size": 25,  # Number of connections to keep open
-    "max_overflow": 10,  # Additional connections that can be created
-    "pool_timeout": 30,  # Seconds to wait for available connection
-    "pool_recycle": 1800,  # Recycle connections after 30 minutes
-    "pool_pre_ping": True,  # Verify connections before use
-}
-
-
 def get_database_url(role: str = "api") -> str:
     """
     Get database URL for specific role.

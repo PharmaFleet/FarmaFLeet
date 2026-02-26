@@ -7,23 +7,33 @@ IS_SERVERLESS = bool(os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNC
 
 # Use minimal pool for serverless, larger pool for traditional deployments
 if IS_SERVERLESS:
-    # Serverless environments often use PgBouncer which doesn't support prepared statements
-    # Set statement_cache_size=0 to disable prepared statements
+    # Serverless + PgBouncer: disable prepared statements, short timeouts,
+    # aggressive recycling to avoid stale connections between invocations
     engine = create_async_engine(
         str(settings.SQLALCHEMY_DATABASE_URI),
-        connect_args={"statement_cache_size": 0},  # Disable for PgBouncer compatibility
+        connect_args={
+            "statement_cache_size": 0,
+            "command_timeout": 15,
+            "server_settings": {"jit": "off"},
+        },
         pool_pre_ping=True,
-        pool_size=1,  # Minimal for serverless
-        max_overflow=2,
-        pool_recycle=300,  # Recycle connections after 5 min
+        pool_size=2,
+        max_overflow=3,
+        pool_timeout=10,
+        pool_recycle=60,
     )
 else:
     engine = create_async_engine(
         str(settings.SQLALCHEMY_DATABASE_URI),
-        connect_args={"statement_cache_size": 128},  # Enable statement caching (15-30% performance boost)
-        pool_pre_ping=True,  # Verify connections before using them
-        pool_size=20,  # Increase pool size for better concurrency
-        max_overflow=10,  # Allow temporary overflow connections
+        connect_args={
+            "statement_cache_size": 128,
+            "command_timeout": 30,
+        },
+        pool_pre_ping=True,
+        pool_size=20,
+        max_overflow=10,
+        pool_timeout=30,
+        pool_recycle=1800,
     )
 
 SessionLocal = async_sessionmaker(
