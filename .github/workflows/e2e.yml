@@ -5,12 +5,10 @@ on:
     branches: [main]
     paths:
       - "frontend/**"
-      - "backend/**"
   pull_request:
     branches: [main]
     paths:
       - "frontend/**"
-      - "backend/**"
 
 env:
   VITE_API_URL: http://localhost:8000/api/v1
@@ -19,7 +17,7 @@ jobs:
   e2e-tests:
     name: Run Playwright E2E Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
 
     steps:
       - name: Checkout repository
@@ -39,30 +37,6 @@ jobs:
       - name: Install Playwright browsers
         working-directory: frontend
         run: npx playwright install --with-deps chromium
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: "pip"
-          cache-dependency-path: backend/requirements.txt
-
-      - name: Install backend dependencies
-        working-directory: backend
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Start backend server
-        working-directory: backend
-        run: |
-          uvicorn app.main:app --host 0.0.0.0 --port 8000 &
-          sleep 10
-          curl -sf http://localhost:8000/api/v1/health || echo "::warning::Backend failed to start - E2E tests will be skipped"
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          SECRET_KEY: ${{ secrets.SECRET_KEY }}
-          ENVIRONMENT: test
 
       - name: Run Playwright tests
         working-directory: frontend

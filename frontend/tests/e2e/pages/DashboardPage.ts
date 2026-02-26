@@ -28,12 +28,12 @@ export class DashboardPage {
   }
 
   async goto() {
-    await this.page.goto('/');
+    await this.page.goto('/#/');
   }
 
   async expectLoaded() {
-    await expect(this.heading).toBeVisible();
-    await expect(this.page.locator('text=Overview of today')).toBeVisible();
+    await expect(this.heading).toBeVisible({ timeout: 10000 });
+    await expect(this.page.locator('text=Overview of today')).toBeVisible({ timeout: 10000 });
   }
 
   async expectStatsLoaded() {

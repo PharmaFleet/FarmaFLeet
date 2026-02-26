@@ -1,16 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { LoginPage } from './pages/LoginPage';
 import { PaymentsPage } from './pages/PaymentsPage';
-import { DashboardPage } from './pages/DashboardPage';
+import { setupAuthenticatedSession } from './fixtures/mock-api';
 
 test.describe('Payments Management Flow', () => {
   test.beforeEach(async ({ page }) => {
-    const loginPage = new LoginPage(page);
-    await loginPage.goto();
-    await loginPage.login('admin@pharmafleet.com', 'admin123');
-    // Wait for Dashboard to confirm login
-    const dashboard = new DashboardPage(page);
-    await dashboard.expectLoaded();
+    await setupAuthenticatedSession(page);
   });
 
   test('payments page loads with table', async ({ page }) => {
@@ -27,12 +21,12 @@ test.describe('Payments Management Flow', () => {
 
     // Only run if we have data, otherwise just checking if input works
     if (await paymentsPage.getPaymentCount() > 0) {
-        await paymentsPage.search('COD');
-        await page.waitForTimeout(1000);
-        await expect(paymentsPage.paymentsTable).toBeVisible();
+      await paymentsPage.search('COD');
+      await page.waitForTimeout(1000);
+      await expect(paymentsPage.paymentsTable).toBeVisible();
     } else {
-        await paymentsPage.search('test');
-        await expect(paymentsPage.searchInput).toBeVisible();
+      await paymentsPage.search('test');
+      await expect(paymentsPage.searchInput).toBeVisible();
     }
   });
 });

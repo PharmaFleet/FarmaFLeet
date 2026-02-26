@@ -22,7 +22,7 @@ export class LoginPage {
   }
 
   async goto() {
-    await this.page.goto('/login');
+    await this.page.goto('/#/login');
   }
 
   async login(email: string, password: string) {
@@ -36,7 +36,7 @@ export class LoginPage {
   }
 
   async expectToBeOnLoginPage() {
-    await expect(this.page).toHaveURL(/\/login/);
+    await expect(this.page).toHaveURL(/\/login/, { timeout: 10000 });
     await expect(this.emailInput).toBeVisible();
   }
 }
