@@ -478,7 +478,6 @@ describe('OrdersPage Component', () => {
             include_archived: false,
             sort_by: undefined,
             sort_order: 'desc',
-            date_field: 'created_at',
           })
         );
       }, { timeout: 3000 });
@@ -511,7 +510,6 @@ describe('OrdersPage Component', () => {
             include_archived: false,
             sort_by: undefined,
             sort_order: 'desc',
-            date_field: 'created_at',
           })
         );
       });
@@ -598,7 +596,6 @@ describe('OrdersPage Component', () => {
             include_archived: false,
             sort_by: undefined,
             sort_order: 'desc',
-            date_field: 'created_at',
           })
         );
       });
